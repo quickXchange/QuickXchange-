@@ -5,15 +5,15 @@ import express from "express";
 import { eq } from "drizzle-orm";
 import {
   db, pool, operatorsTable, paymentMethodsTable, fiatCurrenciesTable,
-  fiatCurrencyPaymentMethodsTable, bestchangeSettingsTable,
+  fiatCurrencyPaymentMethodsTable, ratesXmlSettingsTable,
 } from "@workspace/db";
-import { configureOperatorAuthorizationForTests } from "../src/lib/operator-auth";
+import { configureOperatorAuthorizationForTests, requireOperator } from "../src/lib/operator-auth";
 import router from "../src/routes/rates-xml";
 
 if (process.env.API_TEST_DISPOSABLE_DATABASE !== "1") throw new Error("XML API tests require a disposable database.");
 after(() => pool.end());
 
-test("Owner-only method metadata persists; stale or invalid changes roll back and legacy settings survive", async () => {
+test("clean Owner-only XML settings persist; stale writes roll back and legacy endpoints are absent", async () => {
   const nativeFetch = globalThis.fetch;
   // Never contact real providers using cloned configuration.
   globalThis.fetch = async () => { throw new Error("External I/O disabled in isolated XML API tests."); };
@@ -29,12 +29,11 @@ test("Owner-only method metadata persists; stale or invalid changes roll back an
     fiatCurrencyId: currency.id, paymentMethodId: id,
   }).returning();
   assert.equal(Number(attachment.reserve), 1000000, "new attachment default is one million");
-  const beforeLegacy = (await db.select().from(bestchangeSettingsTable).where(eq(bestchangeSettingsTable.id, 1)))[0];
   configureOperatorAuthorizationForTests({
     getUserId: () => userId, getVerifiedEmail: () => email,
     getTotpEnabled: () => true, getSecondFactorVerified: () => true,
   });
-  const app = express(); app.use(express.json()); app.use("/api", router);
+  const app = express(); app.use(express.json()); app.use("/api/admin", requireOperator); app.use("/api", router);
   app.use((error: any, _req: any, res: any, _next: any) => res.status(error.status ?? error.statusCode ?? 500).json({ message: error.message }));
   const server = app.listen(0);
   await new Promise<void>(resolve => server.once("listening", resolve));
@@ -57,6 +56,7 @@ test("Owner-only method metadata persists; stale or invalid changes roll back an
     });
     let config = await current();
     assert.equal(config.currencyCodes.length, 332);
+    assert.ok(!("published" in config), "no legacy activation state in the rebuilt contract");
     const optionId = `fiat:${currency.id}:${id}`;
     const original = config.methods.find(m => m.optionId === optionId)!;
     assert.ok(original);
@@ -64,16 +64,18 @@ test("Owner-only method metadata persists; stale or invalid changes roll back an
     assert.equal(invalid.status, 400);
     const wrongType = await patch({ version: config.version, optionId, code: "BTC" });
     assert.equal(wrongType.status, 400);
+    assert.equal((await patch({ version: config.version, optionId, reserve: "1.234",
+      expectedReserve: original.reserve })).status, 400, "fiat reserves retain canonical currency precision");
     const staleVersion = config.version;
     const saved = await patch({
-      version: config.version, optionId, code: "PPUSD", reserve: "123456.123456789",
+      version: config.version, optionId, code: "PPUSD", reserve: "123456.12",
       expectedReserve: original.reserve,
     });
     assert.equal(saved.status, 200, await saved.clone().text());
     config = await current();
     const method = config.methods.find(m => m.optionId === optionId)!;
     assert.equal(method.code, "PPUSD");
-    assert.equal(Number(method.reserve), 123456.123456789);
+    assert.equal(Number(method.reserve), 123456.12);
     assert.equal(config.version, staleVersion + 1);
     assert.equal((await patch({ version: staleVersion, optionId, code: "PMUSD" })).status, 409);
     // An independent Payment Methods save must fence an older XML reserve draft.
@@ -89,17 +91,12 @@ test("Owner-only method metadata persists; stale or invalid changes roll back an
     config = await current();
     assert.equal(config.methods.find(m => m.optionId === optionId)!.code, null);
     assert.equal(Number(config.methods.find(m => m.optionId === optionId)!.reserve), 42, "code-only update never changes reserve");
-    const confirmation = await nativeFetch(`${base}/activate`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ version: config.version, reviewHash: "not-reviewed", confirm: false }),
-    });
-    assert.equal(confirmation.status, 400);
-    const afterLegacy = (await db.select().from(bestchangeSettingsTable).where(eq(bestchangeSettingsTable.id, 1)))[0];
-    assert.deepEqual(afterLegacy.directions, beforeLegacy?.directions ?? []);
-    assert.deepEqual(afterLegacy.xmlPercentageAdjustment, beforeLegacy?.xmlPercentageAdjustment ?? {
-      enabled: false, activeOrderPercent: "0", noActiveOrderPercent: "0",
-    });
-    assert.equal(afterLegacy.ratesXmlPublished, beforeLegacy?.ratesXmlPublished ?? false);
+    const obsolete = await nativeFetch(base.replace("/admin/rates-xml", "/bestchange.xml"));
+    assert.equal(obsolete.status, 404);
+    const [stored] = await db.select().from(ratesXmlSettingsTable).where(eq(ratesXmlSettingsTable.id, 1));
+    assert.equal(stored.version, config.version);
+    assert.ok(stored.methods.some(m => m.optionId === optionId && m.code === null));
+    assert.equal((await pool.query("SELECT to_regclass('public.bestchange_settings') AS legacy")).rows[0].legacy, null);
   } finally {
     globalThis.fetch = nativeFetch;
     await db.delete(operatorsTable).where(eq(operatorsTable.id, operator.id));

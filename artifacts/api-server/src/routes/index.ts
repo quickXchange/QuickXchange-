@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import exchangeRouter from "./exchange";
-import bestchangeRouter from "./bestchange";
 import ratesXmlRouter from "./rates-xml";
 import quickexRouter from "./quickex";
 import operatorsRouter from "./operators";
@@ -49,7 +48,6 @@ router.use(workspaceConfigSyncRouter);
 // Admin router can execute. Unmatched staff routes are deny-by-default.
 router.use(adminPolicy);
 router.use(languagesRouter);
-router.use(bestchangeRouter);
 router.use(ratesXmlRouter);
 router.use(telegramSupportBotRouter);
 router.use(convertCompatibilityRouter);

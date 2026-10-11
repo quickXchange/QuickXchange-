@@ -4712,24 +4712,11 @@ paths:
     get:
       operationId: getRatesXml
       tags: [exchange]
-      summary: Public reference-format live rates XML
-      description: Uses the existing live rate engine and Admin XML settings. One-unit rates, source-currency limits, and optional included-fee range metadata; never customer pricing.
+      summary: Automatic live Swap and Convert rates XML
+      description: Discovers current site routes and uses existing quotes with method-owned codes and reserves. One-unit rates, source-currency limits and explicit fixed/range fees. Never used as customer order pricing.
       responses:
         "200":
-          description: XML rates; empty when publication is disabled
-          content:
-            application/xml:
-              schema: { type: string }
-        "503":
-          description: A fresh feed cannot currently be generated
-  /bestchange.xml:
-    get:
-      operationId: getBestchangeXml
-      tags: [exchange]
-      summary: Public BestChange standard-format live Manual Swap rates
-      responses:
-        "200":
-          description: XML rates; empty when publication is disabled
+          description: UTF-8 XML rates; empty when no directions have valid mappings and executable pricing
           content:
             application/xml:
               schema: { type: string }
@@ -4781,106 +4768,6 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RatesXmlPreview" }
-  /admin/rates-xml/activate:
-    post:
-      operationId: activateAdminRatesXml
-      tags: [Admin]
-      summary: Owner-confirmed activation after staging review
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [version, reviewHash, confirm]
-              properties:
-                version: { type: integer }
-                reviewHash: { type: string }
-                confirm: { type: boolean }
-      responses:
-        "200":
-          description: Activated replacement feed
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/RatesXmlAdmin" }
-  /admin/bestchange:
-    get:
-      operationId: getAdminBestchange
-      tags: [admin]
-      responses:
-        "200":
-          description: Owner-only feed settings and public settlement catalog
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BestchangeAdmin" }
-    put:
-      operationId: updateAdminBestchange
-      tags: [admin]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/BestchangeSettings" }
-      responses:
-        "200":
-          description: Saved settings with a new version
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BestchangeSettings" }
-        "409":
-          description: Settings changed since this editor loaded them
-  /admin/bestchange/preview:
-    get:
-      operationId: getAdminBestchangePreview
-      tags: [admin]
-      responses:
-        "200":
-          description: Current XML and per-direction export diagnostics, including disabled-feed preview
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BestchangePreview" }
-  /admin/bestchange/reserves/export:
-    get:
-      operationId: getAdminBestchangeReservesExport
-      tags: [admin]
-      responses:
-        "200":
-          description: Owner-only enabled, declared workspace fiat payout reserves
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BestchangeReserveTransfer" }
-  /admin/bestchange/reserves/preview:
-    post:
-      operationId: previewAdminBestchangeReserves
-      tags: [admin]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/BestchangeReserveTransfer" }
-      responses:
-        "200":
-          description: Owner-only review of the exact production reserves that would change
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BestchangeReserveReview" }
-  /admin/bestchange/reserves/apply:
-    post:
-      operationId: applyAdminBestchangeReserves
-      tags: [admin]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/BestchangeReserveApproval" }
-      responses:
-        "200":
-          description: Owner-approved, fenced transfer of selected fiat reserves only
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BestchangeReserveApplied" }
-        "409":
-          description: Production reserve or payment method availability changed since review
 components:
   parameters:
     Page:
@@ -4992,168 +4879,6 @@ components:
       properties:
         expectedRevision: { type: string }
         translations: { type: object, additionalProperties: { type: string } }
-    BestchangeReserveLine:
-      type: object
-      required: [currencyCode, paymentMethodId, reserve]
-      properties:
-        currencyCode: { type: string, minLength: 2, maxLength: 12 }
-        paymentMethodId: { type: string, minLength: 1, maxLength: 120 }
-        reserve: { type: string, pattern: '^[0-9]{1,20}(\.[0-9]{1,18})?$' }
-    BestchangeReserveTransfer:
-      type: object
-      required: [format, reserves]
-      properties:
-        format: { type: string, enum: [qx-bestchange-reserves-v1] }
-        reserves:
-          type: array
-          minItems: 1
-          maxItems: 500
-          items: { $ref: "#/components/schemas/BestchangeReserveLine" }
-    BestchangeReserveChange:
-      type: object
-      required: [currencyCode, paymentMethodId, currentReserve, proposedReserve]
-      properties:
-        currencyCode: { type: string }
-        paymentMethodId: { type: string }
-        currentReserve: { type: string }
-        proposedReserve: { type: string }
-    BestchangeReserveReview:
-      type: object
-      required: [reviewHash, changes]
-      properties:
-        reviewHash: { type: string }
-        changes:
-          type: array
-          items: { $ref: "#/components/schemas/BestchangeReserveChange" }
-    BestchangeReserveApproval:
-      type: object
-      required: [transfer, reviewHash]
-      properties:
-        transfer: { $ref: "#/components/schemas/BestchangeReserveTransfer" }
-        reviewHash: { type: string, minLength: 64, maxLength: 64 }
-    BestchangeReserveApplied:
-      type: object
-      required: [updatedCount]
-      properties:
-        updatedCount: { type: integer, minimum: 0 }
-    BestchangeDirection:
-      type: object
-      additionalProperties: false
-      required: [id, enabled, sourceOptionId, targetOptionId, fromCode, toCode, minAmount, maxAmount, params, cities, selectedAddOnKeys, includeFeeTags]
-      properties:
-        id: { type: string, format: uuid }
-        enabled: { type: boolean }
-        sourceOptionId: { type: string, minLength: 1, maxLength: 160 }
-        targetOptionId: { type: string, minLength: 1, maxLength: 160 }
-        fromCode: { type: string, maxLength: 32 }
-        toCode: { type: string, maxLength: 32 }
-        automatic: { type: boolean, readOnly: true }
-        pricingRuleName: { type: string, readOnly: true }
-        pendingReasons:
-          type: array
-          readOnly: true
-          items: { type: string }
-        reserve: { type: string, pattern: '^[0-9]{1,12}(\.[0-9]{1,12})?$' }
-        minAmount: { type: string, pattern: '^[0-9]{1,12}(\.[0-9]{1,12})?$' }
-        maxAmount: { type: string, pattern: '^[0-9]{1,12}(\.[0-9]{1,12})?$' }
-        floating: { type: string, pattern: '^[0-9]{1,6}(\.[0-9]{1,6})?%?$', maxLength: 14 }
-        delay: { type: string, pattern: '^[0-9]{1,6}(\.[0-9]{1,6})?$', maxLength: 13 }
-        params:
-          type: array
-          maxItems: 10
-          uniqueItems: true
-          items: { type: string, enum: [manual, juridical, verifying, cardverify, otherin, otherout, reg, card2card, delivery, atm] }
-        cities:
-          type: array
-          maxItems: 25
-          uniqueItems: true
-          items: { type: string, minLength: 1, maxLength: 12 }
-        selectedAddOnKeys:
-          type: array
-          maxItems: 32
-          uniqueItems: true
-          items: { type: string, minLength: 1, maxLength: 100 }
-        includeFeeTags: { type: boolean }
-    XmlPercentageAdjustment:
-      type: object
-      additionalProperties: false
-      required: [enabled, activeOrderPercent, noActiveOrderPercent]
-      description: Platform-neutral XML output adjustment only. Activity means any non-terminal canonical Convert order.
-      properties:
-        enabled: { type: boolean }
-        activeOrderPercent:
-          type: string
-          pattern: '^(?:100(?:\.0{1,6})?|(?:0|[1-9]\d?)(?:\.\d{1,6})?)$'
-          description: Percentage from 0 through 100, with up to six decimal places.
-        noActiveOrderPercent:
-          type: string
-          pattern: '^(?:100(?:\.0{1,6})?|(?:0|[1-9]\d?)(?:\.\d{1,6})?)$'
-          description: Percentage from 0 through 100, with up to six decimal places.
-    BestchangeSettings:
-      type: object
-      additionalProperties: false
-      required: [enabled, version, directions]
-      properties:
-        enabled: { type: boolean }
-        version: { type: integer, minimum: 0 }
-        xmlPercentageAdjustment: { $ref: "#/components/schemas/XmlPercentageAdjustment" }
-        directions:
-          type: array
-          items: { $ref: "#/components/schemas/BestchangeDirection" }
-        updatedAt: { type: string, format: date-time }
-    BestchangeCode:
-      type: object
-      required: [code, description]
-      properties:
-        code: { type: string }
-        description: { type: string }
-    BestchangeOption:
-      type: object
-      required: [id, label, assetCode, network, direction, kind]
-      properties:
-        reserve: { type: string, readOnly: true }
-        id: { type: string }
-        label: { type: string }
-        assetCode: { type: string }
-        network: { type: string }
-        direction: { type: string }
-        kind: { type: string }
-    BestchangeAdmin:
-      type: object
-      required: [settings, options, currencyCodes, cityCodes, feedPath, documentationUrl, exampleXml]
-      properties:
-        settings: { $ref: "#/components/schemas/BestchangeSettings" }
-        options:
-          type: array
-          items: { $ref: "#/components/schemas/BestchangeOption" }
-        currencyCodes:
-          type: array
-          items: { $ref: "#/components/schemas/BestchangeCode" }
-        cityCodes:
-          type: array
-          items: { $ref: "#/components/schemas/BestchangeCode" }
-        feedPath: { type: string }
-        documentationUrl: { type: string }
-        exampleXml: { type: string }
-    BestchangeDiagnostic:
-      type: object
-      required: [id, exported, message]
-      properties:
-        id: { type: string }
-        exported: { type: boolean }
-        message: { type: string }
-    BestchangePreview:
-      type: object
-      required: [xml, generatedAt, exportedCount, diagnostics, enabled, version]
-      properties:
-        xml: { type: string }
-        generatedAt: { type: string, format: date-time }
-        exportedCount: { type: integer }
-        diagnostics:
-          type: array
-          items: { $ref: "#/components/schemas/BestchangeDiagnostic" }
-        enabled: { type: boolean }
-        version: { type: integer }
     TelegramLinkInput:
       type: object
       required: [token]
@@ -7871,10 +7596,9 @@ components:
         reserve: { type: string }
     RatesXmlAdmin:
       type: object
-      required: [version, published, staging, methods, currencyCodes, feedPath]
+      required: [version, staging, methods, currencyCodes, feedPath]
       properties:
         version: { type: integer }
-        published: { type: boolean }
         staging: { type: boolean }
         methods:
           type: array
@@ -7891,12 +7615,11 @@ components:
         feedPath: { type: string }
     RatesXmlPreview:
       type: object
-      required: [xml, generatedAt, exportedCount, diagnostics, reviewHash]
+      required: [xml, generatedAt, exportedCount, diagnostics]
       properties:
         xml: { type: string }
         generatedAt: { type: string }
         exportedCount: { type: integer }
-        reviewHash: { type: string }
         diagnostics:
           type: array
           items:

@@ -24,7 +24,7 @@ export function PaymentMethodReserveEditor({
     <section className="space-y-3" aria-label="Payment Method reserves" data-testid="pm-reserves">
       <div>
         <span className="field-label">Reserve by currency</span>
-        <p className="field-hint">Manually maintained payout capacity. BestChange reads the receiving method’s current reserve. Orders do not change it.</p>
+        <p className="field-hint">Manually maintained payout capacity. Rates XML reads the receiving method’s current reserve. Orders do not change it.</p>
       </div>
       {(currencies.isError || attachments.isError) && <p role="alert" className="field-hint">Could not load reserve currencies. Reopen this editor to try again.</p>}
       {(currencies.isLoading || attachments.isLoading) && <p className="field-hint">Loading reserves…</p>}
@@ -40,7 +40,7 @@ export function PaymentMethodReserveEditor({
             title={`Nonnegative ${currency.code} amount, up to ${currency.precision} decimal places`}
             value={reserve} onChange={event => setReserve(id, event.target.value)}
             disabled={disabled} data-testid={`input-pm-reserve-${currency.code}`} />
-          <span className="field-hint">{currency.name} · {currency.code}. Zero prevents BestChange advertising this receiving route.</span>
+          <span className="field-hint">{currency.name} · {currency.code}. Zero prevents Rates XML advertising this receiving route.</span>
           {isOwner && methodId && attached.some(row => row.fiatCurrencyId === id) && (
             <RatesXmlMethodEditor optionId={`fiat:${id}:${methodId}`} mode="code-only" compact />
           )}

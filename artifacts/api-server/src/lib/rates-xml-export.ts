@@ -2,11 +2,11 @@ import { db, manualDeskPricingRulesTable } from "@workspace/db";
 import { GetAdminRatesXmlPreviewResponse } from "@workspace/api-zod";
 import { listPublicFiatSettlementOptions } from "./payment-methods";
 import { listPublicManualCryptoSettlementOptions } from "./manual-crypto";
-import { syncBestchangeDirections } from "./bestchange-direction-sync";
-import { prepareBestchangeSwapQuotes } from "../routes/exchange";
+import { discoverXmlSwapRoutes } from "./rates-xml-routes";
+import { prepareManualSwapPublicationQuotes } from "../routes/exchange";
 import { buildProviderQuoteTicket, getQuickexPublicCapabilityConfig } from "./provider-capabilities";
 import { QuickexApiError } from "./quickex";
-import { compareDecimal, plainDecimal } from "./bestchange-xml";
+import { compareDecimal, plainDecimal } from "./rates-xml-decimal";
 import {
   applyXmlParts, divideXmlDecimals, serializeRatesXml, sumXmlDecimals,
   type RatesXmlItem, type RatesXmlPart,
@@ -15,13 +15,13 @@ import {
   readXmlSettings, readXmlMethods, XML_CODE_LOOKUP, STAGING_ONLY_XML_CODES,
   xmlStaging, xmlReviewHash, type XmlMethod,
 } from "./rates-xml-methods";
-import { onBestchangeConfigurationChange } from "./bestchange-cache-invalidation";
+import { onRatesXmlChange } from "./rates-xml-cache";
 
 type Diagnostic = typeof GetAdminRatesXmlPreviewResponse._output.diagnostics[number];
 const quoteCache = new Map<string, { until: number; item?: RatesXmlItem; reason?: string }>();
-let cacheGeneration = 0, convertCursor = 0;
+let cacheGeneration = 0;
 export function invalidateRatesXml() { cacheGeneration++; quoteCache.clear(); }
-onBestchangeConfigurationChange(invalidateRatesXml);
+onRatesXmlChange(invalidateRatesXml);
 const problem = (error: unknown) => error instanceof Error ? error.message : "Current pricing is unavailable.";
 export function xmlMethodProblem(method: XmlMethod | undefined, staging: boolean) {
   if (!method) return "The settlement method no longer exists.";
@@ -35,12 +35,12 @@ export function xmlMethodProblem(method: XmlMethod | undefined, staging: boolean
 /** Reject gaps rather than advertise amounts the site's existing engine rejects. */
 export async function priceXmlSwap(
   sourceId: string, targetId: string, source: XmlMethod, target: XmlMethod,
-  prepare = prepareBestchangeSwapQuotes,
+  prepare = prepareManualSwapPublicationQuotes,
 ): Promise<RatesXmlItem> {
   const live = await prepare(sourceId, targetId, []);
   const min = live.effectiveMinAmount, max = live.effectiveMaxAmount;
-  if (!Number.isFinite(min) || !Number.isFinite(max) || min! <= 0 || max! <= min!)
-    throw new Error("Set positive source minimum and maximum limits in Edit Path / Add Range.");
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min! < 0 || max! <= min!)
+    throw new Error("Set a nonnegative source minimum and a finite larger maximum in Edit Path / Add Range.");
   const bounds = new Set([min!, max!]);
   for (const tier of live.tiers) {
     for (const boundary of [tier.minAmount, tier.maxAmount]) {
@@ -51,7 +51,8 @@ export async function priceXmlSwap(
   const points = [...bounds].sort((a, b) => a - b);
   const parts: RatesXmlPart[] = [];
   // A quote at each boundary proves the route remains executable there.
-  await live.quote(min!); await live.quote(max!);
+  if (min! > 0) await live.quote(min!);
+  await live.quote(max!);
   for (let i = 0; i < points.length - 1; i++) {
     const amount = points[i] + (points[i + 1] - points[i]) / 2;
     if (live.rangeOnlyPricing && !live.tiers.some(t =>
@@ -118,7 +119,7 @@ export async function buildRatesXmlPreview(staging = xmlStaging()) {
     if (error) { d.message = error; return; }
     candidates.push({ d, run });
   };
-  const swap = syncBestchangeDirections([], [...fiat, ...crypto], pricing);
+  const swap = discoverXmlSwapRoutes([...fiat, ...crypto], pricing);
   for (const d of swap) {
     add("swap", d.id, d.sourceOptionId, d.targetOptionId, () =>
       priceXmlSwap(d.sourceOptionId, d.targetOptionId, byId.get(d.sourceOptionId)!, byId.get(d.targetOptionId)!));
@@ -145,21 +146,26 @@ export async function buildRatesXmlPreview(staging = xmlStaging()) {
       fromName: "Convert", toName: "Provider routes", state: "omitted", message: problem(error),
     });
   }
-  // Rotate bounded refreshes so a large provider catalog cannot starve later pairs.
-  const rotated = candidates.length ? [...candidates.slice(convertCursor % candidates.length),
-    ...candidates.slice(0, convertCursor % candidates.length)] : [];
-  const deadline = Date.now() + 15_000;
+  // Reject ambiguous code pairs BEFORE fetching quotes; availability must not
+  // arbitrarily select one method simply because another quote was slower.
+  const pairs = new Map<string, typeof candidates>();
+  for (const candidate of candidates) {
+    const key = `${byId.get(candidate.d.sourceOptionId)!.code}\0${byId.get(candidate.d.targetOptionId)!.code}`;
+    pairs.set(key, [...pairs.get(key) ?? [], candidate]);
+  }
+  const readyCandidates: typeof candidates = [];
+  for (const group of pairs.values()) {
+    if (group.length === 1) readyCandidates.push(group[0]);
+    else for (const candidate of group)
+      candidate.d.message = "Multiple methods map to the same XML currency pair. Assign distinct appropriate codes.";
+  }
   let next = 0;
   const run = async () => {
-    while (next < rotated.length) {
-      const candidate = rotated[next++], key = `${reviewHash}:${candidate.d.routeId}`;
+    while (next < readyCandidates.length) {
+      const candidate = readyCandidates[next++], key = `${reviewHash}:${candidate.d.routeId}`;
       const cached = quoteCache.get(key);
       let entry = cached && cached.until > Date.now() ? cached : undefined;
       if (!entry) {
-        if (Date.now() >= deadline) {
-          candidate.d.message = "Live quote refresh is queued. Refresh the preview shortly.";
-          continue;
-        }
         try {
           entry = { until: Date.now() + 30_000, item: await candidate.run() };
         } catch (error) {
@@ -174,7 +180,6 @@ export async function buildRatesXmlPreview(staging = xmlStaging()) {
     }
   };
   await Promise.all([run(), run(), run()]);
-  convertCursor += 3;
   // Never silently choose an arbitrary method when two routes share XML codes.
   const grouped = new Map<string, typeof items>();
   for (const result of items) {
@@ -189,13 +194,19 @@ export async function buildRatesXmlPreview(staging = xmlStaging()) {
       result.d.message = "Multiple methods map to the same XML currency pair. Review their codes before publication.";
     }
   }
-  if (generation !== cacheGeneration) throw new Error("Configuration changed during XML generation. Refresh to use the latest settings.");
+  const latestRow = await readXmlSettings();
+  const [{ methods: latestMethods, catalogFingerprint: latestCatalog }, latestPricing] = await Promise.all([
+    readXmlMethods(latestRow), db.select().from(manualDeskPricingRulesTable),
+  ]);
+  if (generation !== cacheGeneration || reviewHash !== xmlReviewHash(latestRow?.version ?? 0,
+    latestMethods, { pricing: latestPricing, catalogFingerprint: latestCatalog }))
+    throw new Error("Configuration changed during XML generation. Refresh to use the latest settings.");
   if (quoteCache.size > 10_000) {
     for (const [key, entry] of quoteCache) if (entry.until <= Date.now()) quoteCache.delete(key);
   }
   accepted.sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
   return GetAdminRatesXmlPreviewResponse.parse({
     xml: serializeRatesXml(accepted), generatedAt: new Date().toISOString(),
-    exportedCount: accepted.length, diagnostics, reviewHash,
+    exportedCount: accepted.length, diagnostics,
   });
 }

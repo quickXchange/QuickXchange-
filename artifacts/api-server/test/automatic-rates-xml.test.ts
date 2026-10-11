@@ -6,8 +6,62 @@ import { serializeRatesXml, applyXmlParts, divideXmlDecimals, relativeXmlPercent
 import { priceXmlSwap, priceXmlConvert, xmlMethodProblem } from "../src/lib/rates-xml-export";
 import { XML_CODES, DEFAULT_XML_RESERVE } from "../src/lib/rates-xml-methods";
 import { QuickexApiError } from "../src/lib/quickex";
+import { discoverXmlSwapRoutes } from "../src/lib/rates-xml-routes";
 
 after(() => pool.end());
+test("current canonical routes appear automatically and disappear when disabled or deleted", () => {
+  const source = { id: "crypto:usdt", kind: "crypto-network", assetId: "usdt", assetCode: "USDT",
+    routeNetwork: "TRC20", direction: "send" };
+  const target = { id: "fiat:usd:paypal", kind: "fiat-payment-method", assetCode: "USD",
+    routeNetwork: "fiat", direction: "receive" };
+  const rule = {
+    id: "rule", name: "Live route", enabled: true,
+    sourceAsset: "USDT", sourceNetwork: "TRC20", sourceCryptoAssetId: null,
+    sourceSettlementOptionId: source.id, targetAsset: "USD", targetNetwork: "fiat",
+    targetCryptoAssetId: null, targetSettlementOptionId: target.id, exactRate: "0.98",
+    createdAt: new Date(0), updatedAt: new Date(0),
+  } as any;
+  assert.equal(discoverXmlSwapRoutes([source, target], [rule]).length, 1);
+  assert.equal(discoverXmlSwapRoutes([source, target], [{ ...rule, enabled: false }]).length, 0);
+  assert.equal(discoverXmlSwapRoutes([source, target], []).length, 0);
+  assert.equal(discoverXmlSwapRoutes([source], [rule]).length, 0);
+  assert.equal(discoverXmlSwapRoutes([{ ...source, direction: "receive" }, target], [rule]).length, 0);
+});
+test("XML route discovery retains existing Any-side and reciprocal exact pricing", () => {
+  const source = { id: "crypto:usdt", kind: "crypto-network", assetCode: "USDT", assetId: "usdt",
+    routeNetwork: "TRC20", direction: "send" };
+  const target = { id: "fiat:usd:paypal", kind: "fiat-payment-method", assetCode: "USD",
+    routeNetwork: "fiat", direction: "receive" };
+  const rule = {
+    id: "rule", name: "Existing inverse", enabled: true,
+    sourceAsset: "USD", sourceNetwork: null, sourceCryptoAssetId: null, sourceSettlementOptionId: null,
+    targetAsset: "USDT", targetNetwork: null, targetCryptoAssetId: null, targetSettlementOptionId: null,
+    exactRate: "1.02", createdAt: new Date(0), updatedAt: new Date(0),
+  } as any;
+  assert.equal(discoverXmlSwapRoutes([source, target], [rule]).length, 1);
+  assert.equal(discoverXmlSwapRoutes([source, target], [{
+    ...rule, sourceAsset: null, targetAsset: null, exactRate: null,
+  }]).length, 1);
+});
+test("changing Edit Path fees and bounds changes export without storing XML direction overrides", async () => {
+  let fee = 2, min = 10, max = 100;
+  const prepare = async () => ({
+    effectiveMinAmount: min, effectiveMaxAmount: max, rangeOnlyPricing: false, tiers: [],
+    quote: async (amount: number) => String(amount * (1 - fee / 100)),
+    publicationQuote: async (amount: number) => ({
+      receiveAmount: String(amount * (1 - fee / 100)), fixedFees: ["0"],
+    }),
+  });
+  const from = { optionId: "source", name: "USDT", assetCode: "USDT", code: "USDTTRC20",
+    kind: "crypto" as const, enabled: true, reserve: "1000000" };
+  const to = { ...from, optionId: "target", name: "PayPal", assetCode: "USD", code: "PPUSD", kind: "fiat" as const };
+  const first = await priceXmlSwap(from.optionId, to.optionId, from, to, prepare as any);
+  assert.equal(Number(first.out), .98);
+  fee = 5; min = 20; max = 200;
+  const second = await priceXmlSwap(from.optionId, to.optionId, from, to, prepare as any);
+  assert.equal(Number(second.out), .95);
+  assert.equal(second.minamount, "20"); assert.equal(second.maxamount, "200");
+});
 const method = (code: string, kind: "fiat" | "crypto" = "crypto", reserve = DEFAULT_XML_RESERVE) => ({
   optionId: code, code, kind, reserve, name: code, assetCode: kind === "fiat" ? "USD" : "USDT", enabled: true,
 });

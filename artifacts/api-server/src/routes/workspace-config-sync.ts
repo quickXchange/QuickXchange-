@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { normalizePaymentMethodReserve } from "../lib/payment-method-reserve-validation";
-import { invalidateBestchangeFeed } from "../lib/bestchange-cache-invalidation";
+import { notifyRatesXmlChange } from "../lib/rates-xml-cache";
 import { createHash } from "node:crypto";
 import { desc, eq, sql } from "drizzle-orm";
 import {
@@ -474,7 +474,7 @@ router.post("/admin/workspace-config/apply", requireOwner, async (req, res, next
       return { counts: before.counts };
     });
     invalidatePopularExchangePairsCache();
-    invalidateBestchangeFeed();
+    notifyRatesXmlChange();
     invalidateManualDeskFiatRateCache();
     res.setHeader("cache-control", "no-store");
     res.json({ ok: true, applied: true, objects: prepared.objects, ...result });

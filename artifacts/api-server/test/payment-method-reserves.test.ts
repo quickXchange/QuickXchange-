@@ -6,8 +6,7 @@ import { eq, inArray } from "drizzle-orm";
 import { db, pool, fiatCurrenciesTable, fiatCurrencyPaymentMethodsTable, paymentMethodsTable, operatorsTable } from "@workspace/db";
 import { configureOperatorAuthorizationForTests } from "../src/lib/operator-auth";
 import { normalizePaymentMethodReserve } from "../src/lib/payment-method-reserves";
-import { onBestchangeConfigurationChange } from "../src/lib/bestchange-cache-invalidation";
-import { generate } from "../src/routes/bestchange";
+import { onRatesXmlChange } from "../src/lib/rates-xml-cache";
 import router from "../src/routes/exchange";
 
 if (process.env.API_TEST_DISPOSABLE_DATABASE !== "1") throw new Error("Reserve tests require a disposable database.");
@@ -72,7 +71,7 @@ test("bulk reserve requires Owner and atomically sets each existing currency wit
     const beforeMethods = await db.select().from(paymentMethodsTable).where(inArray(paymentMethodsTable.id, ids));
     const beforeRows = await readAttachments();
     let invalidations = 0;
-    onBestchangeConfigurationChange(() => { invalidations++; });
+    onRatesXmlChange(() => { invalidations++; });
     const applied = await request(input);
     assert.equal(applied.status, 200, await applied.clone().text());
     assert.deepEqual(await applied.json(), { updatedMethods: 2, updatedReserves: 3 });
@@ -83,18 +82,6 @@ test("bulk reserve requires Owner and atomically sets each existing currency wit
       assert.deepEqual(stripReserve(row), stripReserve(beforeRows.find(before => before.id === row.id)));
     }
     assert.deepEqual(await db.select().from(paymentMethodsTable).where(inArray(paymentMethodsTable.id, ids)), beforeMethods);
-    const direction = {
-      id: randomUUID(), enabled: true, sourceOptionId: "crypto:bulk-fixture",
-      targetOptionId: `fiat:${eurId}:${ids[1]}`, fromCode: "USDTTRC20", toCode: "SEPAEUR",
-      reserve: "7", minAmount: "100", maxAmount: "1000", params: [], cities: [],
-      selectedAddOnKeys: [], includeFeeTags: false,
-    };
-    const config = { enabled: false, version: 1, directions: [direction] };
-    const prepare = async () => ({
-      effectiveMinAmount: 1, effectiveMaxAmount: 1000, targetPrecision: 2, tiers: [], rangeOnlyPricing: false,
-      quote: async (amount: number) => String(amount * 2),
-    });
-    assert.match((await generate(config, prepare)).xml, /<amount>10000<\/amount>/);
     for (const reserve of ["-1", "1e4", "NaN", "0.001", "100000000000000000000"]) {
       assert.equal((await request({ ...input, reserve })).status, 400);
     }
@@ -111,7 +98,6 @@ test("bulk reserve requires Owner and atomically sets each existing currency wit
     assert.equal(invalidations, 1, "Rejected requests must not invalidate feeds.");
     assert.equal((await request({ ...input, reserve: "0" })).status, 200);
     assert.ok((await readAttachments()).filter(row => selected.includes(row.paymentMethodId)).every(row => Number(row.reserve) === 0));
-    assert.equal((await generate(config, prepare)).exportedCount, 0);
   } finally {
     await new Promise<void>(resolve => server.close(() => resolve()));
     for (const id of ids) await db.delete(paymentMethodsTable).where(eq(paymentMethodsTable.id, id));
@@ -120,7 +106,7 @@ test("bulk reserve requires Owner and atomically sets each existing currency wit
   }
 });
 
-test("Admin Add/Edit stores independent currency reserves atomically; feed shares current destination reserve and omits zero", async () => {
+test("Admin Add/Edit stores independent currency reserves atomically and preserves explicit zero", async () => {
   const eurId = randomUUID(), usdId = randomUUID();
   const methodId = `reserve-test-${randomUUID().slice(0, 8)}`;
   const userId = `reserve-user-${randomUUID()}`;
@@ -143,7 +129,7 @@ test("Admin Add/Edit stores independent currency reserves atomically; feed share
   if (!address || typeof address === "string") throw new Error("Test server unavailable.");
   const base = `http://127.0.0.1:${address.port}/api`;
   let invalidations = 0;
-  onBestchangeConfigurationChange(() => { invalidations++; });
+  onRatesXmlChange(() => { invalidations++; });
   const request = (path: string, method: string, data?: unknown) => fetch(base + path, {
     method, headers: { "Content-Type": "application/json" }, body: data ? JSON.stringify(data) : undefined,
   });
@@ -160,24 +146,6 @@ test("Admin Add/Edit stores independent currency reserves atomically; feed share
     let rows = await getRows();
     assert.equal(rows.find(row => row.fiatCurrencyId === eurId).reserve, "15000.25");
     assert.equal(rows.find(row => row.fiatCurrencyId === usdId).reserve, "99.3");
-    const targetOptionId = `fiat:${eurId}:${methodId}`;
-    const direction = {
-      id: randomUUID(), enabled: true, sourceOptionId: "crypto:fixture", targetOptionId,
-      fromCode: "USDTTRC20", toCode: "SEPAEUR", reserve: "999999",
-      minAmount: "100", maxAmount: "1000", params: [], cities: [], selectedAddOnKeys: [], includeFeeTags: false,
-    };
-    const config = { enabled: false, version: 1, directions: [direction, { ...direction, id: randomUUID(), sourceOptionId: "crypto:fixture-2" }] };
-    let quoteCalls = 0;
-    const prepare = async () => ({
-      effectiveMinAmount: 1, effectiveMaxAmount: 1000, targetPrecision: 2,
-      tiers: [], rangeOnlyPricing: false,
-      quote: async (amount: number) => { quoteCalls++; return String(amount * 2); },
-    });
-    let feed = await generate(config, prepare);
-    // This also proves the informational reserve is not capped by this route's maximum payout.
-    assert.equal((feed.xml.match(/<amount>15000.25<\/amount>/g) ?? []).length, 2);
-    assert.equal(feed.exportedCount, 2);
-    assert.ok(!feed.xml.includes("999999"), "Legacy direction reserves must not override Payment Methods.");
 
     const updated = await request(`/admin/payment-methods/${methodId}`, "PATCH", {
       reserves: [{ fiatCurrencyId: eurId, reserve: "20000.75" }],
@@ -186,8 +154,7 @@ test("Admin Add/Edit stores independent currency reserves atomically; feed share
     assert.equal(invalidations, 2, "Successful reserve writes must invalidate cached and in-flight feeds.");
     rows = await getRows();
     assert.equal(rows.find(row => row.fiatCurrencyId === usdId).reserve, "99.3", "Unedited currency must not be overwritten.");
-    feed = await generate(config, prepare);
-    assert.equal((feed.xml.match(/<amount>20000.75<\/amount>/g) ?? []).length, 2);
+    assert.equal(rows.find(row => row.fiatCurrencyId === eurId).reserve, "20000.75");
 
     const invalid = await request(`/admin/payment-methods/${methodId}`, "PATCH", {
       name: "Must roll back", reserves: [{ fiatCurrencyId: eurId, reserve: "0.001" }],
@@ -201,11 +168,7 @@ test("Admin Add/Edit stores independent currency reserves atomically; feed share
     await assert.rejects(db.update(fiatCurrencyPaymentMethodsTable).set({ reserve: "-1" }).where(eq(fiatCurrencyPaymentMethodsTable.id, eur.id)));
     const zero = await request(`/admin/fiat-currency-payment-methods/${eur.id}`, "PATCH", { reserve: "0" });
     assert.equal(zero.status, 200);
-    const before = quoteCalls;
-    feed = await generate(config, prepare);
-    assert.equal(feed.exportedCount, 0);
-    assert.equal(quoteCalls, before, "Zero reserves must skip live pricing work.");
-    assert.ok(feed.diagnostics.every(row => /Zero destination reserve/.test(row.message)));
+    assert.equal((await getRows()).find(row => row.fiatCurrencyId === eurId).reserve, "0");
   } finally {
     await new Promise<void>(resolve => server.close(() => resolve()));
     await db.delete(paymentMethodsTable).where(eq(paymentMethodsTable.id, methodId));

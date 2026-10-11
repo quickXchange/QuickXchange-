@@ -10,7 +10,6 @@ import type { RatesXmlMethod } from './ratesXmlMethod';
 
 export interface RatesXmlAdmin {
   version: number;
-  published: boolean;
   staging: boolean;
   methods: RatesXmlMethod[];
   currencyCodes: RatesXmlAdminCurrencyCodesItem[];

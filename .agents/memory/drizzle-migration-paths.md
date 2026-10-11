@@ -8,3 +8,9 @@ Keep the Drizzle Kit `out` configuration package-relative rather than resolving 
 **Why:** The installed generator can create the initial migration with an absolute `out`, but later generation may prefix the working directory onto that absolute snapshot path and fail to load prior metadata. Drizzle also silently skips a new journal entry whose generated timestamp sorts before an already-applied migration.
 
 **How to apply:** Run the generator from the database package and configure `out` as a relative migrations directory. Keep runtime migration paths absolute only after resolving them from the executing module. Compare the new journal timestamp with the previous entry before running migrations.
+
+When schema generation asks whether a new table is created or renamed, use a real pseudo-terminal. Piping an answer alone does not satisfy the CLI.
+
+**Why:** The installed Drizzle prompt implementation rejects non-TTY stdin/stdout before consuming answers.
+
+**How to apply:** Run the generator in a pseudo-terminal and explicitly choose create versus rename; review the generated SQL before migrating. Never infer a destructive rename from a similar old table.

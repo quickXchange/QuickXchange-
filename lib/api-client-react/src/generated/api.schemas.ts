@@ -51,198 +51,6 @@ export interface LanguageDictionaryInput {
   translations: LanguageDictionaryInputTranslations;
 }
 
-export interface BestchangeReserveLine {
-  /**
-     * @minLength 2
-     * @maxLength 12
-     */
-  currencyCode: string;
-  /**
-     * @minLength 1
-     * @maxLength 120
-     */
-  paymentMethodId: string;
-  /** @pattern ^[0-9]{1,20}(\.[0-9]{1,18})?$ */
-  reserve: string;
-}
-
-export type BestchangeReserveTransferFormat = typeof BestchangeReserveTransferFormat[keyof typeof BestchangeReserveTransferFormat];
-
-
-export const BestchangeReserveTransferFormat = {
-  'qx-bestchange-reserves-v1': 'qx-bestchange-reserves-v1',
-} as const;
-
-export interface BestchangeReserveTransfer {
-  format: BestchangeReserveTransferFormat;
-  /**
-     * @minItems 1
-     * @maxItems 500
-     */
-  reserves: BestchangeReserveLine[];
-}
-
-export interface BestchangeReserveChange {
-  currencyCode: string;
-  paymentMethodId: string;
-  currentReserve: string;
-  proposedReserve: string;
-}
-
-export interface BestchangeReserveReview {
-  reviewHash: string;
-  changes: BestchangeReserveChange[];
-}
-
-export interface BestchangeReserveApproval {
-  transfer: BestchangeReserveTransfer;
-  /**
-     * @minLength 64
-     * @maxLength 64
-     */
-  reviewHash: string;
-}
-
-export interface BestchangeReserveApplied {
-  /** @minimum 0 */
-  updatedCount: number;
-}
-
-export type BestchangeDirectionParamsItem = typeof BestchangeDirectionParamsItem[keyof typeof BestchangeDirectionParamsItem];
-
-
-export const BestchangeDirectionParamsItem = {
-  manual: 'manual',
-  juridical: 'juridical',
-  verifying: 'verifying',
-  cardverify: 'cardverify',
-  otherin: 'otherin',
-  otherout: 'otherout',
-  reg: 'reg',
-  card2card: 'card2card',
-  delivery: 'delivery',
-  atm: 'atm',
-} as const;
-
-export interface BestchangeDirection {
-  id: string;
-  enabled: boolean;
-  /**
-     * @minLength 1
-     * @maxLength 160
-     */
-  sourceOptionId: string;
-  /**
-     * @minLength 1
-     * @maxLength 160
-     */
-  targetOptionId: string;
-  /** @maxLength 32 */
-  fromCode: string;
-  /** @maxLength 32 */
-  toCode: string;
-  readonly automatic?: boolean;
-  readonly pricingRuleName?: string;
-  readonly pendingReasons?: readonly string[];
-  /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */
-  reserve?: string;
-  /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */
-  minAmount: string;
-  /** @pattern ^[0-9]{1,12}(\.[0-9]{1,12})?$ */
-  maxAmount: string;
-  /**
-     * @maxLength 14
-     * @pattern ^[0-9]{1,6}(\.[0-9]{1,6})?%?$
-     */
-  floating?: string;
-  /**
-     * @maxLength 13
-     * @pattern ^[0-9]{1,6}(\.[0-9]{1,6})?$
-     */
-  delay?: string;
-  /** @maxItems 10 */
-  params: BestchangeDirectionParamsItem[];
-  /**
-     * @maxItems 25
-     * @items.minLength 1
-     * @items.maxLength 12
-     */
-  cities: string[];
-  /**
-     * @maxItems 32
-     * @items.minLength 1
-     * @items.maxLength 100
-     */
-  selectedAddOnKeys: string[];
-  includeFeeTags: boolean;
-}
-
-/**
- * Platform-neutral XML output adjustment only. Activity means any non-terminal canonical Convert order.
- */
-export interface XmlPercentageAdjustment {
-  enabled: boolean;
-  /**
-     * Percentage from 0 through 100, with up to six decimal places.
-     * @pattern ^(?:100(?:\.0{1,6})?|(?:0|[1-9]\d?)(?:\.\d{1,6})?)$
-     */
-  activeOrderPercent: string;
-  /**
-     * Percentage from 0 through 100, with up to six decimal places.
-     * @pattern ^(?:100(?:\.0{1,6})?|(?:0|[1-9]\d?)(?:\.\d{1,6})?)$
-     */
-  noActiveOrderPercent: string;
-}
-
-export interface BestchangeSettings {
-  enabled: boolean;
-  /** @minimum 0 */
-  version: number;
-  xmlPercentageAdjustment?: XmlPercentageAdjustment;
-  directions: BestchangeDirection[];
-  updatedAt?: string;
-}
-
-export interface BestchangeCode {
-  code: string;
-  description: string;
-}
-
-export interface BestchangeOption {
-  readonly reserve?: string;
-  id: string;
-  label: string;
-  assetCode: string;
-  network: string;
-  direction: string;
-  kind: string;
-}
-
-export interface BestchangeAdmin {
-  settings: BestchangeSettings;
-  options: BestchangeOption[];
-  currencyCodes: BestchangeCode[];
-  cityCodes: BestchangeCode[];
-  feedPath: string;
-  documentationUrl: string;
-  exampleXml: string;
-}
-
-export interface BestchangeDiagnostic {
-  id: string;
-  exported: boolean;
-  message: string;
-}
-
-export interface BestchangePreview {
-  xml: string;
-  generatedAt: string;
-  exportedCount: number;
-  diagnostics: BestchangeDiagnostic[];
-  enabled: boolean;
-  version: number;
-}
-
 export interface TelegramLinkInput {
   /**
      * @minLength 1
@@ -4562,7 +4370,6 @@ export type RatesXmlAdminCurrencyCodesItem = {
 
 export interface RatesXmlAdmin {
   version: number;
-  published: boolean;
   staging: boolean;
   methods: RatesXmlMethod[];
   currencyCodes: RatesXmlAdminCurrencyCodesItem[];
@@ -4600,7 +4407,6 @@ export interface RatesXmlPreview {
   xml: string;
   generatedAt: string;
   exportedCount: number;
-  reviewHash: string;
   diagnostics: RatesXmlPreviewDiagnosticsItem[];
 }
 
@@ -8339,10 +8145,4 @@ export type UpdateAdminRatesXmlMethodBody = {
   /** @pattern ^\d+(\.\d+)?$ */
   reserve?: string;
   expectedReserve?: string;
-};
-
-export type ActivateAdminRatesXmlBody = {
-  version: number;
-  reviewHash: string;
-  confirm: boolean;
 };

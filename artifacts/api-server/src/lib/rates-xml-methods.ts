@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import {
-  db, bestchangeSettingsTable, fiatCurrencyPaymentMethodsTable, fiatCurrenciesTable,
+  db, ratesXmlSettingsTable, fiatCurrencyPaymentMethodsTable, fiatCurrenciesTable,
   paymentMethodsTable, cryptoAssetsTable, cryptoAssetNetworksTable,
 } from "@workspace/db";
 import { GetAdminRatesXmlResponse } from "@workspace/api-zod";
@@ -12,28 +12,12 @@ export const DEFAULT_XML_RESERVE = "1000000";
 export const XML_CODES = codes as Array<{ code: string; description: string; type: "crypto" | "fiat" }>;
 export const XML_CODE_LOOKUP = new Map(XML_CODES.map(c => [c.code, c]));
 export const STAGING_ONLY_XML_CODES = new Set(["PMUSD", "PMEUR"]);
-export type XmlSettingsRow = typeof bestchangeSettingsTable.$inferSelect;
+export type XmlSettingsRow = typeof ratesXmlSettingsTable.$inferSelect;
 export type XmlMethod = typeof GetAdminRatesXmlResponse._output.methods[number];
 export const xmlStaging = () => process.env.NODE_ENV !== "production" && !process.env.REPLIT_DEPLOYMENT;
 
-/** Existing explicit declarations may be migrated; never infer a code by name. */
-function legacyDeclarations(row: XmlSettingsRow | undefined, optionId: string) {
-  const declaredCodes = new Set<string>(), reserves = new Set<string>();
-  for (const d of row?.directions ?? []) {
-    if (d.sourceOptionId === optionId && typeof d.fromCode === "string") declaredCodes.add(d.fromCode);
-    if (d.targetOptionId === optionId) {
-      if (typeof d.toCode === "string") declaredCodes.add(d.toCode);
-      if (typeof d.reserve === "string" && /^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(d.reserve) && Number(d.reserve) > 0)
-        reserves.add(d.reserve);
-    }
-  }
-  return {
-    code: declaredCodes.size === 1 && XML_CODE_LOOKUP.has([...declaredCodes][0]) ? [...declaredCodes][0] : null,
-    reserve: reserves.size === 1 ? [...reserves][0] : DEFAULT_XML_RESERVE,
-  };
-}
 export async function readXmlSettings() {
-  return (await db.select().from(bestchangeSettingsTable).where(eq(bestchangeSettingsTable.id, 1)))[0];
+  return (await db.select().from(ratesXmlSettingsTable).where(eq(ratesXmlSettingsTable.id, 1)))[0];
 }
 export async function readXmlMethods(row: XmlSettingsRow | undefined) {
   const [fiat, crypto, capabilities] = await Promise.all([
@@ -57,9 +41,9 @@ export async function readXmlMethods(row: XmlSettingsRow | undefined) {
     }).from(cryptoAssetNetworksTable).innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId)),
     listExecutableProviderCapabilities(),
   ]);
-  const configured = new Map(row?.xmlMethodSettings.map(m => [m.optionId, m]) ?? []);
-  const metadata = (id: string) => configured.get(id) ??
-    (row?.ratesXmlPublished ? { code: null, reserve: DEFAULT_XML_RESERVE } : legacyDeclarations(row, id));
+  const configured = new Map(row?.methods.map(m => [m.optionId, m]) ?? []);
+  // A clean configuration: no legacy mappings, aliases or inferred currency codes.
+  const metadata = (id: string) => configured.get(id) ?? { code: null, reserve: DEFAULT_XML_RESERVE };
   const methods: XmlMethod[] = fiat.map(f => {
     const optionId = `fiat:${f.currencyId}:${f.methodId}`;
     return {
@@ -94,7 +78,7 @@ export async function readXmlMethods(row: XmlSettingsRow | undefined) {
 export async function readXmlAdmin() {
   const row = await readXmlSettings(), { methods } = await readXmlMethods(row);
   return GetAdminRatesXmlResponse.parse({
-    version: row?.version ?? 0, published: row?.ratesXmlPublished ?? false, staging: xmlStaging(),
+    version: row?.version ?? 0, staging: xmlStaging(),
     methods, currencyCodes: XML_CODES, feedPath: "/api/rates.xml",
   });
 }

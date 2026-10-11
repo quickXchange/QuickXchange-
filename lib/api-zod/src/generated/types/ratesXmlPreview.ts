@@ -11,6 +11,5 @@ export interface RatesXmlPreview {
   xml: string;
   generatedAt: string;
   exportedCount: number;
-  reviewHash: string;
   diagnostics: RatesXmlPreviewDiagnosticsItem[];
 }

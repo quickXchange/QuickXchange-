@@ -1002,6 +1002,13 @@
       "when": 1791730463715,
       "tag": "0144_even_vapor",
       "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "7",
+      "when": 1791753025691,
+      "tag": "0145_rebuild_rates_xml",
+      "breakpoints": true
     }
   ]
 }

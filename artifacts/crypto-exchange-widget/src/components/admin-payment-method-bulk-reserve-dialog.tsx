@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  getGetAdminBestchangeQueryKey, getGetExchangeConfigQueryKey,
+  getGetAdminRatesXmlQueryKey, getGetExchangeConfigQueryKey,
   getGetFiatCurrencyPaymentMethodsQueryKey, getGetPaymentMethodsQueryKey,
   useSetBulkPaymentMethodReserve,
   type FiatCurrency, type FiatCurrencyPaymentMethod, type PaymentMethod,
@@ -48,7 +48,7 @@ export function AdminPaymentMethodBulkReserveDialog({ methodIds, methods, curren
         queryClient.invalidateQueries({ queryKey: getGetFiatCurrencyPaymentMethodsQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getGetPaymentMethodsQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
-        queryClient.invalidateQueries({ queryKey: getGetAdminBestchangeQueryKey() }),
+        queryClient.invalidateQueries({ queryKey: getGetAdminRatesXmlQueryKey() }),
       ]);
       notifyAdminAction('success', `Reserve updated for ${result.updatedMethods} payment method${result.updatedMethods === 1 ? '' : 's'} (${result.updatedReserves} currency reserves).`);
       onApplied();
@@ -74,7 +74,7 @@ export function AdminPaymentMethodBulkReserveDialog({ methodIds, methods, curren
               onChange={event => { setReserve(event.target.value); setError(''); }} disabled={pending}
               placeholder="e.g. 10000" className="mt-2 w-full" data-testid="input-bulk-reserve" />
           </label>
-          <p className="text-xs text-muted-foreground">The amount is not combined or divided. Each currency receives the full amount. Set 0 to clear reserves and omit those destinations from BestChange. No other fields change.</p>
+          <p className="text-xs text-muted-foreground">The amount is not combined or divided. Each currency receives the full amount. Set 0 to clear reserves and omit those destinations from Rates XML. No other fields change.</p>
           {missing && <p role="alert" className="text-sm text-destructive">Every selected method needs a currency attached. Configure missing currencies before applying.</p>}
           {reserve && !valid && <p role="alert" className="text-sm text-destructive">Enter a nonnegative decimal supported by every selected currency. No commas or exponent notation.</p>}
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

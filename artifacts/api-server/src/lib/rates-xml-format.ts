@@ -1,4 +1,4 @@
-import { compareDecimal, decimalParts, decimalText, plainDecimal } from "./bestchange-xml";
+import { compareDecimal, decimalParts, decimalText, plainDecimal } from "./rates-xml-decimal";
 
 export type RatesXmlPart = {
   frommin: string; frommax: string; rate: string; fixedFee: string;

@@ -1,7 +1,7 @@
 import { formatDisplayAmount } from '@workspace/amount-format';
 import { RatesXmlMethodEditor } from '../components/rates-xml-method-editor';
 import { PaymentMethodReserveEditor } from '../components/payment-method-reserve-editor';
-import { getGetAdminBestchangeQueryKey, type PaymentMethodReserveInput } from '@workspace/api-client-react';
+import { getGetAdminRatesXmlQueryKey, type PaymentMethodReserveInput } from '@workspace/api-client-react';
 
 import { useGetAdminNotificationEmailTemplates, getGetAdminNotificationEmailTemplatesQueryKey, useUpdateAdminNotificationEmailTemplates, useTestAdminNotificationEmailTemplate } from '@workspace/api-client-react';
 import type { NotificationEmailTemplate, NotificationEmailTemplateEventKind } from '@workspace/api-client-react';
@@ -6363,7 +6363,7 @@ function PaymentMethodDrawer({ method, onClose }: { method?: any; onClose: () =>
         });
         queryClient.invalidateQueries({ queryKey: getGetPaymentMethodsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetFiatCurrencyPaymentMethodsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetAdminBestchangeQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetAdminRatesXmlQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() });
         notifyAdminAction('success', 'Payment method saved.');
         onClose();
@@ -6496,7 +6496,7 @@ function AttachmentItem({ att, pm, currencyCode, queryClient }: { att: any; pm: 
       onSuccess: () => {
         setReserveEdited(false);
         queryClient.invalidateQueries({ queryKey: getGetFiatCurrencyPaymentMethodsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetAdminBestchangeQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetAdminRatesXmlQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() });
         notifyAdminAction('success', 'Payment method settings saved.');
       },
@@ -6519,7 +6519,7 @@ function AttachmentItem({ att, pm, currencyCode, queryClient }: { att: any; pm: 
     <div className="admin-form admin-form-section admin-form-card p-4 border border-border rounded-lg bg-muted/30">
       <label><span className="field-label">Reserve <small>{currencyCode}</small></span>
         <input type="text" inputMode="decimal" disabled={updateAttachMutation.isPending} value={reserveEdited ? form.reserve : att.reserve ?? '0'} onChange={event => { setReserveEdited(true); setForm(current => ({ ...current, reserve: event.target.value })); }} data-testid={`input-attachment-reserve-${currencyCode}`} />
-        <span className="field-hint">Informational payout capacity. Zero prevents BestChange advertising this receiving method. Orders do not change it.</span>
+        <span className="field-hint">Informational payout capacity. Zero prevents Rates XML advertising this receiving method. Orders do not change it.</span>
       </label>
       <div className="flex justify-between items-start mb-3">
         <div className="admin-attachment-method">

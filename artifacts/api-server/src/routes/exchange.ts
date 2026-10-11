@@ -186,7 +186,7 @@ import {
 } from "@workspace/db";
 import { ApiError } from "../lib/api-error";
 import { normalizePaymentMethodReserve, savePaymentMethodReserves, validateCurrencyReserve } from "../lib/payment-method-reserves";
-import { invalidateBestchangeFeed } from "../lib/bestchange-cache-invalidation";
+import { notifyRatesXmlChange } from "../lib/rates-xml-cache";
 import {
   beforeManualReceiveDeadline,
   effectiveManualReceiveTarget,
@@ -1009,7 +1009,7 @@ type PreparedManualQuoteContext = {
  * and payout limits as customer Swap quotes; never bypasses deposit readiness.
  * Only this restricted projection can leave the financial quote boundary.
  */
-export async function prepareBestchangeSwapQuotes(
+export async function prepareManualSwapPublicationQuotes(
   sourceId: string, targetId: string, selectedAddOnKeys: string[],
 ) {
   const options = [...await listPublicFiatSettlementOptions(), ...await listPublicManualCryptoSettlementOptions()];
@@ -1019,7 +1019,7 @@ export async function prepareBestchangeSwapQuotes(
       !["send", "both"].includes(sourceOption.direction) ||
       !["receive", "both"].includes(targetOption.direction) ||
       (sourceOption.kind !== "fiat-payment-method" && targetOption.kind !== "fiat-payment-method")) {
-    throw new ApiError("BESTCHANGE_ROUTE_UNAVAILABLE", "The selected Swap direction is unavailable.", 422);
+    throw new ApiError("PUBLICATION_ROUTE_UNAVAILABLE", "The selected Swap direction is unavailable.", 422);
   }
   const base = {
     type: "manual" as const, fromAsset: sourceOption.assetCode, fromNetwork: sourceOption.routeNetwork,
@@ -1051,11 +1051,11 @@ export async function prepareBestchangeSwapQuotes(
     quote: async (amount: number) => {
       const ticket = await buildQuoteTicket({ ...base, amount }, route, false, false, context);
       if (ticket.manualOrderCreationDisabled) {
-        throw new ApiError("BESTCHANGE_ROUTE_UNAVAILABLE", "Manual Swap order creation is unavailable.", 422);
+        throw new ApiError("PUBLICATION_ROUTE_UNAVAILABLE", "Manual Swap order creation is unavailable.", 422);
       }
       const exact = (ticket as QuoteTicket & { exact?: { receiveAmount?: string } }).exact;
       if (typeof exact?.receiveAmount !== "string") {
-        throw new ApiError("BESTCHANGE_RATE_UNAVAILABLE", "Exact Swap pricing is unavailable.", 503);
+        throw new ApiError("PUBLICATION_RATE_UNAVAILABLE", "Exact Swap pricing is unavailable.", 503);
       }
       return exact.receiveAmount;
     },
@@ -1065,7 +1065,7 @@ export async function prepareBestchangeSwapQuotes(
       const ticket = await buildQuoteTicket({ ...base, amount }, route, false, false, context) as
         QuoteTicket & { exact?: { receiveAmount: string; fixedCommission: string } };
       if (ticket.manualOrderCreationDisabled || !ticket.exact || !ticket.manualSwapFees) {
-        throw new ApiError("BESTCHANGE_ROUTE_UNAVAILABLE", "Manual Swap pricing is unavailable.", 422);
+        throw new ApiError("PUBLICATION_ROUTE_UNAVAILABLE", "Manual Swap pricing is unavailable.", 422);
       }
       return {
         receiveAmount: ticket.exact.receiveAmount,
@@ -7624,7 +7624,7 @@ router.post("/admin/payment-methods/bulk-reserve", requireOwner, async (req, res
       });
       return { updatedMethods: methods.length, updatedReserves: attachments.length };
     });
-    invalidateBestchangeFeed();
+    notifyRatesXmlChange();
     res.json(SetBulkPaymentMethodReserveResponse.parse(result));
   } catch (error) { next(error); }
 });
@@ -7828,7 +7828,7 @@ router.post("/admin/payment-methods", async (req, res, next) => {
         await savePaymentMethodReserves(tx, row.id, reserves);
         return row;
       });
-      invalidateBestchangeFeed();
+      notifyRatesXmlChange();
       res.status(201).json(CreatePaymentMethodResponse.parse(outputPaymentMethod(created)));
       return;
     }
@@ -7837,7 +7837,7 @@ router.post("/admin/payment-methods", async (req, res, next) => {
       await savePaymentMethodReserves(tx, row.id, reserves);
       return row;
     });
-    invalidateBestchangeFeed();
+    notifyRatesXmlChange();
     res.status(201).json(CreatePaymentMethodResponse.parse(outputPaymentMethod(created)));
   } catch (error) {
     next(isUniqueViolation(error)
@@ -7868,7 +7868,7 @@ router.patch("/admin/payment-methods/:id", async (req, res, next) => {
         return row;
       });
       if (!updated) throw new ApiError("PAYMENT_METHOD_NOT_FOUND", "Payment method not found.", 404);
-      invalidateBestchangeFeed();
+      notifyRatesXmlChange();
       res.json(UpdatePaymentMethodResponse.parse(outputPaymentMethod(updated)));
       return;
     }
@@ -7880,7 +7880,7 @@ router.patch("/admin/payment-methods/:id", async (req, res, next) => {
       return row;
     });
     if (!updated) throw new ApiError("PAYMENT_METHOD_NOT_FOUND", "Payment method not found.", 404);
-    invalidateBestchangeFeed();
+    notifyRatesXmlChange();
     res.json(UpdatePaymentMethodResponse.parse(outputPaymentMethod(updated)));
   } catch (error) { next(error); }
 });
@@ -7980,7 +7980,7 @@ router.post("/admin/fiat-currency-payment-methods", async (req, res, next) => {
     const input = CreateFiatCurrencyPaymentMethodBody.parse(req.body);
     input.reserve = await validateCurrencyReserve(db, input.fiatCurrencyId, input.reserve);
     const [created] = await db.insert(fiatCurrencyPaymentMethodsTable).values(input).returning();
-    invalidateBestchangeFeed();
+    notifyRatesXmlChange();
     res.status(201).json(CreateFiatCurrencyPaymentMethodResponse.parse(outputAttachment(created)));
   } catch (error) {
     next(isUniqueViolation(error)
@@ -8126,7 +8126,7 @@ router.patch("/admin/fiat-currency-payment-methods/:id", async (req, res, next) 
       .set({ ...input, updatedAt: new Date() })
       .where(eq(fiatCurrencyPaymentMethodsTable.id, id)).returning();
     if (!updated) throw new ApiError("PAYMENT_METHOD_ATTACHMENT_NOT_FOUND", "Attachment not found.", 404);
-    invalidateBestchangeFeed();
+    notifyRatesXmlChange();
     res.json(UpdateFiatCurrencyPaymentMethodResponse.parse(outputAttachment(updated)));
   } catch (error) { next(error); }
 });
@@ -8138,7 +8138,7 @@ router.delete("/admin/fiat-currency-payment-methods/:id", async (req, res, next)
       .where(eq(fiatCurrencyPaymentMethodsTable.id, id))
       .returning({ id: fiatCurrencyPaymentMethodsTable.id });
     if (!deleted) throw new ApiError("PAYMENT_METHOD_ATTACHMENT_NOT_FOUND", "Attachment not found.", 404);
-    invalidateBestchangeFeed();
+    notifyRatesXmlChange();
     res.sendStatus(204);
   } catch (error) { next(error); }
 });
