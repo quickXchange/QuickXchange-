@@ -21,11 +21,17 @@ Crypto XML codes default automatically from the supplied catalogue using the exa
 
 **How to apply:** Use approved CSV codes only and preserve chain distinctions. Unknown or ambiguous combinations stay unmapped; do not infer executable routes, invent pricing, or replace fiat mappings. Automatic identity applies equally to manual-network and provider-only publication methods.
 
-Quote refresh must not make an HTTP XML request wait for the entire provider route matrix. Share a bounded-concurrency refresh, return only fresh verified entries, and keep remaining routes explicitly pending while work continues.
+Quote refresh must not make an HTTP XML request wait for the entire provider route matrix. Share a bounded-concurrency refresh and retain previously successful publication rates during slow or failed refreshes.
 
 **Why:** Automatic crypto mappings expose many executable provider candidates; waiting for every quote caused the feed request to exceed two minutes.
 
-**How to apply:** Preserve canonical quote calls and configuration fencing. Bound response wait, not the set of directions eventually checked; never serve stale prices or manufacture rates for pending routes.
+**How to apply:** Preserve canonical quote calls and configuration fencing. Bound response wait, not the set of directions eventually checked. Persist last successful public items across process restarts, identify retained rates in response headers, and never manufacture rates for directions without a successful quote. Retained XML is advisory only; customer orders still require live pricing.
+
+The user requested removal of the dedicated Rates XML section from Admin while keeping `/api/rates.xml` operating automatically.
+
+**Why:** The user explicitly asked to delete the Admin section and fix intermittent disappearing rates caused by slow requests.
+
+**How to apply:** Do not restore the standalone Admin page/menu. Preserve saved mappings and method-level controls. A failed refresh must not erase a good rate, but changed pricing/catalogue/mappings or intentionally disabled routes must not reuse a previous configuration's publication.
 
 The user requires the entire supplied currency-code catalogue to be available in the Admin XML method selectors, not a partial import or silently limited list.
 

@@ -20,7 +20,14 @@ const xmlHeaders = {
 };
 
 router.get("/rates.xml", async (_req, res, next) => {
-  try { res.status(200).set(xmlHeaders).end((await buildRatesXmlPreview()).xml); }
+  try {
+    const preview = await buildRatesXmlPreview();
+    const retained = preview.diagnostics.some(d => d.state === "ready" && d.message.startsWith("Last successful"));
+    res.status(200).set(xmlHeaders).set("X-XML-Rate-Source", retained ? "last-successful" : "fresh")
+      .set("X-XML-Exported-Count", String(preview.exportedCount));
+    if (retained) res.set("Warning", '110 - "XML uses last successful rates while refreshing; customer orders use live quotes"');
+    res.end(preview.xml);
+  }
   catch (error) { next(error); }
 });
 router.get("/admin/rates-xml", requireOwner, async (_req, res, next) => {

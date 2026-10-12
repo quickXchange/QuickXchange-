@@ -20,7 +20,9 @@ export const xmlStaging = () => process.env.NODE_ENV !== "production" && !proces
 export async function readXmlSettings() {
   return (await db.select().from(ratesXmlSettingsTable).where(eq(ratesXmlSettingsTable.id, 1)))[0];
 }
-export async function readXmlMethods(row: XmlSettingsRow | undefined) {
+export async function readXmlMethods(
+  row: XmlSettingsRow | undefined, options: { cacheOnly?: boolean } = {},
+) {
   const [fiat, crypto, capabilities] = await Promise.all([
     db.select({
       id: fiatCurrencyPaymentMethodsTable.id, currencyId: fiatCurrencyPaymentMethodsTable.fiatCurrencyId,
@@ -40,7 +42,7 @@ export async function readXmlMethods(row: XmlSettingsRow | undefined) {
       assetLifecycle: cryptoAssetsTable.lifecycle,
       decimals: cryptoAssetNetworksTable.decimals, executionMode: cryptoAssetNetworksTable.executionMode,
     }).from(cryptoAssetNetworksTable).innerJoin(cryptoAssetsTable, eq(cryptoAssetsTable.id, cryptoAssetNetworksTable.assetId)),
-    listExecutableProviderCapabilities(),
+    listExecutableProviderCapabilities(options),
   ]);
   const configured = new Map(row?.methods.map(m => [m.optionId, m]) ?? []);
   // Fiat codes require operator intent; crypto defaults use exact approved chain identities.
@@ -72,8 +74,10 @@ export async function readXmlMethods(row: XmlSettingsRow | undefined) {
     });
   }
   methods.sort((a, b) => a.name.localeCompare(b.name) || a.optionId.localeCompare(b.optionId));
-  const catalogFingerprint = createHash("sha256").update(JSON.stringify({ fiat, crypto,
-    capabilities: capabilities.map(c => [c.providerId, c.networkId, c.assetCode, c.networkCode]),
+  // Remote catalogue availability is not an operator configuration change.
+  const catalogFingerprint = createHash("sha256").update(JSON.stringify({
+    fiat: [...fiat].sort((a, b) => a.id.localeCompare(b.id)),
+    crypto: [...crypto].sort((a, b) => a.id.localeCompare(b.id)),
   })).digest("hex");
   return { methods, capabilities, catalogFingerprint };
 }
@@ -86,4 +90,13 @@ export async function readXmlAdmin() {
 }
 export function xmlReviewHash(version: number, methods: XmlMethod[], pricing: unknown) {
   return createHash("sha256").update(JSON.stringify({ version, methods, pricing })).digest("hex");
+}
+
+export function xmlPublicationConfigurationHash(
+  version: number, methods: XmlMethod[], pricing: Array<{ id: string }>,
+  catalogFingerprint: string, staging: boolean,
+) {
+  return xmlReviewHash(version, methods.filter(method => method.kind !== "provider"), {
+    pricing: [...pricing].sort((a, b) => a.id.localeCompare(b.id)), catalogFingerprint, staging,
+  });
 }

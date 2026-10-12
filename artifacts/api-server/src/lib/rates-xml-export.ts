@@ -13,10 +13,11 @@ import {
 } from "./rates-xml-format";
 import {
   readXmlSettings, readXmlMethods, XML_CODE_LOOKUP, STAGING_ONLY_XML_CODES,
-  xmlStaging, xmlReviewHash, type XmlMethod,
+  xmlStaging, xmlPublicationConfigurationHash, type XmlMethod,
 } from "./rates-xml-methods";
 import { onRatesXmlChange } from "./rates-xml-cache";
-import { XmlQuoteRefresh, type XmlCachedQuote } from "./rates-xml-refresh";
+import { XmlQuoteRefresh, xmlDiscoveryDeadline, type XmlCachedQuote } from "./rates-xml-refresh";
+import { readPublishedXmlQuotes, savePublishedXmlQuote } from "./rates-xml-publication";
 
 type Diagnostic = typeof GetAdminRatesXmlPreviewResponse._output.diagnostics[number];
 const quoteCache = new Map<string, XmlCachedQuote<RatesXmlItem>>();
@@ -102,10 +103,18 @@ export async function priceXmlConvert(
 export async function buildRatesXmlPreview(staging = xmlStaging()) {
   const row = await readXmlSettings();
   const [{ methods, capabilities, catalogFingerprint }, pricing, fiat, crypto] = await Promise.all([
-    readXmlMethods(row), db.select().from(manualDeskPricingRulesTable),
+    readXmlMethods(row, { cacheOnly: true }), db.select().from(manualDeskPricingRulesTable),
     listPublicFiatSettlementOptions(), listPublicManualCryptoSettlementOptions(),
   ]);
-  const reviewHash = xmlReviewHash(row?.version ?? 0, methods, { pricing, catalogFingerprint });
+  const reviewHash = xmlPublicationConfigurationHash(row?.version ?? 0, methods, pricing, catalogFingerprint, staging);
+  const published = await readPublishedXmlQuotes(reviewHash);
+  for (const saved of published) {
+    const current = quoteCache.get(saved.key);
+    if (!current || (current.quotedAt ?? 0) < saved.quotedAt)
+      quoteCache.set(saved.key, {
+        until: saved.quotedAt + 30_000, quotedAt: saved.quotedAt, item: saved.quote.item,
+      });
+  }
   const byId = new Map(methods.map(m => [m.optionId, m]));
   const candidates: Array<{ d: Diagnostic; run: () => Promise<RatesXmlItem> }> = [];
   const diagnostics: Diagnostic[] = [], items: Array<{ item: RatesXmlItem; d: Diagnostic }> = [];
@@ -126,8 +135,9 @@ export async function buildRatesXmlPreview(staging = xmlStaging()) {
     add("swap", d.id, d.sourceOptionId, d.targetOptionId, () =>
       priceXmlSwap(d.sourceOptionId, d.targetOptionId, byId.get(d.sourceOptionId)!, byId.get(d.targetOptionId)!));
   }
+  let convertDiscoveryFailed = false;
   try {
-    const config = await getQuickexPublicCapabilityConfig();
+    const config = await xmlDiscoveryDeadline(getQuickexPublicCapabilityConfig(), published.length ? 500 : 2_000);
     if (!config.signedOrders) throw new Error("Convert order execution is not currently enabled and verified.");
     const pairs = config.pairs;
     const capability = new Map(capabilities.map(c => [`${c.assetCode}\0${c.networkCode}`, c]));
@@ -143,10 +153,28 @@ export async function buildRatesXmlPreview(staging = xmlStaging()) {
     }
     if (!pairs.length) throw new Error("No executable Convert directions are currently available from the existing provider route catalog.");
   } catch (error) {
+    // Actual disabled/unmapped catalogues are not outages. Only retryable discovery
+    // failures may reuse previously discovered directions under unchanged config.
+    const status = typeof error === "object" && error !== null && "status" in error
+      ? Number(error.status) : 0;
+    convertDiscoveryFailed = status >= 500 || status === 429;
     diagnostics.push({
       routeId: "convert:availability", functionType: "convert", sourceOptionId: "", targetOptionId: "",
       fromName: "Convert", toName: "Provider routes", state: "omitted", message: problem(error),
     });
+  }
+  if (convertDiscoveryFailed) {
+    for (const saved of published) {
+      const { diagnostic: previous, source, target } = saved.quote;
+      if (previous.functionType !== "convert" || diagnostics.some(d => d.routeId === previous.routeId)) continue;
+      const currentSource = byId.get(source.optionId) ?? (source.kind === "provider" ? source : undefined);
+      const currentTarget = byId.get(target.optionId) ?? (target.kind === "provider" ? target : undefined);
+      if (xmlMethodProblem(currentSource, staging) || xmlMethodProblem(currentTarget, staging)) continue;
+      byId.set(source.optionId, currentSource!); byId.set(target.optionId, currentTarget!);
+      const d = { ...previous, state: "ready" as const,
+        message: "Last successful XML rate; provider discovery refresh is temporarily unavailable." };
+      diagnostics.push(d); items.push({ item: saved.quote.item, d });
+    }
   }
   // Reject ambiguous code pairs BEFORE fetching quotes; availability must not
   // arbitrarily select one method simply because another quote was slower.
@@ -161,14 +189,29 @@ export async function buildRatesXmlPreview(staging = xmlStaging()) {
     else for (const candidate of group)
       candidate.d.message = "Multiple methods map to the same XML currency pair. Assign distinct appropriate codes.";
   }
+  const candidateByKey = new Map<string, typeof readyCandidates[number]>(readyCandidates.map(candidate =>
+    [`${reviewHash}:${candidate.d.routeId}`, candidate] as const));
+  const hasPublishedRates = items.length > 0 || readyCandidates.some(candidate =>
+    quoteCache.get(`${reviewHash}:${candidate.d.routeId}`)?.item);
   await quoteRefresh.refresh(`${generation}:${reviewHash}`, readyCandidates.map(candidate => ({
     key: `${reviewHash}:${candidate.d.routeId}`, run: candidate.run,
-  })), quoteCache, () => generation === cacheGeneration);
+  })), quoteCache, () => generation === cacheGeneration, hasPublishedRates ? 0 : 8_000,
+  async (key, item, quotedAt) => {
+    const candidate = candidateByKey.get(key)!;
+    await savePublishedXmlQuote(reviewHash, key, {
+      item, source: byId.get(candidate.d.sourceOptionId)!,
+      target: byId.get(candidate.d.targetOptionId)!, diagnostic: candidate.d,
+    }, quotedAt);
+  });
   for (const candidate of readyCandidates) {
     const cached = quoteCache.get(`${reviewHash}:${candidate.d.routeId}`);
-    const entry = cached && cached.until > Date.now() ? cached : undefined;
+    // Freshness controls refresh scheduling, not whether a successful rate disappears.
+    const entry = cached;
     if (entry?.item) {
-      candidate.d.state = "ready"; candidate.d.message = "Current executable pricing.";
+      candidate.d.state = "ready";
+      candidate.d.message = entry.until > Date.now() && !entry.reason
+        ? "Current executable pricing."
+        : `Last successful XML rate (${new Date(entry.quotedAt!).toISOString()}); refresh pending.`;
       items.push({ item: entry.item, d: candidate.d });
     } else candidate.d.message = entry?.reason ?? "Current quote refresh is pending. Retry shortly.";
   }
@@ -188,13 +231,13 @@ export async function buildRatesXmlPreview(staging = xmlStaging()) {
   }
   const latestRow = await readXmlSettings();
   const [{ methods: latestMethods, catalogFingerprint: latestCatalog }, latestPricing] = await Promise.all([
-    readXmlMethods(latestRow), db.select().from(manualDeskPricingRulesTable),
+    readXmlMethods(latestRow, { cacheOnly: true }), db.select().from(manualDeskPricingRulesTable),
   ]);
-  if (generation !== cacheGeneration || reviewHash !== xmlReviewHash(latestRow?.version ?? 0,
-    latestMethods, { pricing: latestPricing, catalogFingerprint: latestCatalog }))
+  if (generation !== cacheGeneration || reviewHash !== xmlPublicationConfigurationHash(latestRow?.version ?? 0,
+    latestMethods, latestPricing, latestCatalog, staging))
     throw new Error("Configuration changed during XML generation. Refresh to use the latest settings.");
   if (quoteCache.size > 10_000) {
-    for (const [key, entry] of quoteCache) if (entry.until <= Date.now()) quoteCache.delete(key);
+    for (const key of quoteCache.keys()) if (!key.startsWith(`${reviewHash}:`)) quoteCache.delete(key);
   }
   accepted.sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
   return GetAdminRatesXmlPreviewResponse.parse({

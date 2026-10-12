@@ -1,5 +1,19 @@
-export type XmlCachedQuote<T> = { until: number; item?: T; reason?: string };
+export type XmlCachedQuote<T> = { until: number; item?: T; reason?: string; quotedAt?: number };
 export type XmlQuoteTask<T> = { key: string; run: () => Promise<T> };
+
+/** XML discovery may warm the provider catalogue, but must not block cached publication. */
+export async function xmlDiscoveryDeadline<T>(work: Promise<T>, waitMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([work, new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(Object.assign(
+        new Error("XML provider discovery is slow; retaining last successful rates."), { status: 503 },
+      )), waitMs);
+    })]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 /** One bounded-concurrency refresh per configuration; continue warming after HTTP returns. */
 export class XmlQuoteRefresh<T> {
@@ -8,6 +22,7 @@ export class XmlQuoteRefresh<T> {
   async refresh(
     scope: string, tasks: XmlQuoteTask<T>[], cache: Map<string, XmlCachedQuote<T>>,
     isCurrent: () => boolean, waitMs = 8_000,
+    onSuccess?: (key: string, item: T, quotedAt: number) => Promise<void>,
   ): Promise<void> {
     let flight = this.flights.get(scope);
     if (!flight) {
@@ -19,9 +34,15 @@ export class XmlQuoteRefresh<T> {
           let entry: XmlCachedQuote<T>;
           try {
             const item = await task.run();
-            entry = { until: Date.now() + 30_000, item };
+            const quotedAt = Date.now();
+            entry = { until: quotedAt + 30_000, item, quotedAt };
+            if (isCurrent() && onSuccess) {
+              try { await onSuccess(task.key, item, quotedAt); }
+              catch { console.warn("XML quote publication persistence failed; retaining the verified in-memory rate."); }
+            }
           } catch (error) {
-            entry = { until: Date.now() + 5_000,
+            // A transport failure must never erase an already verified publication rate.
+            entry = { ...cache.get(task.key), until: Date.now() + 5_000,
               reason: error instanceof Error ? error.message : "Current pricing is unavailable." };
           }
           if (isCurrent()) cache.set(task.key, entry);
