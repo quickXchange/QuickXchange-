@@ -210,3 +210,31 @@ mtime_ms = 1791409668530
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/ae730a74-12d8-4e71-b919-72663ca114f7/d7216838-1971-4f2b-88f2-4592afb12530"
 storage_version_token = "1791409669051074"
 content_type = "text/html"
+
+[[outputs]]
+id = "s-bG57cYuvyyqK4YIcIwv"
+uri = "file://WHITELABEL_BLUEPRINT.md"
+type = "text"
+title = "White-label Exchange Blueprint"
+description = "Architecture, feature/page inventory, hardcoded-value source references, CORE/customizable split, environment ownership and new-company launch checklist."
+logical_id = "b247bdee-2229-4cc0-a6e3-a3f3125abc0c"
+content_hash = "sha256:98aec9961e8896b315f581b12bdeb3bdc105e97d6911bb9e2df3002639e930fb"
+size = 544238
+mtime_ms = 1791766697175
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/b247bdee-2229-4cc0-a6e3-a3f3125abc0c/223fdf99-56d0-4183-97a5-8442841fc064"
+storage_version_token = "1791766845827603"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "P0xj-RyXPDZcP9mx5bpq5"
+uri = "file://tenant-config.json"
+type = "unspecified"
+title = "Tenant Configuration JSON Schema"
+description = "Validated draft 2020-12 planning schema with 265 persisted configuration fields plus branding, provider and launch settings. Contains no real secret values; not connected to the running application."
+logical_id = "2a6a2513-ddd8-4e88-b1bf-37b96475684e"
+content_hash = "sha256:bef06c7998ece5fd9506bb48ae4c3f1b72f2424bcc3d7a2d0089a285fa4345a6"
+size = 285745
+mtime_ms = 1791766820279
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/2a6a2513-ddd8-4e88-b1bf-37b96475684e/e3931697-d390-49d0-afcd-ae5e8a4e4252"
+storage_version_token = "1791766846531474"
+content_type = "application/octet-stream"
