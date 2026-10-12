@@ -1,0 +1,82 @@
+Prepare a COMPLETE, self-contained export of the existing QuickXchange exchange system for reuse in my separate VYNOX Layer project.
+
+I want EVERYTHING as currently implemented, not just configuration modules or a high-level blueprint.
+
+Include the actual source code, UI components, styles, assets, database schemas, APIs, services, dependencies, and documentation.
+
+Preserve the exact existing organization, layout, design, behavior, and functionality.
+
+Include ALL of the following:
+
+1. COMPLETE ADMIN PANEL
+
+- Every page, tab, sidebar item and navigation structure
+- Dashboard, statistics, orders, View Order and order details
+- All tables, forms, filters, search, bulk actions and modals
+- Crypto Assets, Networks, Payment Methods, Banks, Routes, Pricing, Fees, Limits and Reserves
+- Wallets, Deposit Addresses, API Integrations, Provider Settings and monitoring
+- All other existing Admin modules and settings
+- Roles, permissions, validations and CRUD operations
+
+2. COMPLETE UI/UX
+
+- Exact layouts, spacing, typography, colors and themes
+- Dark Mode and Light Mode
+- Buttons, cards, dropdowns, tables, dialogs and animations
+- Desktop, tablet and mobile responsive behavior
+- Original View Order design and status timeline
+- All icons, logos, crypto/network/bank images, flags and upload components
+- Existing navigation hierarchy and component organization
+
+3. COMPLETE EXCHANGE SYSTEM
+
+- Swap, Convert, Buy and Sell where implemented
+- All existing widgets, steps, forms and order views
+- Pricing, routes, quotes, fees, limits and validation
+- Order creation, tracking, status management and history
+- Provider integrations and wallet configuration
+- Existing supported functionality, without inventing missing features
+
+4. COMPLETE TECHNICAL IMPLEMENTATION
+
+- Frontend components, backend services and API routes
+- Database schema, tables, relations, indexes and migrations
+- Background workers, scheduled jobs and monitoring
+- Authentication, authorization and security controls
+- Configuration files, dependencies and build instructions
+- Existing language and translation system
+- Branding, SEO, content and site settings
+- Environment variable names and secret requirements, without secret values
+
+5. EXACT STRUCTURE AND DOCUMENTATION
+
+- Preserve and document the current Admin Panel menu order
+- Map every screen to its components, APIs and database tables
+- Document all settings, their fields, defaults and dependencies
+- Include screenshots or visual references where available
+- Identify implemented, partial and missing features accurately
+- Provide a complete file manifest and setup instructions
+
+6. VYNOX REUSABILITY
+
+- Create an isolated, portable package that VYNOX can import and adapt.
+- Include all reusable implementation code, not documentation alone.
+- Exclude real customer data, orders, balances, production credentials and secrets.
+- Replace QuickXchange-specific defaults only inside the exported package where necessary.
+- Preserve the original project's code and appearance unchanged.
+- Do not connect QuickXchange and VYNOX through databases, APIs, authentication or runtime infrastructure.
+- Do not build a new multi-tenant system inside QuickXchange.
+
+7. VERIFICATION
+
+- Verify that the package is complete and builds independently where feasible.
+- Check imports, assets, dependencies, schemas and migrations.
+- Fix packaging issues autonomously without changing the original application.
+- Produce a final report listing included modules, files, verification results and any genuinely missing components.
+
+IMPORTANT:
+Do not redesign, simplify, omit or rebuild existing features unnecessarily. Reuse the exact working implementation wherever possible.
+
+QuickXchange must remain completely independent and unchanged. Do not modify Production, live data, deployments, DNS or existing financial operations.
+
+Do not deploy or integrate with VYNOX yet. Only prepare the complete reusable export package and documentation.

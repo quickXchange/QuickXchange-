@@ -238,3 +238,31 @@ mtime_ms = 1791766820279
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/2a6a2513-ddd8-4e88-b1bf-37b96475684e/e3931697-d390-49d0-afcd-ae5e8a4e4252"
 storage_version_token = "1791766846531474"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "3BLTBgxKyJ2hWXststUii"
+uri = "file://.local/generated-artifacts/vynox-export/quickxchange-vynox-complete.zip"
+type = "unspecified"
+title = "Complete QuickXchange Source Export for VYNOX"
+description = "2,035 files • 10.4 MB ZIP. Website, full Admin, API, Telegram bots/Mini App, integrations, assets/catalog, schemas, migrations, tests and setup documentation. Independently build-verified; original project unchanged."
+logical_id = "4bce671c-645b-4484-8ae9-ce6eb6f7cf81"
+content_hash = "sha256:9ad0701aed66210b17d1a5a565cd64080ca0dc52767121ad7f2614786a463a99"
+size = 10443266
+mtime_ms = 1791814784627
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/4bce671c-645b-4484-8ae9-ce6eb6f7cf81/f311a98a-a026-4bd5-af03-37ad2777713a"
+storage_version_token = "1791814802245514"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "xvKwdga4crUicnpHRkEGK"
+uri = "file://.local/generated-artifacts/vynox-export/VYNOX_EXPORT_REPORT.md"
+type = "text"
+title = "VYNOX Export Verification Report"
+description = "Included modules, privacy exclusions, build/migration results and remaining independent setup requirements."
+logical_id = "601e01ee-29ee-4466-909b-88077bb6c907"
+content_hash = "sha256:10c68c6131caf8ec01e256a7d7c4fc0a1aaf01681bc71e564f957e9b351162aa"
+size = 2289
+mtime_ms = 1791814784997
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/601e01ee-29ee-4466-909b-88077bb6c907/65ae2c05-2d82-412e-a029-cf6ed8b1446f"
+storage_version_token = "1791814802851119"
+content_type = "text/markdown"
