@@ -642,7 +642,7 @@ test('My Orders opens customer-safe Swap and Convert details in the Admin-style 
   await page.getByTestId(`view-order-${swap.id}`).click();
   await expect(drawer).toBeVisible();
   await expect(drawer.getByText('SEPA Instant')).toBeVisible();
-  const methodLogo = drawer.locator('.order-exchange-identity .payment-method-logo').first();
+  const methodLogo = drawer.locator('.order-exchange-identity .payment-logo-frame').first();
   await expect(methodLogo).toBeVisible();
   expect(await methodLogo.evaluate(element => getComputedStyle(element).borderRadius)).toBe('50%');
   await expect(drawer.getByText('must-not-show-selected-provider')).toHaveCount(0);

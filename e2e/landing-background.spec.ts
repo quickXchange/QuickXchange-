@@ -107,6 +107,11 @@ async function expectImageMatchesWrapper(image: ReturnType<Page['getByTestId']>)
 
 test('landing artwork stays editable while the live exchange remains clean', async ({ page }) => {
   test.setTimeout(120_000);
+  const browserErrors: string[] = [];
+  page.on('pageerror', error => browserErrors.push(error.stack || error.message));
+  page.on('console', message => {
+    if (message.type() === 'error') browserErrors.push(message.text());
+  });
   const prior: Background = {
     mode: 'preset',
     presetId: 'neon-orbit',
@@ -132,6 +137,17 @@ test('landing artwork stays editable while the live exchange remains clean', asy
   await page.route('**/api/**', async route => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (path === '/api/languages') return json(route, {
+      enabledLanguages: ['en', 'de', 'es', 'fr', 'ko', 'ru', 'uk'],
+      fallbackLanguage: 'en',
+      revision: '0',
+    });
+    if (path.startsWith('/api/languages/dictionaries/')) return json(route, {
+      translations: {},
+    });
+    if (path === '/api/admin/operators') return json(route, [{
+      id: 'landing-owner-e2e', email: 'owner@example.test', role, status: 'active',
+    }]);
 
     if (path === '/api/landing-background') {
       const {
@@ -181,13 +197,13 @@ test('landing artwork stays editable while the live exchange remains clean', asy
       owner: true,
       effectivePermissions: [],
     });
-    if (path === '/api/customer/orders') return json(route, { items: [], total: 0, page: 1, pageSize: 10 });
+    if (path === '/api/account/orders') return json(route, { items: [], total: 0, page: 1, pageSize: 10 });
     return json(route, {});
   });
 
   try {
     await page.goto('/admin/landing-background');
-    await expect(page.getByTestId('admin-landing-background-studio')).toBeVisible();
+    await expect(page.getByTestId('admin-landing-background-studio'), `Browser errors: ${browserErrors.join('\n')}`).toBeVisible();
     await page.getByTestId('preset-quantum-grid').click();
     await page.getByTestId('focal-x-input').fill('28');
     await page.getByTestId('focal-y-input').fill('72');
@@ -250,7 +266,7 @@ test('landing artwork stays editable while the live exchange remains clean', asy
     await expect(page.getByTestId('background-opacity-input')).toHaveValue('100');
     await expect(page.getByTestId('background-blur-input')).toHaveValue('0');
     await page.getByTestId('button-publish').click();
-    await expect(page.getByTestId('publish-notice')).toContainText('published successfully');
+    await expect(page.getByTestId('admin-action-toast')).toContainText('published successfully');
 
     await page.reload();
     await expect(page.getByTestId('preset-quantum-grid')).toHaveClass(/border-primary/);
@@ -310,9 +326,10 @@ test('landing artwork stays editable while the live exchange remains clean', asy
     await page.goto('/admin/landing-background');
     await page.getByTestId('preset-aurora-chain').click();
     await page.getByTestId('button-publish').click();
-    await expect(page.getByTestId('publish-notice')).toContainText('Only owners can publish');
+    await expect(page.getByTestId('admin-action-toast')).toContainText('Only owners can publish');
     expect(live.presetId).toBe('quantum-grid');
   } finally {
+    if (browserErrors.length) console.log('Landing browser diagnostics:', browserErrors.join('\n'));
     role = 'owner';
     live = { ...prior };
     syntheticOperators.clear();

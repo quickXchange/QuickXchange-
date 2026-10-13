@@ -808,6 +808,7 @@ test('previews a manual quote and handles cleared and failed quotes without subm
       contentType: 'application/json',
       body: JSON.stringify({
         quoteId: `quote-${requestBody.amount}`,
+        manualSwapFees: zeroAdditionalFees,
         type: 'manual',
         provider: 'Manual desk',
         fromAsset: 'USD',
@@ -900,7 +901,9 @@ test('previews a manual quote and handles cleared and failed quotes without subm
   await expect(page.getByTestId('button-exchange')).toHaveCount(0);
   await expect(page.getByTestId('input-detail-account_number')).toHaveCount(0);
   await page.getByTestId('button-swap-continue').click();
-  await expect(page.getByTestId('swap-button-submit')).toBeDisabled();
+  await expect(page.getByTestId('button-swap-next')).toBeEnabled();
+  await page.getByTestId('button-swap-next').click();
+  await expect(page.getByTestId('swap-button-submit')).toHaveCount(0);
   await expect(page.getByTestId('input-detail-account_number')).toBeVisible();
   expect(requestedTypes).toEqual(['manual']);
   expect(orderRequests).toBe(0);
@@ -920,7 +923,8 @@ test('previews a manual quote and handles cleared and failed quotes without subm
   await expect(receive).toHaveAttribute('placeholder', '0');
   await expect(receive).toHaveValue('');
   await expect(receive).toHaveAttribute('placeholder', '0');
-  await expect(page.getByText('Quote unavailable', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('form-exchange').locator('.quote-error')).toHaveText('Quote unavailable');
+  await expect(page.getByTestId('swap-addons-quote-status')).toContainText('Quote unavailable');
   await expect(page.getByTestId('button-swap-continue')).toBeDisabled();
   await expect(page.getByTestId('button-exchange')).toHaveCount(0);
   expect(quoteRequests).toBe(3);
@@ -1624,11 +1628,15 @@ test('keeps compact exchange widgets and asset menus usable across viewport size
       inputCenterY: inputBounds.top + inputBounds.height / 2,
       inputLeft: inputBounds.left,
       selectorCenterY: selectorBounds.top + selectorBounds.height / 2,
+      // The compact selector has an intentional optical offset to align
+      // with the amount's typography rather than its input's full line box.
+      selectorOpticalOffset: parseFloat(getComputedStyle(firstSelector).top) || 0,
       selectorLeft: selectorBounds.left,
     };
   });
   expect(mobileFlowSeparation.secondPanelTop).toBeGreaterThanOrEqual(mobileFlowSeparation.firstPanelBottom);
-  expect(Math.abs(mobileFlowSeparation.selectorCenterY - mobileFlowSeparation.inputCenterY)).toBeLessThanOrEqual(1);
+  expect(Math.abs(mobileFlowSeparation.selectorOpticalOffset)).toBeLessThanOrEqual(5);
+  expect(Math.abs(mobileFlowSeparation.selectorCenterY - mobileFlowSeparation.selectorOpticalOffset - mobileFlowSeparation.inputCenterY)).toBeLessThanOrEqual(1);
   expect(mobileFlowSeparation.selectorLeft).toBeGreaterThan(mobileFlowSeparation.inputLeft);
   await expect(page.getByTestId('button-swap-assets')).toBeVisible();
 
@@ -2073,8 +2081,8 @@ test('BBVA order artwork has one transparent circular presentation in both theme
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`/status?order=${orderId}&token=tracking-token-bbva`);
   const summary = page.getByTestId('track-order-exchange-summary');
-  const logo = page.getByTestId('track-order-exchange-sent').locator('.payment-method-logo');
-  const image = logo.locator('img.logo-avatar-img');
+  const logo = page.getByTestId('track-order-exchange-sent').locator('.payment-logo-frame');
+  const image = logo.locator('img.payment-logo-image');
   await expect(summary).toBeVisible();
   await expect(image).toHaveAttribute('src', /bbva-logo-transparent/);
   await expect.poll(() => image.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);

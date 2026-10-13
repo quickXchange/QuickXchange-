@@ -433,7 +433,8 @@ test('Affiliate Payouts link loads the real queue route across widths and after 
   await expect(page.getByTestId(`row-payout-${payoutId}`)).toBeVisible();
   expect(queueRequests).toBeGreaterThan(beforeReload);
   await page.goto('/admin/affiliates');
-  await expect(page.getByTestId(`row-account-${accountId}`).getByRole('link', { name: 'View Payouts' })).toHaveAttribute('href', '/admin/payouts');
+  // The redesigned directory provides one queue action above the table.
+  await expect(page.getByTestId('link-view-affiliate-payouts')).toHaveAttribute('href', '/admin/payouts');
 });
 
 test('Payout queue distinguishes empty, error, and recovered data', async ({ page }) => {

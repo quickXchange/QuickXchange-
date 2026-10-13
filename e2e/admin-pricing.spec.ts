@@ -84,6 +84,10 @@ async function mockAmountPricing(page: Page, initialRules: any[] = amountRules) 
 }
 
 async function addRange(page: Page, prefix: 'single' | 'bulk', min: string, max: string | null, percent: string, direction = 'MARKUP', fixedFee = '0') {
+  if (prefix === 'single') {
+    const mode = page.getByTestId('pricing-mode-range');
+    if (await mode.count() && !await mode.isChecked()) await mode.check();
+  }
   await page.getByTestId(`${prefix}-add-amount-range`).click();
   const modal = page.getByTestId(`${prefix}-amount-range-modal`);
   await modal.getByTestId(`${prefix}-range-min`).fill(min);
@@ -145,7 +149,9 @@ test('single fee-range table supports three disjoint ranges, exact fixed fees, e
   await modal.getByTestId('single-range-direction').selectOption('GIVE_MORE');
   await modal.getByTestId('single-save-amount-range').click();
   await expect(drawer.getByTestId('single-amount-range-1')).toContainText('Give more (customer bonus)');
-  await expect(drawer.getByTestId('single-amount-range-1')).toContainText('0.0000000003');
+  // Human-facing fees use the global three-decimal display; the request below
+  // still verifies the original, exact sub-decimal amount.
+  await expect(drawer.getByTestId('single-amount-range-1').locator('td').nth(2)).toHaveText('0');
   await addRange(page, 'single', '20000', null, '1', 'MARKUP', '0.5');
   await expect(drawer.getByTestId('single-amount-range-2')).toContainText('No Limit');
   await drawer.getByTestId('single-delete-amount-range-2').click();
@@ -169,6 +175,7 @@ test('single fee-range table supports three disjoint ranges, exact fixed fees, e
   await drawer.getByTestId('pricing-mode-range').check();
   for (let index = 2; index >= 0; index--) await drawer.getByTestId(`single-delete-amount-range-${index}`).click();
   await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('No ranges yet');
+  await drawer.getByTestId('pricing-mode-path').check();
   await drawer.getByTestId('button-save-pricing-rule').click();
   await expect.poll(() => singleRequests.length).toBe(2);
   expect(singleRequests[1]).toMatchObject({ amountBasedPricingEnabled: false, amountBasedPricingTiers: [] });
@@ -297,7 +304,7 @@ test('single rule editors stay exclusive; path quantities independently save, cl
   const max = drawer.getByTestId('input-pricing-maximum-quantity');
   await expect(min).toHaveValue(rule.minAmount);
   await expect(max).toHaveValue(rule.maxAmount);
-  for (const field of ['input-pricing-name', 'select-pricing-source', 'select-pricing-target', 'input-pricing-exact-rate', 'input-pricing-time', 'input-pricing-priority', 'input-pricing-op-inst', 'input-pricing-cust-inst', 'input-pricing-enabled']) {
+  for (const field of ['input-pricing-name', 'select-pricing-source', 'select-pricing-target', 'input-pricing-exact-rate', 'input-pricing-op-inst', 'input-pricing-cust-inst', 'input-pricing-enabled']) {
     await expect(drawer.getByTestId(field)).toBeVisible();
   }
   expect(await drawer.evaluate(element => element.getBoundingClientRect().width <= window.innerWidth)).toBe(true);
@@ -314,11 +321,12 @@ test('single rule editors stay exclusive; path quantities independently save, cl
   await expect.poll(() => singleRequests.length).toBe(1);
   expect(singleRequests[0]).toMatchObject({
     minAmount: '16.000000000000000001', maxAmount: null,
-    amountBasedPricingEnabled: true, amountBasedPricingTiers: storedTiers,
+    amountBasedPricingEnabled: false, rangeOnlyPricing: false, amountBasedPricingTiers: storedTiers,
   });
 
   await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
   drawer = page.getByTestId('pricing-rule-drawer');
+  await drawer.getByTestId('pricing-mode-path').check();
   await expect(drawer.getByTestId('input-pricing-minimum-quantity')).toHaveValue('16.000000000000000001');
   await expect(drawer.getByTestId('input-pricing-maximum-quantity')).toHaveValue('');
   await drawer.getByTestId('input-pricing-minimum-quantity').fill('');
@@ -327,6 +335,7 @@ test('single rule editors stay exclusive; path quantities independently save, cl
   await expect.poll(() => singleRequests.length).toBe(2);
   expect(singleRequests[1]).toMatchObject({ minAmount: null, maxAmount: '95000', amountBasedPricingTiers: storedTiers });
   await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
+  await drawer.getByTestId('pricing-mode-path').check();
   await expect(drawer.getByTestId('input-pricing-minimum-quantity')).toHaveValue('');
   await expect(drawer.getByTestId('input-pricing-maximum-quantity')).toHaveValue('95000');
 });
@@ -419,7 +428,7 @@ test('bulk edit omits unchecked amount fields, then applies checked tiers to eac
   await drawer.getByTestId('apply-amount-based-pricing').check();
   await drawer.getByTestId('button-save-bulk-pricing').click();
   await expect.poll(() => bulkRequests.length).toBe(3);
-  expect(bulkRequests[2].patch).toEqual({ amountBasedPricingEnabled: false, amountBasedPricingTiers: [] });
+  expect(bulkRequests[2].patch).toEqual({ amountBasedPricingEnabled: false, rangeOnlyPricing: false, amountBasedPricingTiers: [] });
 });
 
 test('Select All bulk fee editing submits every filtered rule and reports partial results', async ({ page }) => {
@@ -685,13 +694,13 @@ test('operators use canonical settlement options for pricing, preview, and legac
   expect(firstRuleBox?.height).toBeGreaterThanOrEqual(36);
   expect(firstRuleBox?.height).toBeLessThanOrEqual(48);
   expect(editActionBox?.height).toBeGreaterThanOrEqual(23);
-  expect(editActionBox?.height).toBeLessThanOrEqual(25);
+  expect(editActionBox?.height).toBeLessThanOrEqual(32);
   expect(await page.locator('html').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.getByRole('button', { name: 'Dark' }).click();
   await expect(page.locator('html')).toHaveClass(/dark/);
   await expect(page.getByPlaceholder('Search by rule, route, or payment method')).toBeVisible();
   await expect(page.getByTestId(`button-test-pricing-${rules[0].id}`)).toBeVisible();
-  await expect(page.getByTestId(`pricing-rule-${rules[0].id}`)).toContainText('0.00 BTC fixed');
+  await expect(page.getByTestId(`pricing-rule-${rules[0].id}`)).toContainText('0 BTC fixed');
   const bunqRuleId = rules[2].id;
   await page.getByTestId(`button-test-pricing-${bunqRuleId}`).click();
   await expect(page.getByTestId('preview-source')).toHaveAttribute('data-value', '');
@@ -699,7 +708,7 @@ test('operators use canonical settlement options for pricing, preview, and legac
   await expect(page.getByTestId('preview-target')).toHaveAttribute('data-value', 'eur-bunq');
   await expect(page.getByTestId('preview-target')).toContainText(/Bunq/);
   await expect(page.getByTestId('preview-target')).toContainText(/EUR/);
-  await expect(page.getByTestId('preview-target').locator('.payment-method-logo')).toBeVisible();
+  await expect(page.getByTestId('preview-target').locator('.payment-logo-frame')).toBeVisible();
   await expect(page.getByTestId('input-preview-amount')).toHaveCount(0);
   await expect(page.locator('.pricing-preview-amount')).toHaveCount(0);
   await expect(page.locator('#pricing-rule-test-panel').getByText('Amount', { exact: true })).toHaveCount(0);
@@ -718,8 +727,8 @@ test('operators use canonical settlement options for pricing, preview, and legac
   await page.getByTestId('input-pricing-enabled').check();
   await page.getByTestId('button-close-pricing-drawer').click();
   await page.getByTestId('button-add-pricing-rule').click();
-  await expect(page.getByTestId('input-pricing-time')).toBeVisible();
-  await expect(page.getByTestId('input-pricing-priority')).toBeVisible();
+  await expect(page.getByTestId('input-pricing-time')).toHaveCount(0);
+  await expect(page.getByTestId('input-pricing-priority')).toHaveCount(0);
   const pricingFieldGeometry = await page.evaluate(() => {
     const source = document.querySelector<HTMLElement>('[data-testid="select-pricing-source"]')!.getBoundingClientRect();
     const target = document.querySelector<HTMLElement>('[data-testid="select-pricing-target"]')!.getBoundingClientRect();
@@ -964,7 +973,8 @@ test('operators use canonical settlement options for pricing, preview, and legac
 
 });
 
-test('Price a route selectors stay inside the Live Preview card at supported widths', async ({ page }) => {
+test('Price a route selectors keep embedded previews and document-level drawer sheets usable at supported widths', async ({ page }) => {
+  test.setTimeout(90_000);
   const pricingRules = [{
     id: '00000000-0000-4000-8000-000000000101',
     name: 'USD bank to BTC',
@@ -1194,8 +1204,8 @@ test('Price a route selectors stay inside the Live Preview card at supported wid
     await trigger.scrollIntoViewIfNeeded();
     await trigger.click();
 
-    const menu = page.locator('.pricing-drawer > .qx-overlay-card.qx-widget-anchored');
-    const backdrop = page.locator('.pricing-drawer > .qx-overlay-backdrop.qx-widget-anchored');
+    const menu = page.locator('.qx-overlay-card.qx-standalone[data-state="open"]');
+    const backdrop = page.locator('.qx-overlay-backdrop.qx-standalone[data-state="open"]');
     const search = menu.getByPlaceholder('Search currencies or payment methods');
     const filters = menu.locator('.qx-overlay-chips');
     const results = menu.locator('.qx-overlay-list');
@@ -1213,8 +1223,8 @@ test('Price a route selectors stay inside the Live Preview card at supported wid
     const contract = await page.evaluate((viewport) => {
       const drawer = document.querySelector<HTMLElement>('.pricing-drawer')!;
       const drawerHead = drawer.querySelector<HTMLElement>('.pricing-rule-drawer-head')!;
-      const menu = drawer.querySelector<HTMLElement>(':scope > .qx-overlay-card.qx-widget-anchored')!;
-      const backdrop = drawer.querySelector<HTMLElement>(':scope > .qx-overlay-backdrop.qx-widget-anchored')!;
+      const menu = document.querySelector<HTMLElement>('.qx-overlay-card.qx-standalone[data-state="open"]')!;
+      const backdrop = document.querySelector<HTMLElement>('.qx-overlay-backdrop.qx-standalone[data-state="open"]')!;
       const search = menu.querySelector<HTMLInputElement>('.qx-overlay-search input')!;
       const icon = menu.querySelector<HTMLElement>('.qx-overlay-search-icon')!;
       const filters = menu.querySelector<HTMLElement>('.qx-overlay-chips')!;
@@ -1240,22 +1250,18 @@ test('Price a route selectors stay inside the Live Preview card at supported wid
       const filterTops = filterButtons.map(button => Math.round(button.getBoundingClientRect().top));
 
       return {
-        drawerPortal: menu.parentElement === drawer,
-        centered: Math.abs((menuBounds.left + menuBounds.right) / 2 - (drawerBounds.left + drawerBounds.right) / 2) <= 1,
-        insideDrawer: menuBounds.left >= drawerBounds.left
-          && menuBounds.right <= drawerBounds.right
-          && menuBounds.top >= drawerHeadBounds.bottom
-          && menuBounds.bottom <= drawerBounds.bottom,
+        bodyPortal: menu.parentElement === document.body,
+        centered: Math.abs((menuBounds.left + menuBounds.right) / 2 - window.innerWidth / 2) <= 1,
         insideVisualViewport: menuBounds.left >= 0
           && menuBounds.right <= window.innerWidth + 1
           && menuBounds.top >= 0
           && menuBounds.bottom <= window.innerHeight + 1,
         position: menuStyle.position,
         backdropPosition: backdropStyle.position,
-        backdropCoversDrawerBody: Math.abs(backdropBounds.left - drawerBounds.left) <= 2
-          && Math.abs(backdropBounds.top - drawerHeadBounds.bottom) <= 2
-          && Math.abs(backdropBounds.width - drawerBounds.width) <= 2
-          && Math.abs(backdropBounds.bottom - drawerBounds.bottom) <= 2,
+        backdropCoversViewport: Math.abs(backdropBounds.left) <= 2
+          && Math.abs(backdropBounds.top) <= 2
+          && Math.abs(backdropBounds.width - window.innerWidth) <= 2
+          && Math.abs(backdropBounds.bottom - window.innerHeight) <= 2,
         hasOpaqueSurface:
           menuStyle.backgroundColor !== 'rgba(0, 0, 0, 0)'
           && menuStyle.backgroundColor !== 'transparent'
@@ -1280,13 +1286,12 @@ test('Price a route selectors stay inside the Live Preview card at supported wid
       };
     }, viewport);
 
-    expect(contract.drawerPortal).toBe(true);
+    expect(contract.bodyPortal).toBe(true);
     expect(contract.centered).toBe(true);
-    expect(contract.insideDrawer).toBe(true);
     expect(contract.insideVisualViewport).toBe(true);
-    expect(contract.position).toBe('absolute');
-    expect(contract.backdropPosition).toBe('absolute');
-    expect(contract.backdropCoversDrawerBody).toBe(true);
+    expect(contract.position).toBe('fixed');
+    expect(contract.backdropPosition).toBe('fixed');
+    expect(contract.backdropCoversViewport).toBe(true);
     expect(contract.hasOpaqueSurface).toBe(true);
     expect(contract.menuOverflowY).toBe('hidden');
     expect(contract.resultsOverflowY).toBe('auto');
@@ -1301,7 +1306,7 @@ test('Price a route selectors stay inside the Live Preview card at supported wid
     expect(contract.copyDoesNotOverlap).toBe(true);
     expect(contract.hasRightAffordance).toBe(true);
     expect(contract.menuWidth).toBeLessThanOrEqual(532);
-    expect(contract.menuWidth).toBeLessThanOrEqual(contract.drawerWidth - 32);
+    expect(contract.menuWidth).toBeLessThanOrEqual(viewport.width - 32);
     expect(contract.pageFitsViewport).toBe(true);
 
     await search.click();

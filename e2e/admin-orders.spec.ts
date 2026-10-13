@@ -619,7 +619,7 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   const manualExchange = manualRow.locator('.order-exchange-cell');
   await expect(manualExchange).toHaveText('');
   await expect(manualExchange.locator('.order-route-logo-frame')).toHaveCount(2);
-  const payseraLogo = manualExchange.locator('.payment-method-logo[data-brand="paysera"]');
+  const payseraLogo = manualExchange.locator('.payment-logo-frame');
   await expect(payseraLogo).toBeVisible();
   const payseraGeometry = await payseraLogo.evaluate((element) => {
     const styles = getComputedStyle(element);
@@ -629,22 +629,22 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
       overflow: styles.overflow,
       objectFit: imageStyles.objectFit,
       hasBackground: styles.backgroundColor !== 'rgba(0, 0, 0, 0)' && styles.backgroundColor !== 'transparent',
-      hasIconFit: element.classList.contains('logo-avatar-fit-icon'),
+      squareFrame: element.getBoundingClientRect().width === element.getBoundingClientRect().height,
     };
   });
   expect(payseraGeometry).toMatchObject({
     borderRadius: '50%',
     overflow: 'hidden',
     objectFit: 'contain',
-    hasBackground: false,
-    hasIconFit: true,
+    hasBackground: true,
+    squareFrame: true,
   });
   await expect(manualExchange.locator('.crypto-logo img[src^="data:image/svg+xml"]').first()).toBeVisible();
   const sepaLogo = page.getByTestId('table-orders')
     .getByTestId(`row-order-${secondManualOrder.id}`)
-    .locator('.payment-method-logo[data-brand="sepa"]');
+    .locator('.payment-logo-frame');
   await expect(sepaLogo).toBeVisible();
-  await expect(sepaLogo).toHaveClass(/logo-avatar-fit-icon/);
+  await expect(sepaLogo).toHaveClass(/payment-logo-frame/);
   await expect(sepaLogo.locator('img')).toHaveAttribute('src', /^data:image\/svg\+xml/);
   await expect(manualRow.locator('.order-amount-cell').locator('img, [data-testid^="asset-mark-"]')).toHaveCount(0);
   await expect(manualExchange).not.toContainText('SEPA transfer');
@@ -807,7 +807,7 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
       { id: secondManualOrder.id, recordVersion: 0 },
     ],
   });
-  await expect(page.getByTestId('notice-bulk-result')).toContainText('2 restored successfully');
+  await expect(page.getByTestId('admin-action-toast')).toContainText('2 restored successfully');
   await page.getByTestId('checkbox-select-all-orders').check();
   await page.getByTestId(`row-menu-trigger-${manualOrder.id}`).click();
   await expect(page.getByTestId(`row-menu-restore-${manualOrder.id}`)).toBeVisible();
