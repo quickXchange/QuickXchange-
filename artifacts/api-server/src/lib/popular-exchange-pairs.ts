@@ -3,6 +3,7 @@ import { db, manualDeskPricingRulesTable, ordersTable } from "@workspace/db";
 import { evaluateManualPricingCoverage } from "./manual-desk-pricing";
 import { listPublicManualCryptoSettlementOptions } from "./manual-crypto";
 import { listPublicFiatSettlementOptions } from "./payment-methods";
+import { logger } from "./logger";
 import {
   getQuickexPublicPairs,
   listExecutableProviderCapabilities,
@@ -279,7 +280,12 @@ export async function getPopularExchangePairs(): Promise<PopularExchangePairsRes
   const now = Date.now();
   if (cache && cache.expiresAt > now) return cache.data;
   if (cache && cache.staleUntil > now) {
-    void refreshPopularPairs();
+    void refreshPopularPairs().catch(() => {
+      logger.warn(
+        { code: "POPULAR_PAIRS_REFRESH_FAILED" },
+        "Could not refresh popular exchange pairs; keeping cached shortcuts.",
+      );
+    });
     return cache.data;
   }
   return refreshPopularPairs();

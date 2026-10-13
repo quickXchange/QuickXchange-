@@ -5,12 +5,17 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import test, { after, before } from "node:test";
 import { createPrivilegedTestPool } from "@workspace/db/test-admin";
 
+if (process.env.API_TEST_DISPOSABLE_DATABASE !== "1") {
+  throw new Error("Operator integration tests require the isolated API test database.");
+}
+
 const createdOperatorIds = new Set<string>();
 const createdOrderIds = new Set<string>();
 const createdQuickexOrderIds = new Set<string>();
 const createdCustomerEmails = new Set<string>();
 const createdPaymentMethodIds = new Set<string>();
 const createdTeamRoleIds = new Set<string>();
+const createdPaymentEvidenceIds = new Set<string>();
 const verifiedEmails = new Map<string, string>();
 const verifiedSecondFactors = new Map<string, boolean>();
 const totpEnrollments = new Map<string, boolean>();
@@ -25,6 +30,7 @@ let customerNotifications: typeof import("../src/lib/customer-status-notificatio
 let operatorRoutes: typeof import("../src/routes/operators");
 let quoteTickets: typeof import("../src/lib/quote-ticket");
 let orderAccess: typeof import("../src/lib/order-access");
+let originalNotificationSettings: typeof database.notificationSettingsTable.$inferSelect | undefined;
 const deliveredCustomerNotifications: import(
   "../src/lib/customer-status-notifications"
 ).CustomerStatusNotification[] = [];
@@ -131,6 +137,7 @@ async function seedOrder(input: {
   provider?: string;
   status?: string;
   createdAt?: Date;
+  funded?: boolean;
 }) {
   const id = input.id ?? `QX-${randomUUID()}`;
   const customerEmail = input.customerEmail ?? uniqueEmail("customer-order");
@@ -140,10 +147,10 @@ async function seedOrder(input: {
       id,
       type: "manual",
       status: input.status ?? "pending",
-      fromAsset: "EUR",
-      fromNetwork: "SEPA",
-      toAsset: "USDT",
-      toNetwork: "TRC20",
+      fromAsset: input.funded ? "BTC" : "EUR",
+      fromNetwork: input.funded ? "Bitcoin" : "SEPA",
+      toAsset: input.funded ? "EUR" : "USDT",
+      toNetwork: input.funded ? "SEPA" : "TRC20",
       amount: "450",
       receiveAmount: "475",
       customerEmail,
@@ -157,6 +164,7 @@ async function seedOrder(input: {
       paymentMethod: "private-payment-method",
       payoutMethod: "private-payout-method",
       provider: input.provider ?? "Manual desk",
+      fundingProviderSource: input.funded ? "whitebit" : "manual",
       note: "private operator note",
       providerReference: "private-provider-reference",
       providerOrderId: "private-provider-order-id",
@@ -171,6 +179,22 @@ async function seedOrder(input: {
     })
     .returning();
   createdOrderIds.add(order.id);
+  if (input.funded) {
+    // Synthetic, already-processed provider evidence, only in the disposable
+    // database. These tests exercise notification consumers, not settlement.
+    const [payment] = await database.db.insert(database.whitebitDepositsTable).values({
+      orderId: order.id,
+      ticker: order.fromAsset,
+      providerTicker: order.fromAsset,
+      network: order.fromNetwork,
+      address: order.depositAddress!,
+      amount: order.amount,
+      status: "processed",
+      providerIdentity: `operator-notification-${randomUUID()}`,
+      creditedAt: new Date(),
+    }).returning({ id: database.whitebitDepositsTable.id });
+    createdPaymentEvidenceIds.add(payment.id);
+  }
   return order;
 }
 
@@ -326,6 +350,27 @@ before(async () => {
   process.env.LOG_LEVEL = "silent";
   process.env.SESSION_SECRET = "customer-order-history-test-secret";
   database = await import("@workspace/db");
+  [originalNotificationSettings] = await database.db.select()
+    .from(database.notificationSettingsTable)
+    .where(eq(database.notificationSettingsTable.id, "global")).limit(1);
+  const notificationFixture = {
+    emailEnabled: true,
+    processingEnabled: true,
+    completedEnabled: true,
+    failedCancelledEnabled: true,
+    customerEmailProcessingEnabled: true,
+    customerEmailCompletedEnabled: true,
+    customerEmailFailedCancelledEnabled: true,
+    adminNotificationsEnabled: false,
+    adminEmailEnabled: false,
+    telegramEnabled: false,
+  };
+  await database.db.insert(database.notificationSettingsTable)
+    .values({ id: "global", ...notificationFixture })
+    .onConflictDoUpdate({
+      target: database.notificationSettingsTable.id,
+      set: notificationFixture,
+    });
   operatorAuth = await import("../src/lib/operator-auth");
   customerAuth = await import("../src/lib/customer-auth");
   customerNotifications = await import("../src/lib/customer-status-notifications");
@@ -352,6 +397,12 @@ before(async () => {
 
 after(async () => {
   if (closeApi) await closeApi();
+  if (createdPaymentEvidenceIds.size) {
+    await privilegedTestPool.query(
+      "DELETE FROM whitebit_deposits WHERE id = ANY($1::uuid[])",
+      [[...createdPaymentEvidenceIds]],
+    );
+  }
   if (createdOrderIds.size) {
     await database.db
       .delete(database.ordersTable)
@@ -404,6 +455,12 @@ after(async () => {
     await database.db
       .delete(database.operatorsTable)
       .where(inArray(database.operatorsTable.id, ids));
+  }
+  await database.db.delete(database.notificationSettingsTable)
+    .where(eq(database.notificationSettingsTable.id, "global"));
+  if (originalNotificationSettings) {
+    await database.db.insert(database.notificationSettingsTable)
+      .values(originalNotificationSettings);
   }
   await privilegedTestPool.end();
   await database.pool.end();
@@ -1949,6 +2006,7 @@ test("customers control deduplicated, customer-safe status notifications for onl
     customerClerkUserId: customerUserId,
     customerEmail: verifiedSecondaryEmail,
     status: "pending",
+    funded: true,
   });
 
   const signedOut = await request(
@@ -2182,6 +2240,28 @@ test("customers control deduplicated, customer-safe status notifications for onl
   assert.equal(anonymousStored.statusNotificationsEnabled, false);
 });
 
+test("unfunded orders do not emit processing or completed financial notifications", async () => {
+  const operatorUserId = `user_unfunded_operator_${randomUUID()}`;
+  const customerUserId = `user_unfunded_customer_${randomUUID()}`;
+  await seedOperator({ clerkUserId: operatorUserId, role: "owner" });
+  verifiedEmails.set(customerUserId, uniqueEmail("unfunded-customer"));
+  for (const status of ["processing", "completed"]) {
+    const order = await seedOrder({ customerClerkUserId: customerUserId });
+    await database.db.update(database.ordersTable)
+      .set({ statusNotificationsEnabled: true })
+      .where(eq(database.ordersTable.id, order.id));
+    const changed = await request(`/orders/${order.id}`, {
+      method: "PATCH", body: JSON.stringify({ status }),
+    }, operatorUserId);
+    assert.equal(changed.status, 200);
+    const events = await database.db.select()
+      .from(database.customerStatusNotificationEventsTable)
+      .where(eq(database.customerStatusNotificationEventsTable.orderId, order.id));
+    assert.equal(events.length, 0, `unfunded ${status} must not imply payment`);
+    assert.equal(await customerNotifications.processCustomerStatusNotificationOutbox(1, order.id), 0);
+  }
+});
+
 test("bulk order status and archive mutations are bounded, fenced, authorized, and independently audited", async () => {
   const ownerUserId = `user_bulk_owner_${randomUUID()}`;
   const assigneeUserId = `user_bulk_assignee_${randomUUID()}`;
@@ -2198,6 +2278,7 @@ test("bulk order status and archive mutations are bounded, fenced, authorized, a
   const success = await seedOrder({
     customerClerkUserId: customerUserId,
     status: "awaiting funds",
+    funded: true,
   });
   const providerManaged = await seedOrder({
     provider: "Quickex",
@@ -2383,7 +2464,8 @@ test("bulk order status and archive mutations are bounded, fenced, authorized, a
   assert.equal(restoredOutcome.order.archivedAt, null);
   const archiveAudits = await database.db.select()
     .from(database.orderAuditLogsTable)
-    .where(eq(database.orderAuditLogsTable.orderId, archiveTarget.id));
+    .where(eq(database.orderAuditLogsTable.orderId, archiveTarget.id))
+    .orderBy(database.orderAuditLogsTable.nextVersion);
   assert.deepEqual(
     archiveAudits.map((entry) => entry.action),
     ["order.archived", "order.restored"],
@@ -2445,6 +2527,7 @@ test("expired notification claims are fenced from overwriting the current worker
   const order = await seedOrder({
     customerClerkUserId: customerUserId,
     status: "pending",
+    funded: true,
   });
   const enabled = await request(
     `/account/orders/${order.id}/notifications`,
@@ -2487,7 +2570,12 @@ test("expired notification claims are fenced from overwriting the current worker
 
   try {
     const staleWorker = customerNotifications.processCustomerStatusNotificationOutbox(1, order.id);
-    await firstStarted;
+    await Promise.race([
+      firstStarted,
+      staleWorker.then(() => {
+        throw new Error("Expected a funded notification to reach the delivery stub.");
+      }),
+    ]);
     const [firstClaim] = await database.db
       .select()
       .from(database.customerStatusNotificationEventsTable)
@@ -2538,6 +2626,7 @@ test("ambiguous customer email sends recover with one provider-side delivery", a
   const order = await seedOrder({
     customerClerkUserId: customerUserId,
     status: "pending",
+    funded: true,
   });
   const enabled = await request(
     `/account/orders/${order.id}/notifications`,
@@ -2623,6 +2712,7 @@ test("customer emails are not retried after the provider idempotency safety wind
   const order = await seedOrder({
     customerClerkUserId: customerUserId,
     status: "pending",
+    funded: true,
   });
   const enabled = await request(
     `/account/orders/${order.id}/notifications`,
@@ -2689,6 +2779,7 @@ test("concurrent order status updates serialize into contiguous notification ver
   const order = await seedOrder({
     customerClerkUserId: customerUserId,
     status: "pending",
+    funded: true,
   });
   const enabled = await request(
     `/account/orders/${order.id}/notifications`,

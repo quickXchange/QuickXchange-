@@ -26,3 +26,9 @@ When cloning the Development database for a broad integration suite, retain its 
 **Why:** A full-data restore with `--no-acl` succeeds as the owner, but the test application then receives `permission denied` on ordinary tables; this is a test-clone defect, not an application permission regression.
 
 **How to apply:** Preserve grants in the dump and restore, block real provider calls in the isolated test process, and drop only the disposable database after the suite.
+
+Notification regression fixtures must include authoritative funding evidence that matches the order's funding source, and set their own delivery toggles in the disposable database. Never weaken payment-proof safeguards to satisfy old status-only fixtures.
+
+**Why:** Historical status-notification tests expected delivery without any verified payment. They failed under the correct financial safeguards; a lease-recovery test then waited indefinitely for a delivery callback that suppression prevented.
+
+**How to apply:** Use synthetic processed provider evidence or applied chain evidence consistent with the fixture's funding source. Cover unfunded suppression separately. Race callback waits against worker completion so a suppressed event fails promptly rather than hanging. Restore isolated settings and remove only owned evidence through privileged test cleanup.

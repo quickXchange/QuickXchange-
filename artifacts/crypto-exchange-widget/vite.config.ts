@@ -50,7 +50,14 @@ export default defineConfig(async ({ mode }) => {
           configureServer(server) {
             server.middlewares.use((req, res, next) => {
               const requestPath = req.url?.split('?')[0];
-              const body = requestPath === '/api/site-content'
+              const body = requestPath === '/api/languages'
+                // Test-only configuration; dictionaries still use the real i18n runtime.
+                ? { enabledLanguages: ['en'], fallbackLanguage: 'en', revision: 'e2e' }
+                : requestPath?.startsWith('/api/languages/dictionaries/')
+                  ? { translations: {} }
+                  : requestPath === '/api/admin/crypto-networks'
+                    ? []
+                  : requestPath === '/api/site-content'
                 ? publishedSiteContentStub
                 : requestPath === '/api/site-navigation'
                   ? []

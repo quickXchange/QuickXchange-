@@ -8,3 +8,9 @@ When a browser test opens a privileged dialog, mock every endpoint the dialog re
 **Why:** An unmocked permission-status request fell through to an unauthorized response that a client treated as data, crashing the dialog. A partial route preview then made supported routes appear unselectable. Both looked like UI regressions while the real issue was incomplete test setup.
 
 **How to apply:** Inspect all queries used by the opened dialog, mock read-only statuses explicitly, and make preview fixtures include both execution eligibility and exact mapping metadata. Keep user-visible assertions and normal click behavior rather than forcing clicks or skipping the flow.
+
+Standalone browser fixtures must also satisfy shared language settings and dictionary bootstrap before any page-specific assertions.
+
+**Why:** The language provider correctly withheld the app when those endpoints were missing. Once bootstrap was supplied, an unmocked Admin route-list query received the Vite HTML fallback instead of an array and crashed the page, hiding the real fixture defect.
+
+**How to apply:** Supply explicit test-only language configuration and dictionary overrides using the existing contracts. Audit newly mounted shared summaries for additional API reads, especially array endpoints, rather than altering real UI or weakening authorization to make tests pass.

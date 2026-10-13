@@ -8,3 +8,9 @@ Popular Convert and Swap routes must be ranked separately from recent completed 
 **Why:** A static shortcut list becomes stale, but calculating popularity on every landing request adds database load and can expose disabled routes. Product modes also carry different route identities: Convert requires exact asset-network legs, while Swap requires exact settlement option IDs.
 
 **How to apply:** Cache a bounded recent-history aggregation, serve stale data while refreshing in the background, and fill sparse rankings only from currently enabled route combinations. Keep test-order exclusion explicit in persisted data rather than guessing from customer fields. Hydrate clicked cards using exact network or settlement-option identities.
+
+Every detached stale-cache refresh caller must observe rejection, even when the periodic timer already has its own catch.
+
+**Why:** An unreachable provider caused a detached shortcut refresh to reject after the cached response had returned, terminating the API process. Handling the timer's promise did not protect the separate request-triggered async promise.
+
+**How to apply:** Attach rejection handling at every fire-and-forget entry point, retain the last successful cache, log a safe diagnostic, and cover both failed refresh and subsequent recovery without changing executable customer quotes.

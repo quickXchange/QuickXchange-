@@ -8,3 +8,9 @@ Node tests bundled into a temporary directory must run without development-only 
 **Why:** A bundled logger transport can resolve its worker relative to temporary output where the worker module was never emitted, producing a post-test asynchronous failure after every assertion passes. Waiting only for `exit` also does not prove inherited stdio and descendant handles are closed.
 
 **How to apply:** Set test mode on targets that import the development logger, preserve ordinary child failures, await `close`, and remove temporary files only afterward. Do not use sleeps, suppress worker errors, or globally change test environments when suites intentionally configure their own runtime state.
+
+Libraries that locate native executables relative to their package must not be bundled into temporary test output.
+
+**Why:** esbuild's JavaScript API rejects being relocated into a test bundle because its executable discovery depends on its original package location.
+
+**How to apply:** Keep executable-locating dependencies external or resolve them from the workspace package at runtime; do not install another copy or change application dependencies to compensate.
