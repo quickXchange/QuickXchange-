@@ -120,11 +120,11 @@ test('owners can validate and integrate Quickex without exposing saved credentia
   await expect(pin).toHaveValue('');
   await expect(publicKey).toBeDisabled();
   await expect(secretKey).toBeDisabled();
-  await expect(page.getByText('Encrypted storage')).toBeVisible();
+  await expect(page.getByText('ENCRYPTED_DB')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Update Quickex' })).toBeVisible();
 
   await page.reload();
-  await expect(page.getByText('Encrypted storage')).toBeVisible();
+  await expect(page.getByText('ENCRYPTED_DB')).toBeVisible();
   await page.getByRole('button', { name: 'Configure Quickex' }).click();
   await expect(page.getByLabel('Public API Key')).toHaveValue('');
   await expect(page.getByLabel('Secret API Key')).toHaveValue('');

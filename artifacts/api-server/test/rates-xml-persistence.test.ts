@@ -18,7 +18,7 @@ if (process.env.API_TEST_DISPOSABLE_DATABASE !== "1")
   throw new Error("XML publication tests require a disposable database.");
 after(() => pool.end());
 
-test("public XML survives cold memory, slow discovery and outages; disabled routes do not return", async () => {
+test("public XML retains cold recovery data but never exports expired or disabled routes", async () => {
   const nativeFetch = globalThis.fetch;
   globalThis.fetch = async () => { throw new Error("External provider I/O disabled in publication tests."); };
   configureQuickexPublicConfigSourceForTests(async () => { throw new ApiError("QUICKEX_NETWORK", "Provider offline", 503); });
@@ -66,27 +66,27 @@ test("public XML survives cold memory, slow discovery and outages; disabled rout
   const url = `http://127.0.0.1:${(server.address() as any).port}/api/rates.xml`;
   const expectRate = async () => {
     const response = await nativeFetch(url);
-    assert.equal(response.status, 200);
-    assert.equal(response.headers.get("x-xml-rate-source"), "last-successful");
-    assert.match(response.headers.get("warning")!, /last successful/);
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get("x-xml-rate-source"), "unavailable");
+    assert.equal(response.headers.get("warning"), null);
     const xml = await response.text();
-    assert.match(xml, /<from>USDTTRC20<\/from>/);
-    assert.match(xml, /<to>BTC<\/to>/);
-    assert.match(xml, /<out>0.00001<\/out>/);
-    assert.ok((Number(response.headers.get("x-xml-exported-count"))) >= 1);
+    assert.doesNotMatch(xml, /<item>/);
+    assert.equal(Number(response.headers.get("x-xml-exported-count")), 0);
+    assert.ok((await readPublishedXmlQuotes(configuration)).some(row => row.key === key),
+      "expired data remains available for recovery, not public publication");
   };
   try {
     invalidateRatesXml(); // Simulate a cold process: only durable publication remains.
     await expectRate();
     configureQuickexPublicConfigSourceForTests(async () => new Promise(() => {}));
     invalidateRatesXml();
-    await expectRate(); // A never-resolving provider does not remove the persisted rate.
+    await expectRate(); // A never-resolving provider does not delete recovery data.
     const networkId = source.optionId.slice("crypto:".length);
     await db.update(cryptoAssetNetworksTable).set({ enabled: false }).where(eq(cryptoAssetNetworksTable.id, networkId));
     invalidateRatesXml();
     configureQuickexPublicConfigSourceForTests(async () => { throw new ApiError("QUICKEX_NETWORK", "Provider offline", 503); });
     const disabled = await nativeFetch(url);
-    assert.equal(disabled.status, 200);
+    assert.equal(disabled.status, 503);
     assert.doesNotMatch(await disabled.text(), /<from>USDTTRC20<\/from>\s*<to>BTC<\/to>/);
   } finally {
     globalThis.fetch = nativeFetch;

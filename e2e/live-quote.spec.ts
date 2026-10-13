@@ -895,7 +895,7 @@ test('previews a manual quote and handles cleared and failed quotes without subm
   await amount.fill('1');
   await expect(receive).toHaveValue('');
   await expect(receive).toHaveAttribute('placeholder', '0');
-  await expect(receive).toHaveValue('0.0001');
+  await expect(receive).toHaveValue('0');
   await expect(page.getByTestId('button-swap-continue')).toBeEnabled();
   await expect(page.getByTestId('button-exchange')).toHaveCount(0);
   await expect(page.getByTestId('input-detail-account_number')).toHaveCount(0);

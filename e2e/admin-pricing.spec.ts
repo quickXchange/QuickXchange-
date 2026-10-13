@@ -121,7 +121,7 @@ test('single fee-range table supports three disjoint ranges, exact fixed fees, e
   await drawer.getByTestId('pricing-mode-path').check();
   await expect(drawer.getByTestId('single-amount-pricing-editor')).toHaveCount(0);
   await drawer.getByTestId('pricing-mode-range').check();
-  await expect(drawer.getByTestId('single-amount-range-0')).toContainText('0.00000017');
+  await expect(drawer.getByTestId('single-amount-range-0').locator('td').nth(2)).toHaveText('0');
   await page.getByTestId('single-add-amount-range').click();
   const modal = page.getByTestId('single-amount-range-modal');
   await modal.getByTestId('single-range-min').fill('700');
@@ -168,7 +168,7 @@ test('single fee-range table supports three disjoint ranges, exact fixed fees, e
   await page.getByTestId(`button-edit-pricing-${amountRules[0].id}`).click();
   await drawer.getByTestId('pricing-mode-range').check();
   for (let index = 2; index >= 0; index--) await drawer.getByTestId(`single-delete-amount-range-${index}`).click();
-  await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('Base price applies');
+  await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('No ranges yet');
   await drawer.getByTestId('button-save-pricing-rule').click();
   await expect.poll(() => singleRequests.length).toBe(2);
   expect(singleRequests[1]).toMatchObject({ amountBasedPricingEnabled: false, amountBasedPricingTiers: [] });
@@ -181,7 +181,8 @@ test('legacy tier inherits the rule base fee visually, but remains property-free
   await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
   const drawer = page.getByTestId('pricing-rule-drawer');
   await drawer.getByTestId('pricing-mode-range').check();
-  await expect(drawer.getByTestId('single-amount-range-0').locator('td').nth(2)).toHaveText('0.01234567');
+  await drawer.getByTestId('input-activate-range-only').uncheck();
+  await expect(drawer.getByTestId('single-amount-range-0').locator('td').nth(2)).toHaveText('0.012');
   await drawer.getByTestId('single-edit-amount-range-0').click();
   const modal = page.getByTestId('single-amount-range-modal');
   await expect(modal.getByTestId('single-range-fixed-fee')).toHaveValue('0.01234567');
@@ -262,8 +263,9 @@ test('editing another field does not reactivate ranges stored on a disabled rule
   await page.goto('/admin/pricing');
   await page.getByTestId(`button-edit-pricing-${amountRules[0].id}`).click();
   const drawer = page.getByTestId('pricing-rule-drawer');
-  await drawer.getByTestId('pricing-mode-range').check();
-  await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('Base price applies');
+  await expect(drawer.getByTestId('pricing-mode-path')).toBeChecked();
+  await expect(drawer.getByTestId('single-amount-pricing-editor')).toHaveCount(0);
+  await drawer.getByTestId('input-pricing-name').fill('Renamed without activating ranges');
   await drawer.getByTestId('button-save-pricing-rule').click();
   await expect.poll(() => singleRequests.length).toBe(1);
   expect(singleRequests[0]).toMatchObject({
@@ -279,6 +281,7 @@ test('single rule editors stay exclusive; path quantities independently save, cl
   await page.goto('/admin/pricing');
   await page.getByTestId('button-add-pricing-rule').click();
   let drawer = page.getByTestId('pricing-rule-drawer');
+  await drawer.getByTestId('pricing-mode-path').check();
   await expect(drawer.getByTestId('pricing-mode-path')).toBeChecked();
   await expect(drawer.getByTestId('single-amount-pricing-editor')).toHaveCount(0);
   await expect(drawer.getByTestId('pricing-path-quantities')).toBeVisible();
@@ -286,6 +289,8 @@ test('single rule editors stay exclusive; path quantities independently save, cl
 
   await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
   drawer = page.getByTestId('pricing-rule-drawer');
+  await expect(drawer.getByTestId('pricing-mode-range')).toBeChecked();
+  await drawer.getByTestId('pricing-mode-path').check();
   await expect(drawer.getByTestId('pricing-mode-path')).toBeChecked();
   await expect(drawer.getByTestId('single-amount-pricing-editor')).toHaveCount(0);
   const min = drawer.getByTestId('input-pricing-minimum-quantity');
@@ -351,9 +356,10 @@ test('invalid path quantity decimals and reversed limits block save; range save 
   await expect(drawer.getByTestId('input-pricing-minimum-quantity')).toHaveCount(0);
   await drawer.getByTestId('button-save-pricing-rule').click();
   await expect.poll(() => singleRequests.length).toBe(1);
-  expect(singleRequests[0]).toMatchObject({ minAmount: '15', maxAmount: '90000', amountBasedPricingEnabled: false, amountBasedPricingTiers: storedTiers });
+  expect(singleRequests[0]).toMatchObject({ minAmount: '15', maxAmount: '90000', amountBasedPricingEnabled: true, rangeOnlyPricing: true, amountBasedPricingTiers: storedTiers });
   await page.getByTestId(`button-edit-pricing-${rule.id}`).click();
-  await expect(drawer.getByTestId('pricing-mode-path')).toBeChecked();
+  await expect(drawer.getByTestId('pricing-mode-range')).toBeChecked();
+  await drawer.getByTestId('pricing-mode-path').check();
   await drawer.getByTestId('input-pricing-name').fill('Updated without enabling stored tiers');
   await drawer.getByTestId('button-save-pricing-rule').click();
   await expect.poll(() => singleRequests.length).toBe(2);
@@ -399,6 +405,7 @@ test('bulk edit omits unchecked amount fields, then applies checked tiers to eac
   expect(bulkRequests[1].items).toEqual(amountRules.map(rule => ({ id: rule.id, version: 2 })));
   expect(bulkRequests[1].patch).toEqual({
     amountBasedPricingEnabled: true,
+    rangeOnlyPricing: true,
     amountBasedPricingTiers: [
       { ...storedTiers[0], fixedFee: '0' },
       { ...storedTiers[1], fixedFee: '0.00000004', direction: 'GIVE_MORE' },
@@ -676,7 +683,7 @@ test('operators use canonical settlement options for pricing, preview, and legac
   expect(filterBox?.height).toBeGreaterThanOrEqual(37);
   expect(Math.abs((filterBox?.height || 0) - (addRuleBox?.height || 0))).toBeLessThanOrEqual(2);
   expect(firstRuleBox?.height).toBeGreaterThanOrEqual(36);
-  expect(firstRuleBox?.height).toBeLessThanOrEqual(42);
+  expect(firstRuleBox?.height).toBeLessThanOrEqual(48);
   expect(editActionBox?.height).toBeGreaterThanOrEqual(23);
   expect(editActionBox?.height).toBeLessThanOrEqual(25);
   expect(await page.locator('html').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);

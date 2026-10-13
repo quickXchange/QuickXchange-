@@ -150,15 +150,16 @@ export async function buildRatesXmlPreview(staging = xmlStaging()) {
   });
   for (const candidate of readyCandidates) {
     const cached = quoteCache.get(`${reviewHash}:${candidate.d.routeId}`);
-    // Freshness controls refresh scheduling, not whether a successful rate disappears.
     const entry = cached;
-    if (entry?.item) {
+    if (entry?.item && entry.until > Date.now() && !entry.reason &&
+        entry.quotedAt !== undefined && entry.quotedAt <= Date.now() &&
+        Date.now() - entry.quotedAt < 30_000) {
       candidate.d.state = "ready";
-      candidate.d.message = entry.until > Date.now() && !entry.reason
-        ? "Current executable pricing."
-        : `Last successful XML rate (${new Date(entry.quotedAt!).toISOString()}); refresh pending.`;
+      candidate.d.message = "Current executable pricing.";
       items.push({ item: entry.item, d: candidate.d });
-    } else candidate.d.message = entry?.reason ?? "Current quote refresh is pending. Retry shortly.";
+    } else candidate.d.message = entry?.item
+      ? "Retained cached publication is expired or unavailable; excluded from public XML."
+      : entry?.reason ?? "Current quote refresh is pending. Retry shortly.";
   }
   // Never silently choose an arbitrary method when two routes share XML codes.
   const grouped = new Map<string, typeof items>();

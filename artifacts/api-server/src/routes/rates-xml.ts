@@ -22,10 +22,10 @@ const xmlHeaders = {
 router.get("/rates.xml", async (_req, res, next) => {
   try {
     const preview = await buildRatesXmlPreview();
-    const retained = preview.diagnostics.some(d => d.state === "ready" && d.message.startsWith("Last successful"));
-    res.status(200).set(xmlHeaders).set("X-XML-Rate-Source", retained ? "last-successful" : "fresh")
+    res.status(preview.exportedCount ? 200 : 503).set(xmlHeaders)
+      .set("X-XML-Rate-Source", preview.exportedCount ? "fresh" : "unavailable")
       .set("X-XML-Exported-Count", String(preview.exportedCount));
-    if (retained) res.set("Warning", '110 - "XML uses last successful rates while refreshing; customer orders use live quotes"');
+    if (!preview.exportedCount) res.set("Retry-After", "30");
     res.end(preview.xml);
   }
   catch (error) { next(error); }

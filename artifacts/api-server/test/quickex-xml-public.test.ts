@@ -4,7 +4,7 @@ import { XMLParser } from "fast-xml-parser";
 import { parsePartnerJson, parsePartnerPair, partnerPairKey, partnerRateParams, partnerRateToXml, partnerRequestQuery,
   fetchPartnerPairs, type PartnerXmlClient, type PartnerPair } from "../src/lib/quickex-xml-public";
 import { serializeRatesXml } from "../src/lib/rates-xml-format";
-import { ConvertXmlRefresh, type ConvertXmlSaved } from "../src/lib/rates-xml-convert-refresh";
+import { ConvertXmlRefresh, freshExecutableXmlRows, type ConvertXmlSaved } from "../src/lib/rates-xml-convert-refresh";
 
 const pair = parsePartnerPair({
   instrumentFrom: { currencyTitle: "BTC", networkTitle: "BTC", slug: "btc", bestChangeCurrencyName: "BTC", reservesAmount: "12.5" },
@@ -29,6 +29,30 @@ const fixture = (read: PartnerXmlClient["read"], saved: ConvertXmlSaved[] = []) 
 };
 const saved = (): ConvertXmlSaved => ({ key: partnerPairKey(pair), pair, item: partnerRateToXml(pair, rate), quotedAt: 0 });
 const failure = (providerStatus: number) => Object.assign(new Error(`Upstream ${providerStatus}`), { providerStatus });
+
+test("public XML requires fresh rates and an executable directed route, preserving canonical network identities", () => {
+  const row = saved();
+  const snapshot = { freshRows: [row] };
+  const route = { fromAsset: "BTC", fromNetwork: "BTC", toAsset: "USDT", toNetwork: "TRC20" };
+  assert.deepEqual(freshExecutableXmlRows(snapshot, [route]), [row]);
+  assert.deepEqual(freshExecutableXmlRows(snapshot, []), []);
+  assert.deepEqual(freshExecutableXmlRows(snapshot, [{ ...route, toNetwork: "BEP20" }]), []);
+  assert.deepEqual(freshExecutableXmlRows({ freshRows: [] }, [route]), []);
+  assert.deepEqual(freshExecutableXmlRows(snapshot, [{
+    fromAsset: "USDT", fromNetwork: "TRC20", toAsset: "BTC", toNetwork: "BTC",
+  }]), []);
+});
+
+test("expired and future-dated cached provider rates remain retained but are not publishable", async () => {
+  const old = saved();
+  const future = { ...saved(), key: "future", quotedAt: 900_000 };
+  const f = fixture(async () => { throw failure(503); }, [old, future]);
+  f.advance();
+  const result = await f.refresh.snapshot(100);
+  assert.equal(result.rows.length, 2);
+  assert.equal(result.freshRows.length, 0);
+  assert.equal(f.stored.size, 2);
+});
 
 test("catalogue and rate requests carry the identical owned affiliate ID and cannot override it", () => {
   const catalogue = partnerRequestQuery({ limit: "1000", offset: "0" }, "same-partner");

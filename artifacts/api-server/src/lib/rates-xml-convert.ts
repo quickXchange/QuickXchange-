@@ -1,9 +1,11 @@
 import { getQuickexXmlPublicClient } from "./quickex";
 import { partnerPairKey, type PartnerPair } from "./quickex-xml-public";
-import { ConvertXmlRefresh, type ConvertXmlSaved } from "./rates-xml-convert-refresh";
+import { ConvertXmlRefresh, freshExecutableXmlRows, type ConvertXmlSaved } from "./rates-xml-convert-refresh";
 import { readPublishedXmlQuotes, savePublishedXmlQuote, removePublishedXmlQuotes } from "./rates-xml-publication";
 import type { XmlMethod } from "./rates-xml-methods";
 import type { GetAdminRatesXmlPreviewResponse } from "@workspace/api-zod";
+import { getQuickexPublicCapabilityConfig } from "./provider-capabilities";
+import { xmlDiscoveryDeadline } from "./rates-xml-refresh";
 
 type Diagnostic = typeof GetAdminRatesXmlPreviewResponse._output.diagnostics[number];
 const method = (pair: PartnerPair, side: "instrumentFrom" | "instrumentTo"): XmlMethod => {
@@ -48,8 +50,15 @@ const refresh = new ConvertXmlRefresh({
 
 export async function readConvertXmlPublication(waitMs = 250) {
   const snapshot = await refresh.snapshot(waitMs);
-  const retained = snapshot.stale || snapshot.refreshing;
-  const diagnostics = snapshot.rows.map(row => diagnostic(row, retained));
+  // Preserve historical publications, but require the same directed executable
+  // catalog as customer Convert and a non-expired provider rate for public XML.
+  const config = await xmlDiscoveryDeadline(getQuickexPublicCapabilityConfig(), 1_000);
+  const publishable = new Set(freshExecutableXmlRows(snapshot,
+    config.signedOrders ? config.pairs : []).map(row => row.key));
+  const diagnostics = snapshot.rows.map(row => publishable.has(row.key)
+    ? diagnostic(row, false)
+    : { ...diagnostic(row, true), state: "omitted" as const,
+      message: "Retained cached publication is expired or not currently executable; excluded from public XML." });
   if (snapshot.error || snapshot.skipped || !snapshot.rows.length) diagnostics.push({
     routeId: "convert-json:availability", functionType: "convert", sourceOptionId: "", targetOptionId: "",
     fromName: "Convert", toName: "Quickex partner JSON", state: "omitted",
@@ -58,7 +67,8 @@ export async function readConvertXmlPublication(waitMs = 250) {
       : snapshot.refreshing ? "Initial Quickex partner JSON refresh is in progress."
       : "No active affiliate directions with valid provider codes, reserves, limits and rates are available."),
   });
-  return { items: snapshot.rows.map((row, i) => ({ item: row.item, d: diagnostics[i] })), diagnostics };
+  return { items: snapshot.rows.flatMap((row, i) =>
+    publishable.has(row.key) ? [{ item: row.item, d: diagnostics[i] }] : []), diagnostics };
 }
 
 /** Refresh even when aggregators are not polling; snapshots persist across restarts. */

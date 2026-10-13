@@ -224,6 +224,23 @@ async function mockLayoutApis(page: Page) {
       catalog: [],
     };
     else if (path === '/api/quickex/config') body = quickexConfig;
+    else if (path === '/api/exchange/quote' || path === '/api/quickex/quote') {
+      const input = request.postDataJSON();
+      const amount = Number(input.amount ?? Number(input.receiveAmount) / 65960);
+      body = {
+        quoteId: 'layout-quote', type: path === '/api/quickex/quote' ? 'instant' : 'manual',
+        provider: path === '/api/quickex/quote' ? 'Quickex' : 'Manual desk',
+        fromAsset: input.fromAsset, fromNetwork: input.fromNetwork,
+        toAsset: input.toAsset, toNetwork: input.toNetwork,
+        amount, receiveAmount: amount * 65960, rate: 65960, fee: 0,
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        manualSwapFees: {
+          selectedAddons: [], addonFee: 0, totalAdditionalFee: 0, existingPricingFee: 0, totalFees: 0,
+          exchangeFee: { enabled: false, percentage: null, fixedAmount: null, fixedCurrency: 'USD',
+            percentageAmount: 0, fixedTargetAmount: 0, totalAmount: 0 },
+        },
+      };
+    }
     else if (path === '/api/admin/summary') body = summary();
     else if (path === '/api/orders') body = { items: [order], total: 1, page: 1, pageSize: 25 };
     else if (path === `/api/orders/${orderId}`) body = order;
@@ -832,19 +849,19 @@ test('every route family stays contained in both themes across responsive widths
   });
   page.on('pageerror', (error) => consoleErrors.push(error.message));
 
-  for (const viewport of routeAuditViewports) {
-    await page.setViewportSize(viewport);
-    for (const theme of ['light', 'dark'] as const) {
+  for (const theme of ['light', 'dark'] as const) {
       // Theme is read while each route mounts. Set it once per viewport/theme,
       // rather than reloading every audited route.
       await page.goto('/');
       await page.evaluate((selectedTheme) => localStorage.setItem('qx-theme', selectedTheme), theme);
       for (const path of routeAuditPaths) {
         await page.goto(path);
-        await expect(page.locator('body')).toBeVisible();
-        await expectNoDocumentOverflow(page, `${theme} ${viewport.name} ${path}`);
+        for (const viewport of routeAuditViewports) {
+          await page.setViewportSize(viewport);
+          await expect(page.locator('body')).toBeVisible();
+          await expectNoDocumentOverflow(page, `${theme} ${viewport.name} ${path}`);
+        }
       }
-    }
   }
   expect(consoleErrors, `route audit logged browser errors:\n${consoleErrors.join('\n')}`).toEqual([]);
 });
@@ -1028,7 +1045,7 @@ test('every top-level Admin route uses the shared logo section and title header'
     ['/admin', 'OPERATIONS / COMMAND CENTER', 'Overview'],
     ['/admin/orders', 'OPERATIONS / ORDERS', 'Orders'],
     ['/admin/revenue', 'FINANCE / REVENUE', 'Revenue'],
-    ['/admin/customers', 'CUSTOMER MANAGEMENT', 'Customers'],
+    ['/admin/customers', 'USER MANAGEMENT', 'Customers'],
     ['/admin/affiliates', 'AFFILIATE PROGRAM', 'Affiliates'],
     ['/admin/payouts', 'FINANCE / PAYOUTS', 'Payouts'],
     ['/admin/affiliate-settings', 'SYSTEM / CONFIGURATION', 'Program Settings'],

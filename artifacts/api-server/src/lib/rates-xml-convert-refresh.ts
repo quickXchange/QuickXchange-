@@ -1,12 +1,29 @@
 import type { RatesXmlItem } from "./rates-xml-format";
+import { automaticXmlCryptoCode } from "./rates-xml-crypto-codes";
 import { fetchPartnerPairs, partnerPairKey, partnerRateParams, partnerRateToXml,
   type PartnerPair, type PartnerXmlClient } from "./quickex-xml-public";
 
 export type ConvertXmlSaved = { key: string; pair: PartnerPair; item: RatesXmlItem; quotedAt: number };
 export type ConvertXmlSnapshot = {
-  rows: ConvertXmlSaved[]; refreshing: boolean; stale: boolean; error?: string;
+  rows: ConvertXmlSaved[]; freshRows: ConvertXmlSaved[]; refreshing: boolean; stale: boolean; error?: string;
   skipped: number; updatedAt?: number;
 };
+/** Public publication uses exact directed identities, not network-title aliases. */
+export function freshExecutableXmlRows(
+  snapshot: Pick<ConvertXmlSnapshot, "freshRows">,
+  routes: { fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string }[],
+) {
+  const identity = (asset: string, network: string) =>
+    automaticXmlCryptoCode(asset, network) ?? `${asset.trim().toUpperCase()}\0${network.trim().toUpperCase()}`;
+  const key = (fromAsset: string, fromNetwork: string, toAsset: string, toNetwork: string) =>
+    `${identity(fromAsset, fromNetwork)}\0${identity(toAsset, toNetwork)}`;
+  const allowed = new Set(routes.map(route =>
+    key(route.fromAsset, route.fromNetwork, route.toAsset, route.toNetwork)));
+  return snapshot.freshRows.filter(row => allowed.has(key(
+    row.pair.instrumentFrom.currencyTitle, row.pair.instrumentFrom.networkTitle,
+    row.pair.instrumentTo.currencyTitle, row.pair.instrumentTo.networkTitle,
+  )));
+}
 type Dependencies = {
   client(): Promise<PartnerXmlClient>;
   load(scope: string): Promise<ConvertXmlSaved[]>;
@@ -161,7 +178,9 @@ export class ConvertXmlRefresh {
     // A successful long-running batch does not make its earliest quotes fresh again.
     const expired = rows.some(row => !Number.isFinite(row.quotedAt) ||
       row.quotedAt > this.now() || this.now() - row.quotedAt >= REFRESH_INTERVAL_MS);
-    return { rows, refreshing: !!this.flight, stale: this.stale || expired,
+    const freshRows = rows.filter(row => Number.isFinite(row.quotedAt) &&
+      row.quotedAt <= this.now() && this.now() - row.quotedAt < REFRESH_INTERVAL_MS);
+    return { rows, freshRows, refreshing: !!this.flight, stale: this.stale || expired,
       error: this.error, skipped: this.skipped, updatedAt: this.updatedAt };
   }
 }

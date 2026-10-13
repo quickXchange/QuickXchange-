@@ -9,6 +9,8 @@ export const modules: ModuleMap = {
   "./components/mockups/order-details-redesign/Current.tsx": () => import("../components/mockups/order-details-redesign/Current.tsx"),
   "./components/mockups/order-details-redesign/DispatchBoard.tsx": () => import("../components/mockups/order-details-redesign/DispatchBoard.tsx"),
   "./components/mockups/order-details-redesign/Redesigned.tsx": () => import("../components/mockups/order-details-redesign/Redesigned.tsx"),
+  "./components/mockups/notification-settings/Current.tsx": () => import("../components/mockups/notification-settings/Current.tsx"),
+  "./components/mockups/notification-settings/Redesign.tsx": () => import("../components/mockups/notification-settings/Redesign.tsx"),
   "./components/mockups/site-content-overhaul/After.tsx": () => import("../components/mockups/site-content-overhaul/After.tsx"),
   "./components/mockups/site-content-overhaul/Current.tsx": () => import("../components/mockups/site-content-overhaul/Current.tsx"),
   "./components/mockups/swap-convert-redesign/Current.tsx": () => import("../components/mockups/swap-convert-redesign/Current.tsx"),
@@ -18,7 +20,5 @@ export const modules: ModuleMap = {
   "./components/mockups/swap-convert-redesign/StructuralReview.tsx": () => import("../components/mockups/swap-convert-redesign/StructuralReview.tsx"),
   "./components/mockups/widget-step-two/ConvertCurrent.tsx": () => import("../components/mockups/widget-step-two/ConvertCurrent.tsx"),
   "./components/mockups/widget-step-two/SwapCurrent.tsx": () => import("../components/mockups/widget-step-two/SwapCurrent.tsx"),
-  "./components/mockups/notification-settings/Current.tsx": () => import("../components/mockups/notification-settings/Current.tsx"),
-  "./components/mockups/notification-settings/Redesign.tsx": () => import("../components/mockups/notification-settings/Redesign.tsx"),
   "./components/mockups/templates/ArtDecoKeynotePoster--xOhV7/App.tsx": () => import("../components/mockups/templates/ArtDecoKeynotePoster--xOhV7/App.tsx")
 };

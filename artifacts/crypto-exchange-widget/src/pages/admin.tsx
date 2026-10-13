@@ -8595,7 +8595,7 @@ function PricingRuleDrawer({ rule, rules, onClose }: { rule?: ManualDeskPricingR
           </div>
         </section>}
         {(!isSingleRoute || editorMode === 'range') &&
-          <AmountBasedPricingEditor prefix="single" tiers={amountTiers} onTiersChange={updateAmountTiers} disabled={rule?.readOnly} inheritedFixedFee="0" />}
+          <AmountBasedPricingEditor prefix="single" tiers={amountTiers} onTiersChange={updateAmountTiers} disabled={rule?.readOnly} inheritedFixedFee={activateRangeOnly ? '0' : form.fixedFee || '0'} />}
          {(!isSingleRoute || editorMode === 'path') && <section className="pricing-path-quantities" aria-label="Path quantity limits" data-testid="pricing-path-quantities">
           <div className="pricing-path-quantities-heading">
             <h3>Path quantity limits</h3>

@@ -56,3 +56,9 @@ Convert XML uses the same platform-owned affiliate identity on every full pair-c
 **Why:** The user supplied Quickex's public JSON migration instructions and requested automatic live Convert XML instead of manual XML configuration. Quickex already applies partner fees; local recalculation would double-charge or misrepresent them.
 
 **How to apply:** Keep the adapter publication-only. Discover the complete paginated affiliate catalogue, skip inactive/malformed/unmapped/ambiguous/self directions, and pace requests against provider limits. The real catalogue is much larger than the PDF's example; discovery and quote population must stay background work, not an HTTP dependency. Preserve original JSON numeric tokens rather than rounding them through JavaScript floating point.
+
+Retained publication data is diagnostic/recovery data, not permission to publish expired rates. Public Convert XML must also respect the existing executable customer Convert catalog.
+
+**Why:** The user explicitly requires fresh, executable XML directions and preservation of cached data without advertising stale rates as live.
+
+**How to apply:** Keep historical snapshots through temporary outages, but exclude expired or non-executable entries from public output. Check freshness per entry, not merely batch completion or a response-wide warning. If no fresh directions remain, report temporary unavailability rather than label an empty or stale feed fresh.
