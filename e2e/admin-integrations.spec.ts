@@ -84,7 +84,7 @@ test('owners can validate and integrate Quickex without exposing saved credentia
   await expect.poll(() => diagnosticsRuns).toBe(1);
   await expect(page.getByText(/authenticated and reachable/)).toBeVisible();
 
-  await page.getByRole('button', { name: 'Add Integration' }).click();
+  await page.getByRole('button', { name: 'Add Quickex' }).click();
   await expect(page.getByRole('heading', { name: 'Integrate Quickex' })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 640 });
 

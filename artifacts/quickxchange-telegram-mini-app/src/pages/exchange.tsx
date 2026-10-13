@@ -1876,7 +1876,7 @@ export default function Exchange() {
                 data-testid="telegram-exchange-policy-checkbox"
               />
               {uiT("customer.m26a58d002b08")}{' '}
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">{uiT("customer.m2af9bc0ac247")}</a>
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">{uiT("customer.m2af9bc0ac247").replaceAll('&amp;', '&')}</a>
               {' '}{uiT("customer.mfd6cc4b3d6ca")}{' '}
               <a href="/aml-kyc" target="_blank" rel="noopener noreferrer" className="text-primary underline">{uiT("customer.mc919b05df73d")}</a>.
               {' '}{uiT("customer.me72d5d60442c")}{' '}</label>

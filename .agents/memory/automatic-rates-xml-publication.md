@@ -27,6 +27,12 @@ Quote refresh must not make an HTTP XML request wait for the entire provider rou
 
 **How to apply:** Preserve canonical Swap quote calls and provider/configuration fencing. Bound response wait, not the set of directions eventually checked. Persist last successful public items across process restarts, identify retained rates in response headers, and never manufacture rates for directions without a successful quote. Retained XML is advisory only; customer orders still require live pricing.
 
+Judge Convert XML freshness by each retained provider quote's timestamp, not only by the completion time of the full route refresh.
+
+**Why:** In a slow, bounded-concurrency refresh, the first route may be expired by the time the last route completes; a successful batch does not renew those earlier quotes.
+
+**How to apply:** Keep expired successful rows available as last-successful with explicit stale response metadata until provider recovery, but never identify them as live. Continue to fence removed routes and credential changes; customer Convert quotes must still come from the live provider.
+
 The user requested removal of the dedicated Rates XML section from Admin while keeping `/api/rates.xml` operating automatically.
 
 **Why:** The user explicitly asked to delete the Admin section and fix intermittent disappearing rates caused by slow requests.

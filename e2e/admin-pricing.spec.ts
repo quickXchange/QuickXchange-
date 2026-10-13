@@ -116,7 +116,7 @@ test('single fee-range table supports three disjoint ranges, exact fixed fees, e
   for (const field of ['select-pricing-direction', 'input-pricing-markup', 'input-pricing-fixed-fee', 'input-pricing-min', 'input-pricing-max']) {
     await expect(drawer.getByTestId(field)).toHaveCount(0);
   }
-  await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('Base price applies');
+  await expect(drawer.getByTestId('single-amount-pricing-editor')).toContainText('No ranges yet. Add a range to use range pricing.');
   await addRange(page, 'single', '800', '20000', '3', 'MARKUP', '0.00000017');
   await drawer.getByTestId('pricing-mode-path').check();
   await expect(drawer.getByTestId('single-amount-pricing-editor')).toHaveCount(0);
@@ -234,7 +234,7 @@ test('preview uses the quote-matched rule and the lower tier at a shared 1000 bo
   await page.goto('/admin/pricing');
   const row = page.getByTestId(`pricing-rule-pricing-${competingRule.id}`);
   await expect(row).toContainText('Range pricing · 2 ranges');
-  await expect(row).toContainText('Base fallback: Markup 0.75%');
+  await expect(row).toContainText('Legacy base fallback: Markup 0.75%');
   await expect(row).not.toContainText('Give more 2.375%');
   await page.getByTestId(`button-test-pricing-${baseRule.id}`).click();
   await page.getByTestId('button-preview-pricing').click();
@@ -279,9 +279,9 @@ test('single rule editors stay exclusive; path quantities independently save, cl
   await page.goto('/admin/pricing');
   await page.getByTestId('button-add-pricing-rule').click();
   let drawer = page.getByTestId('pricing-rule-drawer');
-  await expect(drawer.getByTestId('pricing-mode-range')).toBeChecked();
-  await expect(drawer.getByTestId('single-amount-pricing-editor')).toBeVisible();
-  await expect(drawer.getByTestId('pricing-path-quantities')).toHaveCount(0);
+  await expect(drawer.getByTestId('pricing-mode-path')).toBeChecked();
+  await expect(drawer.getByTestId('single-amount-pricing-editor')).toHaveCount(0);
+  await expect(drawer.getByTestId('pricing-path-quantities')).toBeVisible();
   await drawer.getByTestId('button-close-pricing-drawer').click();
 
   await page.getByTestId(`button-edit-pricing-${rule.id}`).click();

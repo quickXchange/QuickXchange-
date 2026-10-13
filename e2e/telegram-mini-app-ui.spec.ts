@@ -1,4 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import { mockLanguageBootstrap } from './language-bootstrap';
+
+test.beforeEach(async ({ page }) => mockLanguageBootstrap(page));
 
 const base = '/telegram-mini-app';
 const sessionToken = 'mini-app-e2e-session';
@@ -218,6 +221,9 @@ test('authenticated Convert and Swap selectors search normalized aliases and net
   await expect(page.getByText('Tether', { exact: true })).toBeVisible();
   await search.fill('ERC');
   await expect(page.getByText('USD Coin', { exact: true })).toBeVisible();
+  await search.fill('BTC');
+  await page.getByText('Bitcoin', { exact: true }).first().click();
+  await page.getByRole('textbox', { name: 'You Send amount' }).fill('0.5');
   await expect.poll(() => authenticatedRequests.some(
     request => request.authorization === `Bearer ${sessionToken}`,
   )).toBe(true);

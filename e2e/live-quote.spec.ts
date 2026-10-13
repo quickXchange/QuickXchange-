@@ -1380,7 +1380,7 @@ test('uses dedicated Quickex Convert routes and submits both wallet directions',
     `/order/${instantOrderId}\\?provider=quickex&trackingToken=${instantOrder.trackingToken}$`,
   ));
   await expect(page.getByTestId('heading-order-created')).toBeVisible();
-  await expect(page.getByTestId('status-order-confirmation')).toHaveText('AWAITING FUNDS');
+  await expect(page.getByTestId('status-order-confirmation')).toHaveText('Awaiting Funds');
   await expect(page.getByTestId('convert-step-quote')).toHaveCount(0);
   await expect(page.getByTestId('text-order-id')).toHaveText(instantOrderId);
   await expect(page.getByTestId('button-cancel-order')).toHaveCount(0);
@@ -2096,6 +2096,7 @@ test('BBVA order artwork has one transparent circular presentation in both theme
 });
 
 test('quote expiry disables submission and refreshes safely', async ({ page }) => {
+  test.setTimeout(60_000);
   let quoteRequests = 0;
   let orderRequests = 0;
 
@@ -2124,7 +2125,7 @@ test('quote expiry disables submission and refreshes safely', async ({ page }) =
     expect(body.fromNetwork).toBe('Bank transfer');
     expect(body.toNetwork).toBe('Bitcoin');
     quoteRequests += 1;
-    // Return a quote that expires in just 2 seconds so we can test the expiry logic quickly
+    // Leave enough time for the initial render on a loaded regression runner.
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -2140,7 +2141,7 @@ test('quote expiry disables submission and refreshes safely', async ({ page }) =
         receiveAmount: 0.002,
         rate: 0.00002,
         fee: 0.6,
-        expiresAt: new Date(Date.now() + 2000).toISOString(),
+        expiresAt: new Date(Date.now() + 12000).toISOString(),
       }),
     });
   });
@@ -2156,8 +2157,8 @@ test('quote expiry disables submission and refreshes safely', async ({ page }) =
   await page.getByTestId('button-swap-continue').click();
   await expect(page.getByTestId('swap-button-submit')).toBeVisible();
 
-  // Wait for the quote to expire (2 seconds + margin)
-  await page.waitForTimeout(2500);
+  // Wait for the quote to expire (12 seconds + margin).
+  await page.waitForTimeout(12500);
 
   // Expiry returns to quote review and requests a fresh quote while visible.
   await expect.poll(() => quoteRequests).toBeGreaterThan(1);

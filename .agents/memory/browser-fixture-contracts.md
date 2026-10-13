@@ -14,3 +14,9 @@ Standalone browser fixtures must also satisfy shared language settings and dicti
 **Why:** The language provider correctly withheld the app when those endpoints were missing. Once bootstrap was supplied, an unmocked Admin route-list query received the Vite HTML fallback instead of an array and crashed the page, hiding the real fixture defect.
 
 **How to apply:** Supply explicit test-only language configuration and dictionary overrides using the existing contracts. Audit newly mounted shared summaries for additional API reads, especially array endpoints, rather than altering real UI or weakening authorization to make tests pass.
+
+Browser fixtures for the common language endpoint must preserve the full enabled-language set when language-picker coverage depends on it; blanket API mocks must let shared bootstrap through.
+
+**Why:** A single-language placeholder made the seven-language picker appear broken, while a catch-all API fixture returning an empty object prevented customer screens from completing bootstrap.
+
+**How to apply:** Model the actual enabled locale set in browser fixtures and intercept shared bootstrap before generic catch-all responses; keep the real translation runtime, not a second test dictionary.

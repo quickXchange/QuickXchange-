@@ -72,6 +72,10 @@ async function mockAffiliateApis(page: Page, dashboardOverrides: Partial<typeof 
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    // Shared bootstrap is supplied by the e2e server, not a placeholder object.
+    if (path === '/api/languages' || path.startsWith('/api/languages/dictionaries/')) {
+      return route.fallback();
+    }
     let body: unknown = {};
     let status = 200;
 

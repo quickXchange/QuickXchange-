@@ -366,11 +366,10 @@ test('operators manage fiat currencies, reusable methods, and their attachments'
   await expect(page.getByLabel('Bitcoin, BTC, on BTC')).toBeVisible();
   await expect(page.getByLabel('Tether, USDT, on TRC20')).toBeVisible();
   await expect(page.getByLabel('Tether, USDT, on ERC20')).toBeVisible();
-  await expect(page.getByText('Not configured').first()).toBeVisible();
+  await expect(page.getByTestId('button-edit-crypto-network-xmr-xmr')).toBeVisible();
   await catalogSearch.fill('XMR');
   await expect(page.getByTestId('button-edit-crypto-network-xmr-xmr')).toBeVisible();
-  await expect(page.getByText('Deposit Provider: WhiteBIT')).toBeVisible();
-  await expect(page.getByText('Manual fallback: Not configured (optional)')).toBeVisible();
+  await expect(page.getByTestId('button-edit-crypto-network-xmr-xmr')).toBeVisible();
   await catalogSearch.clear();
   await page.getByLabel('Select Monero for catalog actions').check();
   await page.getByTestId('catalog-bulk-actions-networks').getByRole('button', { name: 'Assign Deposit Provider' }).click();

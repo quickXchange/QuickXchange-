@@ -280,8 +280,9 @@ test('operators view product-specific overview analytics and inclusive UTC range
   await expect(mobileDrawerLayer).toHaveClass(/is-open/);
   await expect(mobileDrawer).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
   await expect(mobileNavigation.getByRole('link')).toHaveText([
-    'Overview', 'Orders•', 'Revenue', 'Customers', 'Affiliates', 'Payouts', 'Program Settings', 'Appearance', 'Providers', 'Background Studio',
-    'API Integrations', 'Notification Settings', 'Currencies & Payment Methods', 'Manual Pricing', 'Staff', 'Site content', 'Blog', 'Newsletter Subscribers', 'Back to exchange',
+    'Overview', 'Orders•', 'Revenue', 'Users', 'Affiliates', 'Payouts', 'Program Settings', 'Support Bot', 'Appearance', 'Languages',
+    'Providers & API Integrations', 'Background Studio', 'Notification Settings', 'Currencies & Payment Methods', 'Manual Pricing',
+    'Swap Order Add-ons', 'Staff', 'Site content', 'Blog', 'Newsletter Subscribers', 'Back to exchange',
   ]);
 
   await mobileDrawer.getByTestId('button-close-admin-menu').click();

@@ -52,10 +52,10 @@ export default defineConfig(async ({ mode }) => {
               const requestPath = req.url?.split('?')[0];
               const body = requestPath === '/api/languages'
                 // Test-only configuration; dictionaries still use the real i18n runtime.
-                ? { enabledLanguages: ['en'], fallbackLanguage: 'en', revision: 'e2e' }
+                ? { enabledLanguages: ['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk'], fallbackLanguage: 'en', revision: 'e2e' }
                 : requestPath?.startsWith('/api/languages/dictionaries/')
                   ? { translations: {} }
-                  : requestPath === '/api/admin/crypto-networks'
+                  : requestPath === '/api/admin/crypto-networks' || requestPath === '/api/exchange/manual-swap-addons'
                     ? []
                   : requestPath === '/api/site-content'
                 ? publishedSiteContentStub

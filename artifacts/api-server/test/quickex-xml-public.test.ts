@@ -37,6 +37,58 @@ test("catalogue and rate requests carry the identical owned affiliate ID and can
   assert.equal(quote.get("referrerId"), "same-partner");
   assert.equal(quote.getAll("referrerId").length, 1);
 });
+test("a successful slow batch retains expired rates but never identifies them as live", async () => {
+  let clock = 0, reads = 0, block = false, release!: () => void;
+  const pairs = Array.from({ length: 9 }, (_, i) => ({
+    ...pair, instrumentFrom: { ...pair.instrumentFrom, currencyTitle: `COIN${i}`, bestChangeCurrencyName: `COIN${i}` },
+  }));
+  const refresh = new ConvertXmlRefresh({
+    client: async () => client(async path => {
+      if (path === "/pairs/all") {
+        if (block) await new Promise<void>(resolve => { release = resolve; });
+        return { total: pairs.length, pairs };
+      }
+      if (++reads === 9) {
+        // Let the first eight workers persist their quotes before the final slow response.
+        await new Promise(resolve => setTimeout(resolve, 1));
+        clock += 300_001;
+      }
+      return rate;
+    }),
+    codeAllowed: code => !!code, load: async () => [], save: async () => {},
+    remove: async () => {}, now: () => clock,
+  });
+  const completed = await refresh.snapshot(1000);
+  assert.equal(completed.rows.length, 9);
+  assert.equal(completed.refreshing, false);
+  assert.equal(completed.stale, true);
+  block = true;
+  clock += 300_001;
+  const pending = await refresh.snapshot(1);
+  assert.equal(pending.rows.length, 9);
+  assert.equal(pending.stale, true);
+  assert.equal(pending.refreshing, true);
+  release();
+  await refresh.snapshot(1000);
+});
+test("expiry, temporary provider outage and recovery preserve publication without live mislabeling", async () => {
+  let unavailable = false;
+  const { refresh, advance } = fixture(async path => {
+    if (unavailable) throw failure(503);
+    return path === "/pairs/all" ? { total: 1, pairs: [pair] } : rate;
+  });
+  assert.equal((await refresh.snapshot(1000)).stale, false);
+  advance(); unavailable = true;
+  const failed = await refresh.snapshot(1000);
+  assert.equal(failed.rows.length, 1);
+  assert.equal(failed.stale, true);
+  assert.ok(failed.error);
+  advance(); unavailable = false;
+  const recovered = await refresh.snapshot(1000);
+  assert.equal(recovered.rows.length, 1);
+  assert.equal(recovered.stale, false);
+  assert.equal(recovered.error, undefined);
+});
 test("partner JSON numbers retain their original precision and scientific notation", () => {
   const json = parsePartnerJson('{"price":109.532123456789123456789,"fee":1.234567890123456789e-8,"total":1001,"active":true}') as any;
   assert.equal(json.price, "109.532123456789123456789");

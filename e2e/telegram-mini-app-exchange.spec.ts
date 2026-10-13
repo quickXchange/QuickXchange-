@@ -1,4 +1,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { mockLanguageBootstrap } from './language-bootstrap';
+
+test.beforeEach(async ({ page }) => mockLanguageBootstrap(page));
 
 const miniApp = '/telegram-mini-app';
 const sessionToken = 'mini-app-exchange-e2e-session';
@@ -122,7 +125,24 @@ test('live canonical USDT TRC20 to SEPA Instant EUR reverse quote populates send
   await mockTelegramSession(page);
   // Only Telegram bootstrap is mocked. All catalog/pricing/quote calls below
   // go to the real canonical website API with the current Admin configuration.
-  const configResponse = await page.request.get('/api/exchange/config');
+  const apiBase = process.env.MINI_APP_LIVE_API_BASE
+    || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : '');
+  if (!apiBase) throw new Error('The live quote test needs the routed development API base URL.');
+  // The isolated Mini App Vite server has no gateway API routing. Forward only
+  // public read/quote endpoints; never forward order creation or private data.
+  const publicQuotePaths = new Set([
+    '/api/exchange/config', '/api/exchange/manual-swap-addons',
+    '/api/exchange/route-pricing', '/api/exchange/quote', '/api/exchange/quote-by-receive',
+  ]);
+  await page.route('**/api/exchange/**', async route => {
+    const url = new URL(route.request().url());
+    if (!publicQuotePaths.has(url.pathname)) return route.fallback();
+    const headers = { ...route.request().headers() };
+    for (const key of ['authorization', 'cookie', 'host', 'origin', 'referer']) delete headers[key];
+    const response = await route.fetch({ url: `${apiBase}${url.pathname}${url.search}`, headers });
+    await route.fulfill({ response });
+  });
+  const configResponse = await page.request.get(`${apiBase}/api/exchange/config`);
   expect(configResponse.status()).toBe(200);
   const config = await configResponse.json();
   const source = config.manualSettlementOptions.find((option: any) =>
@@ -504,7 +524,7 @@ test('Swap receive-target input uses the signed manual receive quote and order c
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByPlaceholder('Enter wallet address').fill('mock-destination-wallet');
   await page.getByPlaceholder('Enter custom payout wallet').fill('mock-custom-admin-wallet');
-  await page.getByRole('combobox').selectOption('bank');
+  await page.getByRole('combobox').filter({ has: page.locator('option[value="bank"]') }).selectOption('bank');
   await page.getByPlaceholder('Enter conditional custom memo').fill('custom-bank-memo');
   await page.getByPlaceholder('you@example.com').fill('customer@example.test');
   await checkExchangeViewports(page, testInfo, 'swap-step2');
@@ -549,6 +569,7 @@ test('definitive Convert validation rejection releases recovery for a corrected 
   );
 
   await page.goto(`${miniApp}/exchange?mode=convert`);
+  await page.getByRole('textbox', { name: 'You Send amount' }).fill('0.5');
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByPlaceholder('Enter wallet address').fill('first-wallet');
   await page.getByPlaceholder('you@example.com').fill('customer@example.test');
@@ -592,6 +613,7 @@ test('link failure persists the created order and reload retries linking without
   });
 
   await page.goto(`${miniApp}/exchange?mode=convert`);
+  await page.getByRole('textbox', { name: 'You Send amount' }).fill('0.5');
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByPlaceholder('Enter wallet address').fill('mock-destination-wallet');
   await page.getByPlaceholder('you@example.com').fill('customer@example.test');

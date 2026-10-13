@@ -21,6 +21,7 @@ export function upstreamStatus(error: unknown) {
   return e?.providerStatus ?? e?.status ?? 503;
 }
 const retryable = (e: unknown) => upstreamStatus(e) === 429 || upstreamStatus(e) >= 500;
+const REFRESH_INTERVAL_MS = 5 * 60_000;
 /** One bounded background flight; requests never wait for the full route matrix. */
 export class ConvertXmlRefresh {
   private identity = "";
@@ -106,7 +107,7 @@ export class ConvertXmlRefresh {
       if (current()) {
         this.stale = failed && this.rows.size > 0;
         this.updatedAt = this.now();
-        this.nextRefresh = this.now() + 5 * 60_000;
+        this.nextRefresh = this.now() + REFRESH_INTERVAL_MS;
       }
     } catch (e) {
       if (!current()) return;
@@ -156,7 +157,11 @@ export class ConvertXmlRefresh {
         new Promise<void>(resolve => { timer = setTimeout(resolve, waitMs); })]); }
       finally { if (timer) clearTimeout(timer); }
     }
-    return { rows: [...this.rows.values()], refreshing: !!this.flight, stale: this.stale,
+    const rows = [...this.rows.values()];
+    // A successful long-running batch does not make its earliest quotes fresh again.
+    const expired = rows.some(row => !Number.isFinite(row.quotedAt) ||
+      row.quotedAt > this.now() || this.now() - row.quotedAt >= REFRESH_INTERVAL_MS);
+    return { rows, refreshing: !!this.flight, stale: this.stale || expired,
       error: this.error, skipped: this.skipped, updatedAt: this.updatedAt };
   }
 }

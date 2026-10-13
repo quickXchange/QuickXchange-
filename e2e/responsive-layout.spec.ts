@@ -208,6 +208,9 @@ async function mockLayoutApis(page: Page) {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
+    if (path === '/api/languages' || path.startsWith('/api/languages/dictionaries/') || path === '/api/exchange/manual-swap-addons') {
+      return route.fallback();
+    }
     let body: unknown = {};
 
     if (path === '/api/exchange/config') body = exchangeConfig;

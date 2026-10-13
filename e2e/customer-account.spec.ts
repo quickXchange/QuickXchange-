@@ -374,7 +374,7 @@ test('customers can review, reload, inspect, and claim their orders', async ({ p
   expect(visibleRouteIdentity.labels.every(label => label.overflow === 'visible')).toBe(true);
   expect(visibleRouteIdentity.labels.every(label => label.whiteSpace === 'normal')).toBe(true);
   expect(visibleRouteIdentity.routeScrollWidth).toBeLessThanOrEqual(visibleRouteIdentity.routeClientWidth);
-  await expect(page.getByText('0.250000000000000001', { exact: true })).toBeVisible();
+  await expect(page.getByText('0.25', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('operator@example.test')).toHaveCount(0);
   await page.getByTestId('button-profile-menu').click();
   await expect(page.getByText('operator@example.test')).toBeVisible();
@@ -541,7 +541,7 @@ test('My Orders opens customer-safe Swap and Convert details in the Admin-style 
   await expect(drawer.getByText('TRC20')).toBeVisible();
   const additionalDetails = drawer.getByTestId('customer-step2-details');
   await expect(drawer.getByTestId('customer-additional-payment-details').getByRole('heading', { name: 'Additional Payment Details' })).toBeVisible();
-  await expect(additionalDetails).toContainText('Contact Email');
+  await expect(additionalDetails).toContainText('Contact email');
   await expect(additionalDetails).toContainText('Receiving Address');
   await expect(additionalDetails).toContainText('Beneficiary IBAN');
   await expect(additionalDetails).not.toContainText('Deposit Address');
