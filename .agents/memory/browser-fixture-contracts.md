@@ -20,3 +20,9 @@ Browser fixtures for the common language endpoint must preserve the full enabled
 **Why:** A single-language placeholder made the seven-language picker appear broken, while a catch-all API fixture returning an empty object prevented customer screens from completing bootstrap.
 
 **How to apply:** Model the actual enabled locale set in browser fixtures and intercept shared bootstrap before generic catch-all responses; keep the real translation runtime, not a second test dictionary.
+
+Treat disabled exchange actions and missing summary controls as possible fixture or wizard-contract failures before diagnosing pricing regressions.
+
+**Why:** A numerically valid mock quote without its complete signed fee snapshot correctly left Continue disabled. Older tests then skipped the receiving-details stage and waited for policy controls that were not mounted yet.
+
+**How to apply:** Return the full current executable-quote contract, including nested fee fields, and follow the actual details-to-summary transition. Never weaken quote validation or financial behavior to accommodate an outdated browser fixture.

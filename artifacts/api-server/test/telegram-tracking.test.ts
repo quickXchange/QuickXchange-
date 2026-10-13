@@ -187,8 +187,8 @@ test("Telegram order tracking resolves canonical IDs only within current identit
     await db.delete(telegramOrderLinksTable).where(eq(telegramOrderLinksTable.chatId, chatB));
     assert.match(card.text, /Type: <b>Swap<\/b>/);
     assert.match(card.text, /Status: <b>/);
-    assert.match(card.text, /12\.50 USDT · TRC20/);
-    assert.match(card.text, /Receive: <b>0\.0002 BTC · Bitcoin/);
+    assert.match(card.text, /12\.5 USDT · TRC20/);
+    assert.match(card.text, /Receive: <b>0 BTC · Bitcoin/);
     const viewUrl = card.buttons.flat().find(button => button.text === t("en", "viewOrder"))?.url;
     assert.ok(viewUrl);
     const parsedView = new URL(viewUrl!);

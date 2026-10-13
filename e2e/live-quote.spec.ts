@@ -1,6 +1,24 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
+// Mocked executable quotes must contain the complete signed fee contract.
+const zeroAdditionalFees = {
+  selectedAddons: [],
+  addonFee: 0,
+  exchangeFee: {
+    enabled: false,
+    percentage: null,
+    fixedAmount: null,
+    fixedCurrency: 'USD',
+    percentageAmount: 0,
+    fixedTargetAmount: 0,
+    totalAmount: 0,
+  },
+  totalAdditionalFee: 0,
+  existingPricingFee: 0,
+  totalFees: 0,
+};
+
 const exchangeConfig = {
   assets: [
     {
@@ -604,6 +622,7 @@ test('keeps standardized fiat payment fields complete, reachable, and submitted 
       contentType: 'application/json',
       body: JSON.stringify({
         quoteId: `payment-fields-${body.fromAsset}-${body.toAsset}`,
+        manualSwapFees: zeroAdditionalFees,
         type: 'manual',
         provider: 'Manual desk',
         fromAsset: body.fromAsset,
@@ -666,9 +685,7 @@ test('keeps standardized fiat payment fields complete, reachable, and submitted 
     }
     await email.focus();
     await expect(email).toBeFocused();
-    await page.locator('#swap-terms').scrollIntoViewIfNeeded();
-    await expect(page.locator('#swap-terms')).toBeVisible();
-    await expect(page.getByTestId('swap-button-submit')).toBeVisible();
+    await expect(page.getByTestId('button-swap-next')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
   };
 
@@ -707,6 +724,7 @@ test('keeps standardized fiat payment fields complete, reachable, and submitted 
   await page.getByTestId('input-detail-payment_description').fill('Invoice 42');
   await page.getByTestId('input-detail-telegram_or_whatsapp').fill('@ada');
   await page.getByTestId('input-customer-email').fill('ada@example.test');
+  await page.getByTestId('button-swap-next').click();
   await page.locator('#swap-terms').check();
   await page.getByTestId('swap-button-submit').click();
 
@@ -978,6 +996,7 @@ test('requires crypto refund details for a crypto-to-fiat Swap and surfaces inva
       contentType: 'application/json',
       body: JSON.stringify({
         quoteId: 'manual-xrp-eur-quote',
+        manualSwapFees: zeroAdditionalFees,
         type: 'manual',
         provider: 'Manual desk',
         fromAsset: 'XRP',
@@ -1042,12 +1061,15 @@ test('requires crypto refund details for a crypto-to-fiat Swap and surfaces inva
   await expect(refundMemo).toHaveAttribute('required', '');
 
   await refundMemo.fill('not-a-tag');
+  await page.getByTestId('button-swap-next').click();
   await page.locator('#swap-terms').check();
   await page.getByTestId('swap-button-submit').click();
   await expect(page.getByText('Check that the refund memo or tag matches the selected source network.')).toBeVisible();
   expect(orderRequests).toBe(1);
-
+  await page.getByTestId('button-swap-back').click();
   await refundMemo.fill('12345');
+  await page.getByTestId('button-swap-next').click();
+  await page.locator('#swap-terms').check();
   await page.getByTestId('swap-button-submit').click();
   await expect.poll(() => acceptedOrderRequest).toMatchObject({
     type: 'manual',
@@ -1111,6 +1133,7 @@ test('submits a USDT TRC20 to EUR payment method Swap without refund details', a
       contentType: 'application/json',
       body: JSON.stringify({
         quoteId: 'manual-usdt-eur-quote',
+        manualSwapFees: zeroAdditionalFees,
         type: 'manual',
         provider: 'Manual desk',
         fromAsset: 'USDT',
@@ -1154,6 +1177,7 @@ test('submits a USDT TRC20 to EUR payment method Swap without refund details', a
   if (await customerEmail.isEnabled()) {
     await customerEmail.fill('usdt-eur@example.test');
   }
+  await page.getByTestId('button-swap-next').click();
   await page.locator('#swap-terms').check();
   await page.getByTestId('swap-button-submit').click();
 
@@ -2141,6 +2165,22 @@ test('quote expiry disables submission and refreshes safely', async ({ page }) =
         receiveAmount: 0.002,
         rate: 0.00002,
         fee: 0.6,
+        manualSwapFees: {
+          existingPricingFee: 0.000012,
+          totalFees: 0.000012,
+          selectedAddons: [],
+          addonFee: 0,
+          exchangeFee: {
+            enabled: false,
+            percentage: null,
+            fixedAmount: null,
+            fixedCurrency: 'BTC',
+            percentageAmount: 0,
+            fixedTargetAmount: 0,
+            totalAmount: 0,
+          },
+          totalAdditionalFee: 0,
+        },
         expiresAt: new Date(Date.now() + 12000).toISOString(),
       }),
     });
@@ -2155,6 +2195,8 @@ test('quote expiry disables submission and refreshes safely', async ({ page }) =
   await expect.poll(() => quoteRequests).toBe(1);
   await expect(page.getByTestId('button-swap-continue')).toBeEnabled();
   await page.getByTestId('button-swap-continue').click();
+  await page.getByTestId('input-destination-address').fill('bc1qexampleonlynotavalidaddress');
+  await page.getByTestId('button-swap-next').click();
   await expect(page.getByTestId('swap-button-submit')).toBeVisible();
 
   // Wait for the quote to expire (12 seconds + margin).
@@ -2175,7 +2217,7 @@ test('keeps manual Swap and automatic Convert API namespaces isolated', async ({
   await page.route('**/api/exchange/quote', route => {
     manualQuoteCalls += 1;
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-      quoteId: 'manual-quote-00000001', type: 'manual', provider: 'Manual desk',
+      quoteId: 'manual-quote-00000001', type: 'manual', provider: 'Manual desk', manualSwapFees: zeroAdditionalFees,
       fromAsset: 'USD', fromNetwork: 'Bank transfer', toAsset: 'BTC', toNetwork: 'Bitcoin',
       amount: 1, receiveAmount: 0.0001, rate: 0.0001, fee: 0, expiresAt: new Date(Date.now() + 60_000).toISOString(),
     }) });

@@ -411,7 +411,8 @@ test('operators manage fiat currencies, reusable methods, and their attachments'
   await page.getByRole('button', { name: /Payment Methods/ }).click();
   await page.getByLabel('Select Bank transfer for catalog actions').check();
   page.once('dialog', dialog => dialog.accept());
-  await page.getByTestId('catalog-bulk-actions-methods').getByRole('button', { name: 'Delete' }).click();
+  // The bulk toolbar has separate Delete actions for method fields and methods.
+  await page.getByTestId('catalog-bulk-actions-methods').getByRole('button', { name: 'Delete', exact: true }).last().click();
 
   await page.getByRole('button', { name: /Currencies/ }).click();
   await expect(page.getByTestId('button-edit-currency-EUR')).toBeVisible();

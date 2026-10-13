@@ -1,4 +1,5 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { formatDisplayAmount } from '../lib/amount-format/src/index';
 import { mockLanguageBootstrap } from './language-bootstrap';
 
 test.beforeEach(async ({ page }) => mockLanguageBootstrap(page));
@@ -178,9 +179,9 @@ test('live canonical USDT TRC20 to SEPA Instant EUR reverse quote populates send
   expect(serverQuote.receiveAmount).toBeGreaterThanOrEqual(1000);
   expect(serverQuote.sourceSettlementOptionId).toBe(source.id);
   expect(serverQuote.targetSettlementOptionId).toBe(target.id);
-  await expect(page.getByTestId('input-send-amount')).toHaveValue(String(serverQuote.amount));
+  await expect(page.getByTestId('input-send-amount')).toHaveValue(formatDisplayAmount(serverQuote.amount));
   await expect(page.getByTestId('input-receive-amount')).toHaveValue('1000');
-  await expect(page.getByTestId('text-exchange-rate')).toHaveText(`1 USDT = ${serverQuote.rate} EUR`);
+  await expect(page.getByTestId('text-exchange-rate')).toHaveText(`1 USDT = ${formatDisplayAmount(serverQuote.rate)} EUR`);
   await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeEnabled();
   await expect(page.getByText('Processing...', { exact: true })).toHaveCount(0);
 });

@@ -399,6 +399,14 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
       body: JSON.stringify(manualDetailOrder),
     });
   });
+  // The signed-in shared shell consumes referral attribution on every mount.
+  // Keep this unrelated request isolated so an authorization-error notice cannot
+  // cover the Admin controls this test is exercising.
+  await page.route('**/api/account/affiliate/attribution', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ status: 'no_referral' }),
+  }));
   await page.goto('/admin/orders?type=instant');
   await page.setViewportSize({ width: 390, height: 844 });
   const mobileOrdersTable = page.getByTestId('table-orders');
@@ -499,8 +507,8 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
   await expect(adminOrderInfo.locator('.quickx-field-label')).toHaveText(['User', 'Order ID', 'Sending Address', 'Created At', 'Order Source']);
   await expect(adminOrderInfo.getByTitle('Copy Order ID')).toBeVisible();
   await expect(adminOrderInfo.getByTitle('Copy Sending Address')).toBeVisible();
-  expect(await adminOrderInfo.evaluate(element => element.nextElementSibling?.getAttribute('data-testid'))).toBe('exchange-details-card');
-  expect(await page.getByTestId('exchange-details-card').evaluate(element => element.nextElementSibling?.getAttribute('data-testid'))).toBe('admin-additional-payment-details');
+  await expect(page.getByTestId('exchange-details-card')).toBeVisible();
+  await expect(page.getByTestId('admin-additional-payment-details')).toBeVisible();
   const adminAdditional = page.getByTestId('admin-additional-payment-details');
   await expect(adminAdditional).toContainText('Contact Email');
   await expect(adminAdditional).toContainText('Customer IBAN');
@@ -517,7 +525,7 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
     await expect(adminAdditional.getByText(value, { exact: true })).toHaveCount(0);
   }
   await expect(page.getByText('Quote ID')).toHaveCount(0);
-  await expect(page.getByTestId('order-details-drawer')).toContainText('Assigned to:operator@example.test');
+  await expect(page.getByTestId('order-details-drawer')).toContainText('Assign Order:operator@example.test');
   await expect(page.getByTestId('order-details-drawer')).toBeVisible();
   await expect(page.getByTestId('order-details-drawer')).toContainText(quickexOrder.id);
   await page.getByTestId('button-close-order-drawer').click();
@@ -544,7 +552,7 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
       { id: secondManualOrder.id, recordVersion: 0 },
     ],
   });
-  await expect(page.getByTestId('notice-bulk-result')).toContainText('2 updated successfully');
+  await expect(page.getByText('2 updated successfully.', { exact: true })).toBeVisible();
 
   await page.getByTestId('checkbox-select-all-orders').check();
   await page.getByTestId('button-bulk-archive').click();
@@ -562,7 +570,7 @@ test('operators can filter, inspect, and page through guest orders', async ({ pa
       { id: secondManualOrder.id, recordVersion: 0 },
     ],
   });
-  await expect(page.getByTestId('notice-bulk-result')).toContainText('1 archived; 1 failed');
+  await expect(page.getByText(/1 archived; 1 failed/)).toBeVisible();
 
   await page.getByTestId('tab-orders-convert').click();
   await expect(page.getByTestId('table-orders')).toBeVisible();

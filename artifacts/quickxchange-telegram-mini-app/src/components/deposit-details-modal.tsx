@@ -99,10 +99,14 @@ export function DepositDetailsModal({
               <p className="mt-1 break-words font-mono text-2xl font-extrabold text-foreground">
                 {formatDisplayAmount(amount)} <span className="font-sans text-base text-primary">{asset}</span>
               </p>
-              <button type="button" className="mt-2 text-xs font-semibold text-primary" onClick={() => void copy(amount)} data-testid="button-copy-deposit-amount">
-                {copied === amount ? uiT("customer.m2c2ab3766561") : uiT("customer.mf028cc5ef689")}
-              </button>
-              <p className="mt-1 text-xs text-muted-foreground">{uiT("customer.m07e00ebc6582")}</p>
+              {actionable && (
+                <>
+                  <button type="button" className="mt-2 text-xs font-semibold text-primary" onClick={() => void copy(amount)} data-testid="button-copy-deposit-amount">
+                    {copied === amount ? uiT("customer.m2c2ab3766561") : uiT("customer.mf028cc5ef689")}
+                  </button>
+                  <p className="mt-1 text-xs text-muted-foreground">{uiT("customer.m07e00ebc6582")}</p>
+                </>
+              )}
               {network && <p className="mt-1 text-xs font-semibold text-muted-foreground">{network}</p>}
             </section>
 
