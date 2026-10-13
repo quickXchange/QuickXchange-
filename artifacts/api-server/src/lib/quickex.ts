@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, createHash } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { request as httpsRequest } from "node:https";
 import { connect } from "node:tls";
@@ -13,11 +13,56 @@ import {
 import { logger } from "./logger";
 import type { PaymentMethodFieldDefinition } from "@workspace/db";
 import { validateSafeFieldDefinitions } from "./payment-methods";
+import type { PartnerXmlClient } from "./quickex-xml-public";
+import { parsePartnerJson, partnerRequestQuery } from "./quickex-xml-public";
 
 const DEFAULT_BASE_URL = "https://quickex.io/api/v2";
 // Platform-owned Quickex attribution, separate from customer referral codes.
 // Set on the server before signing; callers cannot redirect partner rewards.
 const QUICKEX_REFERRER_ID = "aff_35637";
+const xmlRequestSlots = new Map<string, { next: number; blocked: number }>();
+async function paceXmlRequest(slot: string, interval: number) {
+  const gate = xmlRequestSlots.get(slot) ?? { next: 0, blocked: 0 };
+  xmlRequestSlots.set(slot, gate);
+  const at = Math.max(Date.now(), gate.next, gate.blocked);
+  gate.next = at + interval;
+  for (;;) {
+    const remaining = Math.max(at, gate.blocked) - Date.now();
+    if (remaining <= 0) return;
+    await new Promise(resolve => setTimeout(resolve, remaining));
+  }
+}
+
+/** Read-only partner publication client. Never signs or creates a customer exchange. */
+export async function getQuickexXmlPublicClient(): Promise<PartnerXmlClient> {
+  const keys = await credentials();
+  if (keys.storageUnavailable)
+    throw new QuickexApiError("QUICKEX_PROVIDER_UNAVAILABLE", "Quickex XML credentials are temporarily unavailable.", 503);
+  const baseUrl = config().baseUrl.replace(/\/v1$/, "/v2");
+  const publicKey = keys.publicKey;
+  const identity = createHash("sha256").update(JSON.stringify([baseUrl, QUICKEX_REFERRER_ID, publicKey ?? ""])).digest("hex");
+  return {
+    identity, referrerId: QUICKEX_REFERRER_ID, authenticated: !!publicKey,
+    async read(path, input) {
+      if (path !== "/pairs/all" && path !== "/rates/public/one") throw new Error("Invalid XML-only read endpoint.");
+      // The exact same platform-owned affiliate ID is used on BOTH endpoints.
+      const params = partnerRequestQuery(input, QUICKEX_REFERRER_ID);
+      const catalog = path === "/pairs/all";
+      const slot = `${publicKey ? "keyed" : "anonymous"}:${catalog ? "catalog" : "rates"}`;
+      await paceXmlRequest(slot, catalog ? (publicKey ? 1100 : 12500) : (publicKey ? 125 : 1000));
+      try {
+        return await readJson<unknown>(await fetchQuickex(`${baseUrl}${path}?${params}`, {
+          headers: { Accept: "application/json", ...(publicKey ? { "x-api-public-key": publicKey } : {}) },
+        }, catalog ? 30_000 : DEFAULT_READ_TIMEOUT_MS), true);
+      } catch (error) {
+        const classified = error instanceof QuickexApiError ? error : transportError(error, false);
+        if (classified.providerStatus === 429 || classified.code === "QUICKEX_RATE_LIMITED")
+          xmlRequestSlots.get(slot)!.blocked = Date.now() + 60_000;
+        throw classified;
+      }
+    },
+  };
+}
 const DEFAULT_READ_TIMEOUT_MS = 12_000;
 const DEFAULT_CREATE_TIMEOUT_MS = 15_000;
 const DEFAULT_CATALOG_TIMEOUT_MS = 5_000;
@@ -415,10 +460,10 @@ function classifyProvider(status: number, detail: string, body?: unknown): Quick
   );
 }
 
-async function readJson<T>(response: Response): Promise<T> {
+async function readJson<T>(response: Response, partnerXml = false): Promise<T> {
   const text = await response.text();
   let parsed: unknown;
-  try { parsed = text ? JSON.parse(text) : {}; } catch {
+  try { parsed = text ? (partnerXml ? parsePartnerJson(text) : JSON.parse(text)) : {}; } catch {
     if (!response.ok) {
       throw classifyProvider(response.status, text.slice(0, 500));
     }

@@ -6,7 +6,8 @@ export type RatesXmlPart = {
 export type RatesXmlItem = {
   from: string; to: string; out: string; amount: string;
   minamount: string; maxamount: string; symbol: string;
-  param: "manual" | "floating"; fixedFee?: string; steps?: RatesXmlPart[];
+  param: "manual" | "floating" | "floating, language"; fixedFee?: string; steps?: RatesXmlPart[];
+  in?: string; providerJson?: boolean;
 };
 
 const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -48,10 +49,10 @@ export function serializeRatesXml(items: RatesXmlItem[]) {
     lines.push(`${indent}<${name}${attribute}>${escape(value)}</${name}>`);
   for (const item of items) {
     lines.push("  <item>");
-    tag("from", item.from); tag("to", item.to); tag("in", "1");
+    tag("from", item.from); tag("to", item.to); tag("in", item.in ?? "1");
     tag("out", item.out); tag("amount", item.amount);
-    tag("minamount", `${item.minamount} ${item.symbol}`);
-    tag("maxamount", `${item.maxamount} ${item.symbol}`);
+    tag("minamount", item.providerJson ? item.minamount : `${item.minamount} ${item.symbol}`);
+    tag("maxamount", item.providerJson ? item.maxamount : `${item.maxamount} ${item.symbol}`);
     tag("param", item.param);
     if (item.steps) {
       for (const step of item.steps) {
@@ -60,7 +61,7 @@ export function serializeRatesXml(items: RatesXmlItem[]) {
         tag("tofee", step.fixedFee, "      ");
         lines.push("    </step>");
       }
-    } else if (item.fixedFee && compareDecimal(item.fixedFee, "0") > 0) {
+    } else if (item.fixedFee && (item.providerJson || compareDecimal(item.fixedFee, "0") > 0)) {
       tag("tofee", plainDecimal(item.fixedFee));
     }
     lines.push("  </item>");

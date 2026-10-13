@@ -3,9 +3,9 @@ import { test, after } from "node:test";
 import { spawnSync } from "node:child_process";
 import { pool } from "@workspace/db";
 import { serializeRatesXml, applyXmlParts, divideXmlDecimals, relativeXmlPercentage } from "../src/lib/rates-xml-format";
-import { priceXmlSwap, priceXmlConvert, xmlMethodProblem } from "../src/lib/rates-xml-export";
+import { priceXmlSwap, xmlMethodProblem } from "../src/lib/rates-xml-export";
 import { XML_CODES, DEFAULT_XML_RESERVE } from "../src/lib/rates-xml-methods";
-import { QuickexApiError } from "../src/lib/quickex";
+import { parsePartnerPair, partnerRateParams, partnerRateToXml } from "../src/lib/quickex-xml-public";
 import { discoverXmlSwapRoutes } from "../src/lib/rates-xml-routes";
 import { automaticXmlCryptoCode, resolveXmlCryptoCode, XML_CRYPTO_IDENTITIES } from "../src/lib/rates-xml-crypto-codes";
 
@@ -205,31 +205,26 @@ test("range-only gaps and absent limits never produce fictional executable rates
   });
   await assert.rejects(priceXmlSwap("a", "b", method("USDTBEP20"), method("PPUSD", "fiat"), prepare as any), /gap/);
 });
-const pair = { fromAsset: "BTC", fromNetwork: "Bitcoin", toAsset: "USDT", toNetwork: "TRC20" };
-test("Convert reads existing floating provider quote once and never creates an order", async () => {
-  let calls = 0;
-  const quote = async (input: any) => {
-    calls++; assert.equal(input.rateMode, "FLOATING");
-    return { quickexQuote: { price: "62123.123456789", generalMinAmount: "0.0001", generalMaxAmount: "20" } };
-  };
-  const item = await priceXmlConvert(pair, { ...method("BTC"), assetCode: "BTC" }, method("USDTTRC20"), quote as any);
-  assert.equal(calls, 1); assert.equal(item.out, "62123.123456789");
-  assert.equal(item.param, "floating"); assert.equal(item.amount, DEFAULT_XML_RESERVE);
-  assert.equal(item.minamount, "0.0001");
+const pair = parsePartnerPair({
+  instrumentFrom: { currencyTitle: "BTC", networkTitle: "BTC", bestChangeCurrencyName: "BTC" },
+  instrumentTo: { currencyTitle: "USDT", networkTitle: "TRX", bestChangeCurrencyName: "USDTTRC20", reservesAmount: "250000" },
+  isActive: true, minAmount: "0.0001", maxAmount: "20",
 });
-test("Convert may retry only with a validated provider-reported amount bound", async () => {
-  const amounts: number[] = [];
-  const quote = async (input: any) => {
-    amounts.push(input.amount);
-    if (input.amount === 1) throw new QuickexApiError("QUICKEX_AMOUNT_TOO_SMALL", "Below minimum", 400, 400, false, false, "25");
-    return { quickexQuote: { price: "0.98", generalMinAmount: "25", generalMaxAmount: "1000" } };
-  };
-  await priceXmlConvert(pair, method("BTC"), method("USDTTRC20"), quote as any);
-  assert.deepEqual(amounts, [1, 25]);
+test("Convert publishes partner JSON values rather than customer tickets or local reserves", () => {
+  const item = partnerRateToXml(pair, {
+    quotesWithoutNetworkFee: { sellQuote: { baseValue: "1", quoteValue: "62123.123456789" } },
+    finalNetworkFeeAmount: "1.5",
+  });
+  assert.equal(item.out, "62123.123456789");
+  assert.equal(item.param, "floating, language"); assert.equal(item.amount, "250000");
+  assert.equal(item.minamount, "0.0001"); assert.equal(item.fixedFee, "1.5");
 });
-test("Convert fails explicitly if current quotes or authoritative limits are unavailable", async () => {
-  await assert.rejects(priceXmlConvert(pair, method("BTC"), method("USDTTRC20"),
-    (async () => ({ quickexQuote: { price: "1" } })) as any), /limits/);
+test("Convert public XML requests use the provider minimum without probing customer quotes", () => {
+  assert.equal(partnerRateParams(pair).claimedDepositAmount, "0.0001");
+  assert.equal(partnerRateParams(pair).rateMode, "FLOATING");
+});
+test("Convert fails explicitly if authoritative provider JSON fields are unavailable", () => {
+  assert.throws(() => partnerRateToXml(pair, { quotesWithoutNetworkFee: {} }), /object/);
 });
 test("escaping prevents malformed XML without altering canonical data", () => {
   const xml = serializeRatesXml([{ ...base, from: "A&B", symbol: '<USDT>"', out: "1" }]);

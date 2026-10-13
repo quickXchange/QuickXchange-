@@ -4,8 +4,7 @@ import { listPublicFiatSettlementOptions } from "./payment-methods";
 import { listPublicManualCryptoSettlementOptions } from "./manual-crypto";
 import { discoverXmlSwapRoutes } from "./rates-xml-routes";
 import { prepareManualSwapPublicationQuotes } from "../routes/exchange";
-import { buildProviderQuoteTicket, getQuickexPublicCapabilityConfig } from "./provider-capabilities";
-import { QuickexApiError } from "./quickex";
+import { readConvertXmlPublication } from "./rates-xml-convert";
 import { compareDecimal, plainDecimal } from "./rates-xml-decimal";
 import {
   applyXmlParts, divideXmlDecimals, serializeRatesXml, sumXmlDecimals,
@@ -16,7 +15,7 @@ import {
   xmlStaging, xmlPublicationConfigurationHash, type XmlMethod,
 } from "./rates-xml-methods";
 import { onRatesXmlChange } from "./rates-xml-cache";
-import { XmlQuoteRefresh, xmlDiscoveryDeadline, type XmlCachedQuote } from "./rates-xml-refresh";
+import { XmlQuoteRefresh, type XmlCachedQuote } from "./rates-xml-refresh";
 import { readPublishedXmlQuotes, savePublishedXmlQuote } from "./rates-xml-publication";
 
 type Diagnostic = typeof GetAdminRatesXmlPreviewResponse._output.diagnostics[number];
@@ -71,44 +70,16 @@ export async function priceXmlSwap(
     minamount: plainDecimal(min!), maxamount: plainDecimal(max!), symbol: source.assetCode, param: "manual",
   }, parts);
 }
-/** Provider-owned floating quote only; never create an exchange or sign an order. */
-export async function priceXmlConvert(
-  route: { fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string },
-  source: XmlMethod, target: XmlMethod,
-  quote = buildProviderQuoteTicket,
-): Promise<RatesXmlItem> {
-  let ticket: Awaited<ReturnType<typeof buildProviderQuoteTicket>>;
-  try {
-    ticket = await quote({ ...route, amount: 1, rateMode: "FLOATING" });
-  } catch (error) {
-    // Use ONLY limits returned by the existing provider, never a guessed probe amount.
-    const bound = error instanceof QuickexApiError &&
-      ["QUICKEX_AMOUNT_TOO_SMALL", "QUICKEX_AMOUNT_TOO_LARGE"].includes(error.code)
-      ? Number(error.providerExpectedClaimedAmount) : NaN;
-    if (!Number.isFinite(bound) || bound <= 0) throw error;
-    ticket = await quote({ ...route, amount: bound, rateMode: "FLOATING" });
-  }
-  const live = ticket.quickexQuote;
-  if (!live.generalMinAmount || !live.generalMaxAmount ||
-      compareDecimal(live.generalMinAmount, "0") <= 0 ||
-      compareDecimal(live.generalMaxAmount, live.generalMinAmount) <= 0)
-    throw new Error("Quickex has not supplied valid source minimum and maximum limits.");
-  if (compareDecimal(live.price, "0") <= 0) throw new Error("Quickex pair rate is unavailable.");
-  return {
-    from: source.code!, to: target.code!, out: plainDecimal(live.price), amount: target.reserve,
-    minamount: plainDecimal(live.generalMinAmount), maxamount: plainDecimal(live.generalMaxAmount),
-    symbol: source.assetCode, param: "floating",
-  };
-}
 export async function buildRatesXmlPreview(staging = xmlStaging()) {
   const row = await readXmlSettings();
-  const [{ methods, capabilities, catalogFingerprint }, pricing, fiat, crypto] = await Promise.all([
+  const [{ methods, catalogFingerprint }, pricing, fiat, crypto] = await Promise.all([
     readXmlMethods(row, { cacheOnly: true }), db.select().from(manualDeskPricingRulesTable),
     listPublicFiatSettlementOptions(), listPublicManualCryptoSettlementOptions(),
   ]);
   const reviewHash = xmlPublicationConfigurationHash(row?.version ?? 0, methods, pricing, catalogFingerprint, staging);
   const published = await readPublishedXmlQuotes(reviewHash);
   for (const saved of published) {
+    if (saved.quote.diagnostic.functionType !== "swap") continue;
     const current = quoteCache.get(saved.key);
     if (!current || (current.quotedAt ?? 0) < saved.quotedAt)
       quoteCache.set(saved.key, {
@@ -135,46 +106,20 @@ export async function buildRatesXmlPreview(staging = xmlStaging()) {
     add("swap", d.id, d.sourceOptionId, d.targetOptionId, () =>
       priceXmlSwap(d.sourceOptionId, d.targetOptionId, byId.get(d.sourceOptionId)!, byId.get(d.targetOptionId)!));
   }
-  let convertDiscoveryFailed = false;
   try {
-    const config = await xmlDiscoveryDeadline(getQuickexPublicCapabilityConfig(), published.length ? 500 : 2_000);
-    if (!config.signedOrders) throw new Error("Convert order execution is not currently enabled and verified.");
-    const pairs = config.pairs;
-    const capability = new Map(capabilities.map(c => [`${c.assetCode}\0${c.networkCode}`, c]));
-    const methodId = (c: typeof capabilities[number]) =>
-      byId.has(`crypto:${c.networkId}`) ? `crypto:${c.networkId}` : `api:${c.providerId}:${c.networkId}`;
-    for (const pair of pairs) {
-      const from = capability.get(`${pair.fromAsset}\0${pair.fromNetwork}`);
-      const to = capability.get(`${pair.toAsset}\0${pair.toNetwork}`);
-      if (!from || !to) continue;
-      const sourceId = methodId(from), targetId = methodId(to);
-      add("convert", `convert:${sourceId}:${targetId}`, sourceId, targetId,
-        () => priceXmlConvert(pair, byId.get(sourceId)!, byId.get(targetId)!));
+    const convert = await readConvertXmlPublication();
+    diagnostics.push(...convert.diagnostics);
+    for (const published of convert.items) {
+      if (!staging && (STAGING_ONLY_XML_CODES.has(published.item.from) || STAGING_ONLY_XML_CODES.has(published.item.to))) {
+        published.d.state = "omitted";
+        published.d.message = "This direction remains staging-only until explicitly approved for Production.";
+      } else items.push(published);
     }
-    if (!pairs.length) throw new Error("No executable Convert directions are currently available from the existing provider route catalog.");
   } catch (error) {
-    // Actual disabled/unmapped catalogues are not outages. Only retryable discovery
-    // failures may reuse previously discovered directions under unchanged config.
-    const status = typeof error === "object" && error !== null && "status" in error
-      ? Number(error.status) : 0;
-    convertDiscoveryFailed = status >= 500 || status === 429;
     diagnostics.push({
       routeId: "convert:availability", functionType: "convert", sourceOptionId: "", targetOptionId: "",
       fromName: "Convert", toName: "Provider routes", state: "omitted", message: problem(error),
     });
-  }
-  if (convertDiscoveryFailed) {
-    for (const saved of published) {
-      const { diagnostic: previous, source, target } = saved.quote;
-      if (previous.functionType !== "convert" || diagnostics.some(d => d.routeId === previous.routeId)) continue;
-      const currentSource = byId.get(source.optionId) ?? (source.kind === "provider" ? source : undefined);
-      const currentTarget = byId.get(target.optionId) ?? (target.kind === "provider" ? target : undefined);
-      if (xmlMethodProblem(currentSource, staging) || xmlMethodProblem(currentTarget, staging)) continue;
-      byId.set(source.optionId, currentSource!); byId.set(target.optionId, currentTarget!);
-      const d = { ...previous, state: "ready" as const,
-        message: "Last successful XML rate; provider discovery refresh is temporarily unavailable." };
-      diagnostics.push(d); items.push({ item: saved.quote.item, d });
-    }
   }
   // Reject ambiguous code pairs BEFORE fetching quotes; availability must not
   // arbitrarily select one method simply because another quote was slower.
