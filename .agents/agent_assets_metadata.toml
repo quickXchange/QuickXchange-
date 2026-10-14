@@ -280,3 +280,17 @@ mtime_ms = 1792014377770
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/3979c3f6-00ea-4cc3-a006-b1618bcc67d6/47116cc1-4752-4fab-bcec-c4f7cc2477a1"
 storage_version_token = "1792014436066072"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "qnjmOtQXCa5Rrrhd19TgG"
+uri = "file://CONNECTIVITY_REPORT.md"
+type = "text"
+title = "Connection reliability and latency report"
+description = "Confirmed network/database findings, application fixes, real response measurements, regression results, and unresolved Production limitations."
+logical_id = "2c396e63-c5dd-47f7-819f-d8fb1a98a461"
+content_hash = "sha256:edf393d06a8b8b3797266dff0b78a7d0a22f12025b0417c3d6da7812d8136010"
+size = 8962
+mtime_ms = 1792015899200
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/2c396e63-c5dd-47f7-819f-d8fb1a98a461/af2be500-f337-4d3c-9e26-39c27e24b4ca"
+storage_version_token = "1792015961260433"
+content_type = "text/markdown"

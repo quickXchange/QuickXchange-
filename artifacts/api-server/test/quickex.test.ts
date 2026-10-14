@@ -967,7 +967,9 @@ test("Quickex receive-side limit rejections retry without amount and disclose so
       return true;
     },
   );
-  assert.deepEqual(requestedClaimedAmounts, ["100", "", ""]);
+  // The fixture's 30ms total read budget cannot accommodate a 100ms retry
+  // delay. The explicit amount-free limit lookup still runs exactly once.
+  assert.deepEqual(requestedClaimedAmounts, ["100", ""]);
 
   reset("receiveProviderRateLimited");
   await expectCode(() => quickex.getQuickexQuoteByReceive({
@@ -1015,7 +1017,7 @@ test("Quickex receive-side provider expected limits use target currency without 
       return true;
     },
   );
-  assert.deepEqual(requestedClaimedAmounts, ["1", "", ""]);
+  assert.deepEqual(requestedClaimedAmounts, ["1", ""]);
 });
 
 test("concurrent catalog cache misses collapse into one provider request", async () => {

@@ -1,7 +1,6 @@
 import { createHmac, createHash } from "node:crypto";
-import { lookup } from "node:dns/promises";
-import { request as httpsRequest } from "node:https";
-import { connect } from "node:tls";
+import { performance } from "node:perf_hooks";
+import { createQuickexTransport } from "./quickex-transport";
 import {
   activateQuickexCredentials,
   getQuickexCredentialStorageState,
@@ -238,8 +237,9 @@ const pairCache = new Map<string, {
 const pairRefresh = new Map<string, Promise<QuickexPair[]>>();
 const pairCacheLastFailureAt = new Map<string, number>();
 let pairCacheGeneration = 0;
-let quickexAddressCache: { address: string; expiresAt: number } | undefined;
-let quickexAddressRefresh: Promise<string> | undefined;
+const quickexTransport = createQuickexTransport({
+  onFailure: failure => logger.warn({ provider: "quickex", ...failure }, "Quickex transport failed"),
+});
 
 export function resetQuickexInstrumentCacheForTests() {
   if (process.env.NODE_ENV !== "test") {
@@ -482,107 +482,17 @@ function transportError(error: unknown, creating = false): QuickexApiError {
   );
 }
 
-async function probeTlsAddress(address: string): Promise<string> {
-  return await new Promise<string>((resolve, reject) => {
-    const socket = connect({
-      host: address,
-      port: 443,
-      servername: "quickex.io",
-      rejectUnauthorized: true,
-    });
-    const finish = (error?: Error) => {
-      socket.removeAllListeners();
-      socket.destroy();
-      if (error) reject(error);
-      else resolve(address);
-    };
-    socket.setTimeout(5_000, () => finish(new Error("Quickex TLS probe timed out.")));
-    socket.once("secureConnect", () => finish());
-    socket.once("error", finish);
-  });
-}
-
-async function resolveReachableQuickexAddress(): Promise<string> {
-  if (quickexAddressCache && quickexAddressCache.expiresAt > Date.now()) {
-    return quickexAddressCache.address;
-  }
-  if (quickexAddressRefresh) return quickexAddressRefresh;
-  const refresh = (async () => {
-    const addresses = [...new Set(
-      (await lookup("quickex.io", { all: true, family: 4 })).map(({ address }) => address),
-    )];
-    if (!addresses.length) throw new Error("Quickex did not resolve to an IPv4 address.");
-    const address = await Promise.any(addresses.map(probeTlsAddress));
-    quickexAddressCache = { address, expiresAt: Date.now() + CACHE_TTL_MS };
-    return address;
-  })();
-  quickexAddressRefresh = refresh;
-  try {
-    return await refresh;
-  } finally {
-    if (quickexAddressRefresh === refresh) quickexAddressRefresh = undefined;
-  }
-}
-
 async function fetchQuickex(url: string, init: RequestInit, timeout: number): Promise<Response> {
-  const parsed = new URL(url);
-  if (parsed.protocol !== "https:" || parsed.hostname !== "quickex.io") {
-    return await fetch(url, { ...init, signal: AbortSignal.timeout(timeout) });
-  }
-  const address = await resolveReachableQuickexAddress();
-  return await new Promise<Response>((resolve, reject) => {
-    const requestHeaders: Record<string, string> = {};
-    new Headers(init.headers).forEach((value, name) => {
-      requestHeaders[name] = value;
-    });
-    requestHeaders.host = parsed.host;
-    const request = httpsRequest({
-      protocol: "https:",
-      hostname: address,
-      port: parsed.port ? Number(parsed.port) : 443,
-      path: `${parsed.pathname}${parsed.search}`,
-      method: init.method,
-      headers: requestHeaders,
-      servername: parsed.hostname,
-    }, (response) => {
-      const chunks: Buffer[] = [];
-      response.on("data", (chunk: Buffer) => chunks.push(chunk));
-      response.on("end", () => {
-        const headers = new Headers();
-        for (const [name, value] of Object.entries(response.headers)) {
-          if (Array.isArray(value)) value.forEach((item) => headers.append(name, item));
-          else if (value !== undefined) headers.set(name, String(value));
-        }
-        resolve(new Response(Buffer.concat(chunks), {
-          status: response.statusCode ?? 502,
-          statusText: response.statusMessage,
-          headers,
-        }));
-      });
-      response.on("error", reject);
-    });
-    request.setTimeout(timeout, () => {
-      const error = new Error("Quickex request timed out.");
-      error.name = "TimeoutError";
-      request.destroy(error);
-    });
-    request.on("error", (error) => {
-      quickexAddressCache = undefined;
-      reject(error);
-    });
-    if (typeof init.body === "string" || init.body instanceof Uint8Array) request.write(init.body);
-    else if (init.body !== undefined && init.body !== null) {
-      request.destroy(new TypeError("Unsupported Quickex request body."));
-      return;
-    }
-    request.end();
-  });
+  return await quickexTransport.fetch(url, init, timeout);
 }
 
 async function requestJson<T>(url: string, init: RequestInit, timeout: number, readOnly: boolean): Promise<T> {
+  // One total budget covers DNS, TLS, the complete body, and any safe read retry.
+  // Irreversible creates remain single-attempt with outcomeUnknown on failure.
+  const deadline = performance.now() + timeout;
   for (let attempt = 0; ; attempt += 1) {
     try {
-      const response = await fetchQuickex(url, init, timeout);
+      const response = await fetchQuickex(url, init, Math.max(1, deadline - performance.now()));
       return await readJson<T>(response);
     } catch (error) {
       const classified = error instanceof QuickexApiError ? error : transportError(error, !readOnly);
@@ -590,7 +500,8 @@ async function requestJson<T>(url: string, init: RequestInit, timeout: number, r
         readOnly &&
         attempt === 0 &&
         classified.retryable &&
-        classified.code !== "QUICKEX_RATE_LIMITED"
+        classified.code !== "QUICKEX_RATE_LIMITED" &&
+        deadline - performance.now() > 100
       ) {
         await new Promise((resolve) => setTimeout(resolve, 100));
         continue;

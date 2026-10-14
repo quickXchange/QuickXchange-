@@ -3,6 +3,7 @@ import type pg from "pg";
 export type DatabasePoolErrorCategory =
   | "physical_connection_establishment_timeout"
   | "pool_acquisition_timeout"
+  | "external_provider_failure"
   | "database_query_failure";
 
 type PoolCounts = Pick<pg.Pool, "totalCount" | "idleCount" | "waitingCount">;
@@ -25,6 +26,10 @@ function errorMessages(error: unknown): string[] {
 }
 
 export function classifyDatabasePoolError(error: unknown): DatabasePoolErrorCategory {
+  if (error && typeof error === "object" && "code" in error &&
+      typeof error.code === "string" && error.code.startsWith("QUICKEX_")) {
+    return "external_provider_failure";
+  }
   const messages = errorMessages(error);
   if (messages.some((message) => /connection terminated due to connection timeout/i.test(message))) {
     return "physical_connection_establishment_timeout";
