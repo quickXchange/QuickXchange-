@@ -294,3 +294,17 @@ mtime_ms = 1792015899200
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/2c396e63-c5dd-47f7-819f-d8fb1a98a461/af2be500-f337-4d3c-9e26-39c27e24b4ca"
 storage_version_token = "1792015961260433"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "uqCnHZ8inA1SjRa2ojIGf"
+uri = "file://UNRESOLVED_CONNECTIVITY_EVIDENCE.md"
+type = "text"
+title = "Unresolved connectivity evidence"
+description = "Quickex DNS/TCP evidence, recurring PostgreSQL incidents, live stability samples, and the exact diagnostic actions required from hosting and Quickex."
+logical_id = "dc16183f-0a1f-43d3-8042-d5baeb593ef9"
+content_hash = "sha256:3e9725c692cbf1a70ad84966c544b3b232e8523f1156e2416b89249a38a1cc30"
+size = 6596
+mtime_ms = 1792017706001
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/dc16183f-0a1f-43d3-8042-d5baeb593ef9/d1aa51d4-c0ff-48b8-913e-e0cf213c5ffa"
+storage_version_token = "1792017730042475"
+content_type = "text/markdown"
