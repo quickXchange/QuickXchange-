@@ -91,19 +91,30 @@ for (const kind of ['manual', 'instant'] as const) {
     ]);
     expect(info).toMatch(/Page size:\s+595[.\d]* x 841[.\d]* pts \(A4\)/);
     expect(info).toMatch(/Pages:\s+1\b/);
-    for (const text of ['INVOICE', 'PAYMENT DETAILS', 'Paid', 'Yes', id, 'EXCHANGE / INVOICE ITEMS', 'Exchange Rate', 'FINAL RECEIVE / TOTAL', 'Thank you for choosing QuickXchange.', 'quickxchange.net', '@Quick_change_support']) {
+    for (const text of ['INVOICE', 'PAYMENT DETAILS', 'STATUS', 'Completed', 'Payment / Completed Date', id, 'EXCHANGE / INVOICE ITEMS', 'FINAL RECEIVE / TOTAL', 'Thank you for choosing QuickXchange.', 'quickxchange.net', 'https://t.me/Quick_change_support']) {
       expect(pdf.toLowerCase()).toContain(text.toLowerCase());
     }
     expect(pdf).toContain(kind === 'manual' ? 'Exchange USDT to EUR' : 'Exchange BTC to USDT');
     if (kind === 'manual') {
+      expect(pdf).toContain('Exchange Rate');
       for (const text of ['PAYMENT / RECEIVING INFORMATION', 'IBAN', 'DE89370400440532013000', 'Account Holder', 'Alex Example', 'Receiving Memo / Tag', '0.17 EUR', '8.33 EUR', 'BEP20', 'SEPA transfer']) {
         expect(pdf.toLowerCase()).toContain(text.toLowerCase());
       }
     } else {
+      // Convert receipts deliberately omit unverified provider rate/fee fields.
+      expect(pdf).not.toContain('Exchange Rate');
       expect(pdf).not.toContain('PAYMENT / RECEIVING INFORMATION');
       expect(pdf).not.toContain('Fee');
     }
-    for (const text of ['BLOCKCHAIN TRANSACTION', 'TRANSACTION ID', 'CONFIRMATIONS', 'DETECTED:', 'EXPLORER', 'Selected Provider', 'Deposit Provider', 'Address Source', 'WhiteBIT', 'Logo URL', order.verifiedFundingTransaction.transactionHash]) {
+    // The approved invoice contract now includes a customer-authorized TXID,
+    // but continues excluding provider/monitoring internals.
+    if (kind === 'manual') {
+      expect(pdf).toContain('Funding transaction ID');
+      expect(pdf.replace(/\s/g, '')).toContain(order.verifiedFundingTransaction.transactionHash);
+    } else {
+      expect(pdf.replace(/\s/g, '')).not.toContain(order.verifiedFundingTransaction.transactionHash);
+    }
+    for (const text of ['BLOCKCHAIN TRANSACTION', 'CONFIRMATIONS', 'DETECTED:', 'EXPLORER', 'Selected Provider', 'Deposit Provider', 'Address Source', 'WhiteBIT', 'Logo URL']) {
       expect(pdf).not.toContain(text);
     }
 

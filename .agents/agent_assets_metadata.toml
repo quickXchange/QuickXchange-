@@ -266,3 +266,17 @@ mtime_ms = 1791814784997
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/601e01ee-29ee-4466-909b-88077bb6c907/65ae2c05-2d82-412e-a029-cf6ed8b1446f"
 storage_version_token = "1791814802851119"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "ChTZ3bkBP4hM6FW2Sz7Dx"
+uri = "file://PERFORMANCE_REPORT.md"
+type = "text"
+title = "QuickXchange performance report"
+description = "Measured before/after improvements, regression results, verification coverage, and remaining live-service blockers."
+logical_id = "3979c3f6-00ea-4cc3-a006-b1618bcc67d6"
+content_hash = "sha256:7645e1ea7265d47af2fce37c123dcf3b7b8a659ab5beb16a044193473f1ce234"
+size = 8520
+mtime_ms = 1792014377770
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/3979c3f6-00ea-4cc3-a006-b1618bcc67d6/47116cc1-4752-4fab-bcec-c4f7cc2477a1"
+storage_version_token = "1792014436066072"
+content_type = "text/markdown"

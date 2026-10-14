@@ -206,12 +206,16 @@ async function findOrders(chatId: string): Promise<Array<ReturnType<typeof quick
     .where(eq(telegramOrderLinksTable.chatId, chatId)).orderBy(desc(telegramOrderLinksTable.createdAt));
   const manual = links.filter(link => link.orderKind !== "convert");
   const convert = links.filter(link => link.orderKind === "convert");
-  const rows = [
-    ...(manual.length ? await db.select().from(ordersTable).where(inArray(ordersTable.id, manual.map(x => x.orderId))) : []),
-    ...(convert.length ? await db.select().from(quickexOrdersTable).where(inArray(quickexOrdersTable.legacyOrderId, convert.map(x => x.orderId))) : []),
-  ];
+  const [manualRows, convertRows] = await Promise.all([
+    manual.length ? db.select().from(ordersTable).where(inArray(ordersTable.id, manual.map(x => x.orderId))) : Promise.resolve([]),
+    convert.length ? db.select().from(quickexOrdersTable).where(inArray(quickexOrdersTable.legacyOrderId, convert.map(x => x.orderId))) : Promise.resolve([]),
+  ]);
+  // Keep separate namespaces: a Manual and Convert ID must never select the
+  // other's projection, even if historical IDs happen to overlap.
+  const manualById = new Map(manualRows.map(row => [row.id, row]));
+  const convertById = new Map(convertRows.map(row => [row.legacyOrderId, row]));
   return (await Promise.all(links.map(async link => {
-    const row = rows.find(candidate => ("legacyOrderId" in candidate ? candidate.legacyOrderId : candidate.id) === link.orderId);
+    const row = link.orderKind === "convert" ? convertById.get(link.orderId) : manualById.get(link.orderId);
     if (!row) return [];
     return ["convert"].includes(link.orderKind)
       ? [quickexProjection(row as typeof quickexOrdersTable.$inferSelect, link)]

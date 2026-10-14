@@ -29,11 +29,40 @@ export function filterExchangeOptions<T extends ExchangeSearchOption>(
   filter: ExchangeOptionFilter,
   query: string,
 ): T[] {
-  return options.filter(option => {
+  return filterIndexedExchangeOptions(indexExchangeOptions(options), filter, query);
+}
+
+function searchableValues(option: ExchangeSearchOption) {
+  return isExchangePaymentMethod(option)
+    ? [option.title, option.assetCode, option.paymentMethodId, ...(option.searchAliases || [])]
+    : [
+        option.id, option.title, option.assetCode, option.routeNetwork,
+        option.networkTitle, option.paymentMethodId, option.family,
+        ...(option.searchAliases || []),
+      ];
+}
+
+export function indexExchangeOptions<T extends ExchangeSearchOption>(options: T[]) {
+  return options.map(option => ({
+    option,
+    // Keep fields separate: joining them would introduce cross-field matches.
+    values: searchableValues(option)
+      .filter(value => value != null)
+      .map(value => normalizeExchangeSearchValue(String(value))),
+  }));
+}
+
+export function filterIndexedExchangeOptions<T extends ExchangeSearchOption>(
+  index: Array<{ option: T; values: string[] }>,
+  filter: ExchangeOptionFilter,
+  query: string,
+): T[] {
+  const normalizedQuery = normalizeExchangeSearchValue(query);
+  return index.filter(({ option, values }) => {
     if (filter === 'crypto' && option.kind !== 'crypto-network') return false;
     if (filter === 'fiat' && !isExchangePaymentMethod(option)) return false;
-    return exchangeOptionMatchesSearch(option, query);
-  });
+    return !normalizedQuery || values.some(value => value.includes(normalizedQuery));
+  }).map(({ option }) => option);
 }
 
 export function exchangeSelectorEmptyMessage(filter: ExchangeOptionFilter): string {
@@ -47,25 +76,7 @@ export function exchangeOptionMatchesSearch(
   const normalizedQuery = normalizeExchangeSearchValue(query);
   if (!normalizedQuery) return true;
 
-  const searchableValues = isExchangePaymentMethod(option)
-    ? [
-        option.title,
-        option.assetCode,
-        option.paymentMethodId,
-        ...(option.searchAliases || []),
-      ]
-    : [
-        option.id,
-        option.title,
-        option.assetCode,
-        option.routeNetwork,
-        option.networkTitle,
-        option.paymentMethodId,
-        option.family,
-        ...(option.searchAliases || []),
-      ];
-
-  return searchableValues.some(
+  return searchableValues(option).some(
     value => value != null && normalizeExchangeSearchValue(String(value)).includes(normalizedQuery),
   );
 }

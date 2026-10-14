@@ -8,7 +8,7 @@ import {
   useGetPublishedSiteContent,
   useGetPublicNotificationSettings,
 } from '@workspace/api-client-react';
-import { buildInvoicePdf, downloadInvoicePdf } from '@/lib/invoice-pdf';
+import { buildInvoicePdf, downloadInvoicePdf } from '@/lib/invoice-pdf-lazy';
 import { invoiceSnapshot, isCompletedInvoiceOrder, type InvoiceOrder } from '@/lib/invoice-snapshot';
 import { usePublishedTelegramSupportUrl } from '@/lib/telegram-support';
 

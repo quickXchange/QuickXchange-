@@ -1,5 +1,5 @@
 import { useI18n as useCustomerI18n } from "@workspace/i18n";
-import { type ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { I18nProvider } from '@workspace/i18n';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -13,13 +13,23 @@ import { createSessionAwareQueryClient } from '@/lib/session-expiry';
 import { Shell } from '@/components/layout';
 
 import Home from '@/pages/home';
-import Exchange from '@/pages/exchange';
-import Orders from '@/pages/orders';
-import OrderDetail from '@/pages/order-detail';
-import Track from '@/pages/track';
-import Support from '@/pages/support';
-import Account from '@/pages/account';
 import NotFound from '@/pages/not-found';
+
+const Exchange = lazy(() => import('@/pages/exchange'));
+const Orders = lazy(() => import('@/pages/orders'));
+const OrderDetail = lazy(() => import('@/pages/order-detail'));
+const Track = lazy(() => import('@/pages/track'));
+const Support = lazy(() => import('@/pages/support'));
+const Account = lazy(() => import('@/pages/account'));
+
+function ScreenLoading() {
+  const { t } = useCustomerI18n();
+  return (
+    <div className="flex min-h-[60dvh] items-center justify-center" role="status">
+      <p className="text-sm font-semibold text-muted-foreground">{t("customer.m06a2ff1f5914")}</p>
+    </div>
+  );
+}
 
 const queryClient = createSessionAwareQueryClient({
   defaultOptions: {
@@ -68,6 +78,7 @@ function Router() {
   return (
     <Shell>
       <RoutedErrorBoundary>
+        <Suspense fallback={<ScreenLoading />}>
         <Switch>
           <Route path="/" component={() => <ProtectedRoute component={Home} />} />
           <Route path="/exchange" component={() => <ProtectedRoute component={Exchange} />} />
@@ -78,6 +89,7 @@ function Router() {
           <Route path="/account" component={() => <ProtectedRoute component={Account} />} />
           <Route component={NotFound} />
         </Switch>
+        </Suspense>
       </RoutedErrorBoundary>
     </Shell>
   );

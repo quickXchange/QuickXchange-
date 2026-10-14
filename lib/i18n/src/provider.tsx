@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { formatDisplayAmount } from '@workspace/amount-format';
 import { defaultLanguageSettings, detectLocale, englishDictionary, flattenDictionary, isSupportedLocale, loadDictionary, LOCALE_STORAGE_KEY, localeDefinitions, mergeDictionary, sourceTemplate, sourceTranslationKey, translate } from './runtime';
 import type { I18nContextValue, LanguageSettings, Locale, TranslationDictionary, TranslationParams } from './types';
+import { loadLocalePair } from './load-locale-pair';
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 export function I18nProvider({ children, apiBase = '/api' }: PropsWithChildren<{ apiBase?: string }>) {
@@ -27,10 +28,7 @@ export function I18nProvider({ children, apiBase = '/api' }: PropsWithChildren<{
     const current = ++requestId.current;
     setIsLoading(true);
     try {
-      const [next, nextFallback] = await Promise.all([
-        remoteDictionary(code),
-        configuration.fallbackLanguage === code ? remoteDictionary(code) : remoteDictionary(configuration.fallbackLanguage),
-      ]);
+      const [next, nextFallback] = await loadLocalePair(code, configuration.fallbackLanguage, remoteDictionary);
       if (requestId.current !== current) return;
       for (const loaded of [next, nextFallback]) for (const [key, value] of Object.entries(flattenDictionary(loaded))) {
         translationHistory.current.set(value.trim().replace(/\s+/g, ' '), key);

@@ -484,10 +484,15 @@ test('uses the configured public Swap pair and keeps a visitor selection after c
   await expect(page.getByTestId('select-to-asset')).toHaveAttribute('data-value', 'btc-bitcoin');
 
   const requestsBeforeRefetch = configRequests;
+  await page.getByTestId('select-from-asset').click();
+  await page.getByTestId('search-from-asset').fill('usd');
+  await expect(page.getByTestId('option-from-asset-usd-fiat')).toBeVisible();
   await page.evaluate(async () => {
     const { queryClient } = await import('/src/App.tsx');
     await queryClient.refetchQueries({ queryKey: ['/api/exchange/config'] });
   });
+  await expect(page.getByTestId('search-from-asset')).toHaveValue('usd');
+  await expect(page.getByTestId('option-from-asset-usd-fiat')).toBeVisible();
   await expect.poll(() => configRequests).toBeGreaterThan(requestsBeforeRefetch);
   await expect(page.getByTestId('select-from-asset')).toHaveAttribute('data-value', 'usd-fiat');
   await expect(page.getByTestId('select-to-asset')).toHaveAttribute('data-value', 'btc-bitcoin');

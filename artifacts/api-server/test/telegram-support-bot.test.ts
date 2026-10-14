@@ -365,6 +365,39 @@ test("credential separation rejects equal and rotated same-bot IDs; production r
   assert.equal(trustedSupportPublicOrigin("https://example.com"), null);
 });
 
+test("read-only support connection probes start together without sending messages", async () => {
+  const mockFetch = globalThis.fetch;
+  const started = new Set<string>();
+  let release!: () => void;
+  let bothStarted!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const observed = new Promise<void>(resolve => { bothStarted = resolve; });
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  globalThis.fetch = (async (input, init) => {
+    const method = new URL(String(input)).pathname.split("/").at(-1) ?? "";
+    assert.ok(["getMe", "getWebhookInfo"].includes(method), "Health checks must stay read-only.");
+    started.add(method);
+    if (started.size === 2) bothStarted();
+    await gate;
+    return mockFetch(input, init);
+  }) as typeof fetch;
+  const check = checkSupportBotConnection();
+  try {
+    await Promise.race([
+      observed,
+      new Promise<void>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error("Independent probes were serialized.")), 3_000);
+      }),
+    ]);
+    assert.deepEqual([...started], ["getMe", "getWebhookInfo"]);
+  } finally {
+    clearTimeout(timeout);
+    release();
+    await check;
+    globalThis.fetch = mockFetch;
+  }
+});
+
 test("Owner-only GET/PUT and read-only connection checks expose no secrets or unsafe provider webhook metadata", async () => {
   for (const [method, path] of [
     ["GET", "/admin/telegram/support-bot"],

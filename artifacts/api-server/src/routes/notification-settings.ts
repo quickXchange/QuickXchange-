@@ -159,18 +159,21 @@ router.get("/admin/notification-settings/telegram-health", requireOwner, async (
   let webhookUrl: string | undefined;
   let lastWebhookError: string | null = null;
   let botIdentityError: string | null = null;
-  try {
-    const identity = await getTelegramBotIdentity();
-    botUsername = identity.username;
-  } catch (error) {
-    botIdentityError = sanitizeTelegramFailureReason(error);
+  const [identityCheck, webhookCheck] = await Promise.allSettled([
+    getTelegramBotIdentity(),
+    getTelegramWebhookInfo(),
+  ]);
+  if (identityCheck.status === "fulfilled") {
+    botUsername = identityCheck.value.username;
+  } else {
+    botIdentityError = sanitizeTelegramFailureReason(identityCheck.reason);
   }
-  try {
-    const info = await getTelegramWebhookInfo();
+  if (webhookCheck.status === "fulfilled") {
+    const info = webhookCheck.value;
     webhookUrl = info?.url;
     if (info?.last_error_message) lastWebhookError = sanitizeTelegramFailureReason(info.last_error_message);
-  } catch (error) {
-    lastWebhookError = sanitizeTelegramFailureReason(error);
+  } else {
+    lastWebhookError = sanitizeTelegramFailureReason(webhookCheck.reason);
   }
   res.json(telegramHealthReport(true, botUsername, webhookUrl, lastWebhookError, botIdentityError));
 });

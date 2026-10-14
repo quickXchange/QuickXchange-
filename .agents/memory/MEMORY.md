@@ -148,5 +148,6 @@
 - [Website Telegram support scope](website-telegram-support-scope.md) — one published support destination; preserve other Telegram purposes and never activate stale defaults while loading.
 - [Amount display precision](amount-display-precision.md) — three decimals for human-facing amounts; exact input, copy and machine-data boundaries stay intact.
 - [Performance measurement safety](performance-measurement-safety.md) — enlarge resource timing buffers, discard probe-induced failures, and distinguish process CPU from main-thread profiles.
+- [Client bootstrap SSR tests](client-bootstrap-ssr-tests.md) — isolated image markup tests need a test-only language fixture, not a client Provider that waits for API bootstrap.
 - [Customer language scope](customer-language-scope.md) — seven shared Website/Mini App languages, no Arabic/RTL; validate authentication locale template compatibility.
 - [Automatic rates XML](automatic-rates-xml-publication.md) — files-only replacement; no legacy fallback or dynamic order percentages; method codes and staged Perfect Money.

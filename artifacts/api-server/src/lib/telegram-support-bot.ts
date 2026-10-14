@@ -473,9 +473,12 @@ export async function checkSupportBotConnection(): Promise<SupportStatus> {
   }
   const checkedAt = new Date().toISOString();
   try {
-    const identity = parseSupportBotIdentity(await supportTelegramCall<unknown>(token, "getMe", {}));
+    const [identityResult, info] = await Promise.all([
+      supportTelegramCall<unknown>(token, "getMe", {}),
+      supportTelegramCall<{ url?: unknown }>(token, "getWebhookInfo", {}),
+    ]);
+    const identity = parseSupportBotIdentity(identityResult);
     if (!identity) throw new SupportBotError("SUPPORT_BOT_IDENTITY_INVALID", "Telegram returned an invalid support bot identity.", 502);
-    const info = await supportTelegramCall<{ url?: unknown }>(token, "getWebhookInfo", {});
     const webhookUrl = safePublicWebhookUrl(info?.url);
     const expectedUrl = expectedSupportWebhookUrl();
     cachedConnection = {

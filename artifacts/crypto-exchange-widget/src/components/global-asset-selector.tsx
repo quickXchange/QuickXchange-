@@ -7,7 +7,7 @@ import { useI18n } from '@/i18n';
 import { UniversalSearchSheet } from './universal-search-sheet';
 import {
   normalizeSelectorSearchValue,
-  selectorOptionMatchesQuery,
+  indexSelectorOptions,
 } from './selector-search';
 
 export { normalizeSelectorSearchValue, selectorOptionMatchesQuery } from './selector-search';
@@ -98,12 +98,13 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
     ).map(c => ({ ...c, label: t(c.labelKey) })),
     [options, t],
   );
+  const searchIndex = useMemo(() => indexSelectorOptions(options), [options]);
   const filteredOptions = useMemo(
-    () => options.filter(option =>
+    () => searchIndex.filter(({ option, normalizedSearchText }) =>
       (activeCategory === 'all' || option.category === activeCategory)
-      && selectorOptionMatchesQuery(option.searchText, normalizedQuery)
-    ),
-    [activeCategory, normalizedQuery, options],
+      && (!normalizedQuery || normalizedSearchText.includes(normalizedQuery))
+    ).map(({ option }) => option),
+    [activeCategory, normalizedQuery, searchIndex],
   );
   const listboxId = `${testId}-listbox`;
   const testIdBase = testId.replace('select-', '');
@@ -191,16 +192,25 @@ export function GlobalAssetSelector<TOption extends GlobalAssetSelectorOption>({
     updateOverlayAnchor();
     if (preserveOpenGeometry) return;
 
-    window.addEventListener('resize', updateOverlayAnchor);
-    window.addEventListener('scroll', updateOverlayAnchor, { passive: true });
-    window.visualViewport?.addEventListener('resize', updateOverlayAnchor);
-    window.visualViewport?.addEventListener('scroll', updateOverlayAnchor);
+    let frame = 0;
+    const scheduleOverlayAnchor = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        updateOverlayAnchor();
+      });
+    };
+    window.addEventListener('resize', scheduleOverlayAnchor);
+    window.addEventListener('scroll', scheduleOverlayAnchor, { passive: true });
+    window.visualViewport?.addEventListener('resize', scheduleOverlayAnchor);
+    window.visualViewport?.addEventListener('scroll', scheduleOverlayAnchor);
 
     return () => {
-      window.removeEventListener('resize', updateOverlayAnchor);
-      window.removeEventListener('scroll', updateOverlayAnchor);
-      window.visualViewport?.removeEventListener('resize', updateOverlayAnchor);
-      window.visualViewport?.removeEventListener('scroll', updateOverlayAnchor);
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', scheduleOverlayAnchor);
+      window.removeEventListener('scroll', scheduleOverlayAnchor);
+      window.visualViewport?.removeEventListener('resize', scheduleOverlayAnchor);
+      window.visualViewport?.removeEventListener('scroll', scheduleOverlayAnchor);
     };
   }, [open, preserveOpenGeometry]);
 

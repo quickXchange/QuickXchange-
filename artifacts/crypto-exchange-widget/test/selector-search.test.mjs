@@ -6,7 +6,28 @@ const {
   normalizeSelectorSearchValue,
   selectorOptionMatchesQuery,
   settlementOptionSearchText,
+  indexSelectorOptions,
 } = await import(process.env.SELECTOR_SEARCH_MODULE);
+
+test('indexed selector search preserves matches, order and refreshed catalog text', () => {
+  const options = [
+    { id: 'bank', searchText: 'SÉPA Instant EUR' },
+    { id: 'tron', searchText: 'Tether USDT TRC20' },
+    { id: 'eth', searchText: 'Tether USDT ERC20' },
+  ];
+  const index = indexSelectorOptions(options);
+  for (const query of ['', '  SÉPA ', 'usd', 'trc', 'no match']) {
+    const normalized = normalizeSelectorSearchValue(query);
+    assert.deepEqual(
+      index.filter(row => row.normalizedSearchText.includes(normalized)).map(row => row.option),
+      options.filter(option => selectorOptionMatchesQuery(option.searchText, query)),
+    );
+  }
+  assert.equal(index[0].option, options[0]);
+  const refreshed = indexSelectorOptions([{ ...options[0], searchText: 'Updated bank' }]);
+  assert.equal(refreshed[0].normalizedSearchText, 'updated bank');
+  assert.equal(index[0].normalizedSearchText, 'sepa instant eur');
+});
 
 test('selector matching normalizes whitespace, case, and accents while retaining partial matches', () => {
   assert.equal(normalizeSelectorSearchValue('  ÉTh  '), 'eth');

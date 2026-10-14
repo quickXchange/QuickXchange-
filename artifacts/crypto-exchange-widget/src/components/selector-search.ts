@@ -12,6 +12,17 @@ export function selectorOptionMatchesQuery(searchText: string, query: string): b
     || normalizeSelectorSearchValue(searchText).includes(normalizedQuery);
 }
 
+/**
+ * Normalize the catalog only when it changes, rather than for every keystroke.
+ * The index belongs to its mounted selector, not a global cache of mutable data.
+ */
+export function indexSelectorOptions<T extends { searchText: string }>(options: T[]) {
+  return options.map(option => ({
+    option,
+    normalizedSearchText: normalizeSelectorSearchValue(option.searchText),
+  }));
+}
+
 type SettlementSearchIdentity = {
   assetCode: string;
   kind: string;

@@ -5,8 +5,31 @@ import {
   exchangeSelectorEmptyMessage,
   filterExchangeOptions,
   normalizeExchangeSearchValue,
+  indexExchangeOptions,
+  filterIndexedExchangeOptions,
 } from './exchange-search';
 import { PAYMENT_METHOD_CATALOG } from '../../../api-server/src/lib/global-payment-catalog';
+
+test('preindexed search preserves per-field matches, ordering and refreshed catalogs', () => {
+  const options = [
+    { id: 'crypto', kind: 'crypto-network', title: 'Tether', assetCode: 'USDT', routeNetwork: 'TRC20' },
+    { id: 'bank', kind: 'fiat-payment-method', title: 'SÉPA Instant', assetCode: 'EUR', routeNetwork: 'hidden rail' },
+  ];
+  const index = indexExchangeOptions(options);
+  for (const filter of ['all', 'crypto', 'fiat'] as const) {
+    for (const query of ['', '  SÉPA ', 'usd', 'trc', 'hidden rail', 'tetherusdt']) {
+      const expected = options.filter(option =>
+        (filter !== 'crypto' || option.kind === 'crypto-network')
+        && (filter !== 'fiat' || option.kind === 'fiat-payment-method')
+        && exchangeOptionMatchesSearch(option, query));
+      assert.deepEqual(filterIndexedExchangeOptions(index, filter, query), expected);
+    }
+  }
+  assert.equal(index[0].option, options[0]);
+  const refreshed = indexExchangeOptions([{ ...options[0], title: 'Updated token' }]);
+  assert.equal(filterIndexedExchangeOptions(refreshed, 'all', 'updated').length, 1);
+  assert.equal(filterIndexedExchangeOptions(index, 'all', 'updated').length, 0);
+});
 
 test('selector search trims, normalizes accents, and ignores case', () => {
   assert.equal(normalizeExchangeSearchValue('  SÉPA  '), 'sepa');

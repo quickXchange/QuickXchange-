@@ -126,7 +126,7 @@ import { AdminPaymentMethodBulkReserveDialog } from '../components/admin-payment
 import { BulkDepositProviderDialog } from '../components/bulk-deposit-provider-dialog';
 import { OrderSupportToolsSection } from '../components/admin-order-support-tools';
 import { convertOrderStatusLabel, convertOrderStatusStep, normalizeConvertOrderStatus } from '../lib/convert-order-status';
-import { downloadInvoicePdf } from '../lib/invoice-pdf';
+import { downloadInvoicePdf } from '../lib/invoice-pdf-lazy';
 import { invoiceSnapshot, isCompletedInvoiceOrder } from '../lib/invoice-snapshot';
 import { AdminSwapDefaultPair } from '../components/admin-swap-default-pair';
 import { AdminConvertDefaultPair } from '../components/admin-convert-default-pair';

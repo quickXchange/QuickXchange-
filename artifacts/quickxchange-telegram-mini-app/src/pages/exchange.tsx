@@ -27,7 +27,8 @@ import { ExchangeRateSummary } from '@/components/exchange-rate-summary';
 import { getFallbackPaymentLogos, getFallbackCryptoLogos, getLogoFallbackText } from '@/lib/logo-catalog';
 import {
   exchangeSelectorEmptyMessage,
-  filterExchangeOptions,
+  indexExchangeOptions,
+  filterIndexedExchangeOptions,
 } from '@/lib/exchange-search';
 import { createClientRequestId } from '@/lib/client-request-id';
 import { runSwapQuoteRequest, SwapQuoteTimeoutError } from '@/lib/swap-quote-request';
@@ -471,13 +472,15 @@ export default function Exchange() {
     }
   }, [config, manualRoutes, quickexConfig, quickexRoutes, mode, sourceId]);
 
+  const sourceSearchIndex = useMemo(() => indexExchangeOptions(sourceOpts), [sourceOpts]);
+  const targetSearchIndex = useMemo(() => indexExchangeOptions(targetOpts), [targetOpts]);
   const filteredSourceOpts = useMemo(() => {
-    return filterExchangeOptions(sourceOpts, sourceFilter, sourceSearch);
-  }, [sourceOpts, sourceSearch, sourceFilter, mode]);
+    return filterIndexedExchangeOptions(sourceSearchIndex, sourceFilter, sourceSearch);
+  }, [sourceSearchIndex, sourceSearch, sourceFilter]);
 
   const filteredTargetOpts = useMemo(() => {
-    return filterExchangeOptions(targetOpts, targetFilter, targetSearch);
-  }, [targetOpts, targetSearch, targetFilter, mode]);
+    return filterIndexedExchangeOptions(targetSearchIndex, targetFilter, targetSearch);
+  }, [targetSearchIndex, targetSearch, targetFilter]);
 
   const routeChoices = useMemo(
     () => mode === 'swap'

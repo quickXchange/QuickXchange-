@@ -145,7 +145,7 @@ test('Swap and Convert selector searches match payment methods, networks, and ti
   await expect(page.getByTestId('option-convert-to-asset-usdc-ethereum')).toBeVisible();
 });
 
-test('shared Web payment artwork has no painted mat in both themes and viewport sizes', async ({ page }, testInfo) => {
+test('shared Web payment artwork preserves its upload and adaptive frame in both themes and viewport sizes', async ({ page }, testInfo) => {
   const uploaded = 'https://cdn.example.test/admin-bank.svg';
   await page.route('https://cdn.example.test/**', route => route.fulfill({
     status: 200,
@@ -166,7 +166,9 @@ test('shared Web payment artwork has no painted mat in both themes and viewport 
   await page.goto('/');
   await page.getByTestId('select-from-asset').click();
   await page.getByTestId('option-from-asset-usd-fiat').click();
-  const avatar = page.getByTestId('select-from-asset').locator('.payment-method-logo-stack .logo-avatar').first();
+  // The stack also contains a currency flag. Assert the uploaded payment
+  // artwork's own frame rather than whichever image happens to render first.
+  const avatar = page.getByTestId('select-from-asset').locator('.payment-method-logo-stack .payment-logo-frame').first();
   await expect(avatar).toBeVisible();
   await expect(avatar.locator('img')).toHaveJSProperty('naturalWidth', 180);
   for (const width of [390, 1280]) {
@@ -179,6 +181,7 @@ test('shared Web payment artwork has no painted mat in both themes and viewport 
         const outer = element.getBoundingClientRect();
         return {
           background: getComputedStyle(element).backgroundColor,
+          lowLuminance: element.classList.contains('payment-logo-frame-low-luminance'),
           radius: getComputedStyle(element).borderRadius,
           width: outer.width,
           height: outer.height,
@@ -188,7 +191,13 @@ test('shared Web payment artwork has no painted mat in both themes and viewport 
           source: image.getAttribute('src'),
         };
       });
-      expect(visual.background).toBe('rgba(0, 0, 0, 0)');
+      // The shared renderer intentionally uses a 4% frame, with a stronger
+      // contrast surface only for measured dark artwork in Dark mode.
+      if (dark && visual.lowLuminance) {
+        expect(visual.background).toBe('rgb(245, 246, 248)');
+      } else {
+        expect(visual.background).toMatch(/(?:,\s*0\.04|\/\s*0\.04)\)$/);
+      }
       expect(visual.imageBackground).toBe('rgba(0, 0, 0, 0)');
       expect(visual.radius === '50%' || parseFloat(visual.radius) >= visual.width / 2).toBe(true);
       expect(visual.width).toBe(visual.height);
