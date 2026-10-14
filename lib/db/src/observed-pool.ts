@@ -1,17 +1,20 @@
 import pg from "pg";
 import { monitorEventLoopDelay, performance } from "node:perf_hooks";
-import { classifyDatabasePoolError } from "./pool-telemetry";
+import { classifyDatabasePoolError, isTransientConnectionAcquisitionError } from "./pool-telemetry";
 
 type ConnectCallback = (error: Error | undefined, client: pg.PoolClient | undefined, release: (error?: Error | boolean) => void) => void;
 
 /**
  * Observe the driver's documented connect callback/Promise APIs without
- * retrying a query, transaction, acquisition, or financial write.
+ * retrying a query, transaction, or financial write. A transient failure before
+ * acquisition may reconnect once: no SQL has been submitted at that boundary.
  */
 export class ObservedPool extends pg.Pool {
   private acquisitions = 0;
   private failures = 0;
   private slowAcquisitions = 0;
+  private connectionRetries = 0;
+  private recoveredAcquisitions = 0;
   private lastAcquisitionMs = 0;
   private maxAcquisitionMs = 0;
   private loop = monitorEventLoopDelay({ resolution: 20 });
@@ -26,6 +29,8 @@ export class ObservedPool extends pg.Pool {
       acquisitions: this.acquisitions,
       acquisitionFailures: this.failures,
       slowAcquisitions: this.slowAcquisitions,
+      connectionRetries: this.connectionRetries,
+      recoveredAcquisitions: this.recoveredAcquisitions,
       lastAcquisitionMs: this.lastAcquisitionMs,
       maxAcquisitionMs: this.maxAcquisitionMs,
       eventLoopDelayP99Ms: Number.isFinite(this.loop.percentile(99))
@@ -57,19 +62,39 @@ export class ObservedPool extends pg.Pool {
         });
       }
     };
-    if (callback) {
-      super.connect((error, client, release) => {
-        record(error);
-        callback(error, client, release);
+    const acquire = (done: ConnectCallback) => {
+      let retried = false;
+      const attempt = () => {
+        super.connect((error, client, release) => {
+          if (error && !client && !retried && !this.ending &&
+              isTransientConnectionAcquisitionError(error)) {
+            retried = true;
+            this.connectionRetries++;
+            // Let the driver's failed-client removal and pending queue settle.
+            // Do not retry exhaustion, authentication errors, or any SQL.
+            setImmediate(() => {
+              if (this.ending) {
+                record(error);
+                done(error, undefined, release);
+              } else {
+                attempt();
+              }
+            });
+            return;
+          }
+          if (!error && retried) this.recoveredAcquisitions++;
+          record(error);
+          done(error, client, release);
+        });
+      };
+      attempt();
+    };
+    if (callback) return acquire(callback);
+    return new Promise<pg.PoolClient>((resolve, reject) => {
+      acquire((error, client) => {
+        if (error) reject(error);
+        else resolve(client!);
       });
-      return;
-    }
-    return super.connect().then(client => {
-      record();
-      return client;
-    }, error => {
-      record(error);
-      throw error;
     });
   }
 

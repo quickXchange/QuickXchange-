@@ -15,6 +15,12 @@ Verified credentials saved through the owner admin panel are authoritative. Envi
 
 **How to apply:** Startup should re-verify stored credentials first. Use environment secrets to seed storage only when it is empty; never silently overwrite an owner-managed rotation during restart.
 
+Quickex remote verification must not prevent unrelated HTTP services from listening. Run its synchronous proof-invalidation fence before serving requests, then complete verification and retry scheduling in the background.
+
+**Why:** A provider timeout otherwise delays Website, Admin, Manual Swap and Mini App startup even when those paths are healthy.
+
+**How to apply:** Keep Convert gated until the existing proof succeeds, and cancel future verification scheduling on shutdown, including late in-flight completions.
+
 Irreversible provider order creation must capture the current proof generation and credential fingerprint, then recheck both immediately before starting the external create request.
 
 **Why:** Capability checks earlier in a request do not prevent a scheduled proof refresh or owner rotation from invalidating credentials while address checks and intent persistence are still running.

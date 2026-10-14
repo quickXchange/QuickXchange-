@@ -1,0 +1,29 @@
+Act as the lead engineer responsible for completing the QuickXchange stabilization and repair work.
+
+Continue from all existing investigations, fixes, tests, and evidence. Do not restart completed work or repeatedly report known issues.
+
+Your objective is to deliver a fast, stable, fully functional QuickXchange platform.
+
+Resolve the outstanding issues end to end:
+
+1. Fix recurring PostgreSQL connection failures affecting API services, blockchain deposit monitoring, background workers, and notifications. Investigate connection lifecycle, pooling, network interruptions, worker recovery, and resource usage. Implement reliable recovery and verify sustained stability.
+
+2. Restore Quickex connectivity and live Convert functionality. Investigate the actual runtime network path, hosting configuration, outbound connectivity, and provider restrictions. Apply every safe fix available within your access. Verify real Fixed and Floating quotes without stale financial data.
+
+3. Verify WhiteBIT deposits are detected, matched to the correct order, and reflected automatically in Admin, customer tracking, and Telegram. Repair any remaining deposit-processing or synchronization failures.
+
+4. Optimize and stabilize the Website, Admin Panel, Swap, Convert, Telegram Exchange Bot, Support Bot, and Telegram Mini App. Fix slow requests, loading delays, broken interactions, and unnecessary resource usage.
+
+5. Check critical customer journeys end to end: quote retrieval, order creation, deposit address assignment, deposit confirmation, order processing, status tracking, and notifications.
+
+6. Prevent duplicate orders, duplicate deposit crediting, and duplicate payouts. Preserve existing orders, balances, pricing rules, credentials, and transaction records.
+
+Work autonomously: inspect, implement, test, verify, and continue to the next issue. If a fix does not work, investigate another safe solution rather than stopping at a diagnostic report.
+
+Use existing test coverage and add targeted regression tests for actual failures. Verify real behavior, not just successful builds or synthetic tests.
+
+Do not claim that an external connectivity issue is fixed unless actual successful connectivity has been verified. If an external provider or hosting operator must intervene, prepare the exact actionable request and complete all other work in parallel.
+
+Only interrupt me for an action that genuinely requires my authorization.
+
+Finish with a concise report showing what was fixed, what was verified, and whether any unavoidable external blocker remains. Prioritize working solutions over repeated explanations.

@@ -2,6 +2,7 @@ import app from "./app";
 import { pool } from "@workspace/db";
 import { logger } from "./lib/logger";
 import { bootstrapQuickexCredentialVerification } from "./lib/quickex";
+import { startBackgroundVerification } from "./lib/background-verification";
 import { startExchangeStatusNotificationWorker } from "./routes/exchange";
 import { startWhitebitHistoryWorker } from "./lib/whitebit-history-worker";
 import { validateObjectStorageConfiguration } from "./lib/object-storage";
@@ -74,7 +75,6 @@ async function start() {
   const stopBlockchainMonitoringWorker = startBlockchainMonitoringWorker();
   const stopWhitebitHistoryWorker = startWhitebitHistoryWorker();
   void setupTelegramCommands().catch((error) => logger.warn({ err: error }, "Telegram command setup failed"));
-  let verificationTimer: ReturnType<typeof setTimeout> | undefined;
   const verifyQuickex = async (): Promise<boolean> => {
     try {
       const state = await bootstrapQuickexCredentialVerification();
@@ -92,22 +92,10 @@ async function start() {
       return false;
     }
   };
-  const scheduleVerification = (delay: number) => {
-    verificationTimer = setTimeout(async () => {
-      const verified = await verifyQuickex();
-      scheduleVerification(
-        verified
-          ? QUICKEX_VERIFICATION_REFRESH_MS
-          : QUICKEX_VERIFICATION_RETRY_MS,
-      );
-    }, delay);
-    verificationTimer.unref();
-  };
-  const initiallyVerified = await verifyQuickex();
-  scheduleVerification(
-    initiallyVerified
-      ? QUICKEX_VERIFICATION_REFRESH_MS
-      : QUICKEX_VERIFICATION_RETRY_MS,
+  const stopQuickexVerification = startBackgroundVerification(
+    verifyQuickex,
+    QUICKEX_VERIFICATION_REFRESH_MS,
+    QUICKEX_VERIFICATION_RETRY_MS,
   );
 
   const server = app.listen(port, (err) => {
@@ -127,13 +115,14 @@ async function start() {
   server.on("close", stopWhitebitHistoryWorker);
   server.on("close", stopConvertWorker);
   server.on("close", stopConvertXmlWorker);
+  server.on("close", stopQuickexVerification);
 
   let shuttingDown = false;
   const shutdown = (signal: NodeJS.Signals) => {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info({ signal }, "Graceful shutdown started");
-    if (verificationTimer) clearTimeout(verificationTimer);
+    stopQuickexVerification();
     stopNotificationWorker();
 
     const forceExit = setTimeout(() => {

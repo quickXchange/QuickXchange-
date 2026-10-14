@@ -40,6 +40,25 @@ export function classifyDatabasePoolError(error: unknown): DatabasePoolErrorCate
   return "database_query_failure";
 }
 
+/** Only for acquisition, before a client is handed to a query or transaction. */
+export function isTransientConnectionAcquisitionError(error: unknown): boolean {
+  if (classifyDatabasePoolError(error) === "physical_connection_establishment_timeout") return true;
+  const codes = new Set([
+    "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EHOSTUNREACH", "ENETUNREACH", "EPIPE",
+    "57P01", "57P02", "57P03", "08000", "08001", "08003", "08006",
+  ]);
+  const visited = new Set<object>();
+  let current = error;
+  while (current && typeof current === "object" && !visited.has(current)) {
+    visited.add(current);
+    if ("code" in current && typeof current.code === "string" && codes.has(current.code)) return true;
+    current = "cause" in current ? current.cause : undefined;
+  }
+  // pg can report a socket closed during startup without an errno. This helper
+  // is never applied after acquisition, where the same message is ambiguous.
+  return errorMessages(error).some(message => /^Connection terminated(?: unexpectedly)?$/.test(message));
+}
+
 export function databasePoolTelemetry(
   component: string,
   error: unknown,

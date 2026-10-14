@@ -5,7 +5,7 @@ import { readPublishedXmlQuotes, savePublishedXmlQuote, removePublishedXmlQuotes
 import type { XmlMethod } from "./rates-xml-methods";
 import type { GetAdminRatesXmlPreviewResponse } from "@workspace/api-zod";
 import { getQuickexPublicCapabilityConfig } from "./provider-capabilities";
-import { xmlDiscoveryDeadline } from "./rates-xml-refresh";
+import { CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS, xmlDiscoveryDeadline } from "./rates-xml-refresh";
 
 type Diagnostic = typeof GetAdminRatesXmlPreviewResponse._output.diagnostics[number];
 const method = (pair: PartnerPair, side: "instrumentFrom" | "instrumentTo"): XmlMethod => {
@@ -52,7 +52,9 @@ export async function readConvertXmlPublication(waitMs = 250) {
   const snapshot = await refresh.snapshot(waitMs);
   // Preserve historical publications, but require the same directed executable
   // catalog as customer Convert and a non-expired provider rate for public XML.
-  const config = await xmlDiscoveryDeadline(getQuickexPublicCapabilityConfig(), 1_000);
+  const config = await xmlDiscoveryDeadline(
+    getQuickexPublicCapabilityConfig(), CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS,
+  );
   const publishable = new Set(freshExecutableXmlRows(snapshot,
     config.signedOrders ? config.pairs : []).map(row => row.key));
   const diagnostics = snapshot.rows.map(row => publishable.has(row.key)
@@ -75,9 +77,12 @@ export async function readConvertXmlPublication(waitMs = 250) {
 export function startConvertXmlPublicationWorker() {
   let stopped = false;
   const tick = () => {
-    if (!stopped) void readConvertXmlPublication(0).catch(() => {
+    if (!stopped) void readConvertXmlPublication(0).catch((error: unknown) => {
       // XML requests surface diagnostics; do not log credentials/provider payloads.
-      console.warn("Quickex partner XML background refresh is temporarily unavailable.");
+      const code = error && typeof error === "object" && "code" in error &&
+        typeof error.code === "string" && /^[A-Z0-9_]{1,64}$/.test(error.code)
+        ? error.code : "XML_PUBLICATION_UNAVAILABLE";
+      console.warn("Quickex partner XML background refresh is temporarily unavailable.", { code });
     });
   };
   const timer = setInterval(tick, 30_000);

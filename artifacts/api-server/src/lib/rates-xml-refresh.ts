@@ -2,12 +2,17 @@ export type XmlCachedQuote<T> = { until: number; item?: T; reason?: string; quot
 export type XmlQuoteTask<T> = { key: string; run: () => Promise<T> };
 
 /** XML discovery may warm the provider catalogue, but must not block cached publication. */
+// Live executable-catalog reads exceeded one second in Production even while
+// successful quotes were available. This bounds discovery, not rate freshness.
+export const CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS = 3_000;
+
 export async function xmlDiscoveryDeadline<T>(work: Promise<T>, waitMs: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([work, new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(Object.assign(
-        new Error("XML provider discovery is slow; retaining last successful rates."), { status: 503 },
+        new Error("XML provider discovery is slow; retaining last successful rates."),
+        { status: 503, code: "XML_DISCOVERY_TIMEOUT" },
       )), waitMs);
     })]);
   } finally {
