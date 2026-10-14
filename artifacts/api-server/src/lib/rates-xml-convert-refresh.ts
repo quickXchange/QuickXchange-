@@ -6,20 +6,22 @@ import { fetchPartnerPairs, partnerPairKey, partnerRateParams, partnerRateToXml,
 export type ConvertXmlSaved = { key: string; pair: PartnerPair; item: RatesXmlItem; quotedAt: number };
 export type ConvertXmlSnapshot = {
   rows: ConvertXmlSaved[]; freshRows: ConvertXmlSaved[]; refreshing: boolean; stale: boolean; error?: string;
-  skipped: number; updatedAt?: number;
+  skipped: number; updatedAt?: number; pending?: number;
 };
+type ExecutableXmlRoute = { fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string };
+function directedKey(fromAsset: string, fromNetwork: string, toAsset: string, toNetwork: string) {
+  const identity = (asset: string, network: string) =>
+    automaticXmlCryptoCode(asset, network) ?? `${asset.trim().toUpperCase()}\0${network.trim().toUpperCase()}`;
+  return `${identity(fromAsset, fromNetwork)}\0${identity(toAsset, toNetwork)}`;
+}
 /** Public publication uses exact directed identities, not network-title aliases. */
 export function freshExecutableXmlRows(
   snapshot: Pick<ConvertXmlSnapshot, "freshRows">,
-  routes: { fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string }[],
+  routes: ExecutableXmlRoute[],
 ) {
-  const identity = (asset: string, network: string) =>
-    automaticXmlCryptoCode(asset, network) ?? `${asset.trim().toUpperCase()}\0${network.trim().toUpperCase()}`;
-  const key = (fromAsset: string, fromNetwork: string, toAsset: string, toNetwork: string) =>
-    `${identity(fromAsset, fromNetwork)}\0${identity(toAsset, toNetwork)}`;
   const allowed = new Set(routes.map(route =>
-    key(route.fromAsset, route.fromNetwork, route.toAsset, route.toNetwork)));
-  return snapshot.freshRows.filter(row => allowed.has(key(
+    directedKey(route.fromAsset, route.fromNetwork, route.toAsset, route.toNetwork)));
+  return snapshot.freshRows.filter(row => allowed.has(directedKey(
     row.pair.instrumentFrom.currencyTitle, row.pair.instrumentFrom.networkTitle,
     row.pair.instrumentTo.currencyTitle, row.pair.instrumentTo.networkTitle,
   )));
@@ -30,6 +32,7 @@ type Dependencies = {
   save(scope: string, row: ConvertXmlSaved): Promise<void>;
   remove(scope: string, keys?: string[]): Promise<void>;
   codeAllowed(code: string): boolean;
+  executableRoutes?: () => Promise<ExecutableXmlRoute[]>;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
 };
@@ -39,6 +42,9 @@ export function upstreamStatus(error: unknown) {
 }
 const retryable = (e: unknown) => upstreamStatus(e) === 429 || upstreamStatus(e) >= 500;
 const REFRESH_INTERVAL_MS = 5 * 60_000;
+const REFRESH_AHEAD_MS = 60_000;
+const MAX_RATE_BATCH = 256;
+const RATE_BATCH_BUDGET_MS = 60_000;
 /** One bounded background flight; requests never wait for the full route matrix. */
 export class ConvertXmlRefresh {
   private identity = "";
@@ -50,6 +56,10 @@ export class ConvertXmlRefresh {
   private skipped = 0;
   private updatedAt?: number;
   private generation = 0;
+  private catalog?: { pairs: PartnerPair[]; expiresAt: number };
+  private readonly retryAt = new Map<string, number>();
+  private readonly verified = new Set<string>();
+  private eligibleCount = 0;
   private loading?: { identity: string; promise: Promise<void> };
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly now: () => number;
@@ -61,25 +71,43 @@ export class ConvertXmlRefresh {
     this.generation++;
     this.flight = undefined;
   }
-  private async read(client: PartnerXmlClient, path: "/pairs/all" | "/rates/public/one", params: Record<string, string>) {
+  private async read(client: PartnerXmlClient, path: "/pairs/all" | "/rates/public/one", params: Record<string, string>,
+    canRetry = () => true) {
     for (let attempt = 0; ; attempt++) {
       try { return await client.read(path, params); }
       catch (e) {
-        if (!retryable(e) || attempt >= 2) throw e;
-        await this.sleep(upstreamStatus(e) === 429 ? 60_000 : 1000 * 2 ** attempt);
+        // A 429 is a batch-level cooldown, not three minute-long sleeps per
+        // direction while later directions queue behind the same quota.
+        if (!retryable(e) || upstreamStatus(e) === 429 || attempt >= 2 || !canRetry()) throw e;
+        await this.sleep(1000 * 2 ** attempt);
+        if (!canRetry()) throw e;
       }
     }
   }
   private async refresh(client: PartnerXmlClient, scope: string, generation: number) {
     const current = () => this.identity === client.identity && this.generation === generation;
     try {
-      const all = await fetchPartnerPairs({ ...client, read: (path, params) => this.read(client, path, params) });
+      const routes = await this.deps.executableRoutes?.();
       if (!current()) return;
+      if (routes && !routes.length) {
+        this.error = "No currently executable Convert directions; retained publications remain gated.";
+        this.nextRefresh = this.now() + 30_000;
+        return;
+      }
+      const allowed = routes && new Set(routes.map(route =>
+        directedKey(route.fromAsset, route.fromNetwork, route.toAsset, route.toNetwork)));
+      const all = this.catalog && this.catalog.expiresAt > this.now() ? this.catalog.pairs :
+        await fetchPartnerPairs({ ...client, read: (path, params) => this.read(client, path, params) });
+      if (!current()) return;
+      if (!this.catalog || this.catalog.expiresAt <= this.now())
+        this.catalog = { pairs: all, expiresAt: this.now() + REFRESH_INTERVAL_MS };
       const groups = new Map<string, PartnerPair[]>();
       this.skipped = 0;
       for (const pair of all) {
         const from = pair.instrumentFrom.bestChangeCurrencyName, to = pair.instrumentTo.bestChangeCurrencyName;
         if (!pair.isActive || from === to || !this.deps.codeAllowed(from) || !this.deps.codeAllowed(to) ||
+            (allowed && !allowed.has(directedKey(pair.instrumentFrom.currencyTitle, pair.instrumentFrom.networkTitle,
+              pair.instrumentTo.currencyTitle, pair.instrumentTo.networkTitle))) ||
             pair.instrumentTo.reservesAmount === undefined) { this.skipped++; continue; }
         const key = `${from}\0${to}`;
         groups.set(key, [...groups.get(key) ?? [], pair]);
@@ -89,7 +117,10 @@ export class ConvertXmlRefresh {
         if (group.length === 1) pairs.push(group[0]);
         else this.skipped += group.length;
       }
+      this.eligibleCount = pairs.length;
       const active = new Map(pairs.map(p => [partnerPairKey(p), p]));
+      for (const key of this.retryAt.keys()) if (!active.has(key)) this.retryAt.delete(key);
+      for (const key of this.verified) if (!active.has(key)) this.verified.delete(key);
       const removed: string[] = [];
       for (const [key, row] of this.rows) {
         // Never retain old limits/reserves when the provider's pair metadata changed.
@@ -98,21 +129,36 @@ export class ConvertXmlRefresh {
         }
       }
       if (removed.length) await this.deps.remove(scope, removed);
+      if (!current()) return;
       this.error = undefined;
-      let next = 0, failed = false;
+      // Refresh existing publications before expiry; do not let the 57k-pair
+      // partner catalog hold early quotes hostage to a multi-hour batch.
+      const due = pairs.filter(pair => {
+        const key = partnerPairKey(pair), row = this.rows.get(key);
+        return (this.retryAt.get(key) ?? 0) <= this.now() &&
+          (!this.verified.has(key) || !row || row.quotedAt + REFRESH_INTERVAL_MS - REFRESH_AHEAD_MS <= this.now());
+      }).sort((a, b) =>
+        (this.rows.get(partnerPairKey(a))?.quotedAt ?? Infinity) -
+        (this.rows.get(partnerPairKey(b))?.quotedAt ?? Infinity));
+      const batch = due.slice(0, MAX_RATE_BATCH);
+      const deadline = this.now() + RATE_BATCH_BUDGET_MS;
+      let next = 0, failed = false, rateLimited = false;
       const worker = async () => {
-        while (next < pairs.length && current()) {
-          const pair = pairs[next++], key = partnerPairKey(pair);
+        while (next < batch.length && current() && !rateLimited && this.now() < deadline) {
+          const pair = batch[next++], key = partnerPairKey(pair);
           try {
-            const json = await this.read(client, "/rates/public/one", partnerRateParams(pair));
+            const json = await this.read(client, "/rates/public/one", partnerRateParams(pair),
+              () => current() && !rateLimited && this.now() < deadline);
             const item = partnerRateToXml(pair, json);
             if (!current()) return;
             const row = { key, pair, item, quotedAt: this.now() };
             await this.deps.save(scope, row);
-            if (current()) this.rows.set(key, row);
+            if (current()) { this.rows.set(key, row); this.retryAt.delete(key); this.verified.add(key); }
           } catch (e) {
             if (!current()) return;
             failed = true; this.skipped++;
+            if (upstreamStatus(e) === 429) rateLimited = true;
+            this.retryAt.set(key, this.now() + (retryable(e) ? 60_000 : REFRESH_INTERVAL_MS));
             if (!retryable(e)) {
               this.rows.delete(key);
               await this.deps.remove(scope, [key]);
@@ -124,7 +170,11 @@ export class ConvertXmlRefresh {
       if (current()) {
         this.stale = failed && this.rows.size > 0;
         this.updatedAt = this.now();
-        this.nextRefresh = this.now() + REFRESH_INTERVAL_MS;
+        // A long batch must not reset every quote's freshness clock.
+        const nextDue = Math.min(...[...this.rows.values()].map(row =>
+          row.quotedAt + REFRESH_INTERVAL_MS - REFRESH_AHEAD_MS));
+        this.nextRefresh = rateLimited ? this.now() + 60_000 : due.length > next ? this.now() + 1_000 :
+          Math.max(this.now() + 1_000, Math.min(nextDue, this.catalog!.expiresAt, this.now() + 60_000));
       }
     } catch (e) {
       if (!current()) return;
@@ -142,6 +192,8 @@ export class ConvertXmlRefresh {
     if (this.identity !== client.identity) {
       this.identity = client.identity; this.generation++;
       this.rows.clear(); this.flight = undefined; this.nextRefresh = 0;
+      this.catalog = undefined; this.retryAt.clear(); this.verified.clear();
+      this.eligibleCount = 0;
       this.stale = true; this.updatedAt = undefined; this.error = undefined; this.skipped = 0;
       const generation = this.generation;
       const promise = this.deps.load(scope).then(saved => {
@@ -181,6 +233,7 @@ export class ConvertXmlRefresh {
     const freshRows = rows.filter(row => Number.isFinite(row.quotedAt) &&
       row.quotedAt <= this.now() && this.now() - row.quotedAt < REFRESH_INTERVAL_MS);
     return { rows, freshRows, refreshing: !!this.flight, stale: this.stale || expired,
-      error: this.error, skipped: this.skipped, updatedAt: this.updatedAt };
+      error: this.error, skipped: this.skipped, updatedAt: this.updatedAt,
+      pending: Math.max(0, this.eligibleCount - freshRows.length) };
   }
 }

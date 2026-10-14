@@ -17,6 +17,7 @@ import {
 import { onRatesXmlChange } from "./rates-xml-cache";
 import { XmlQuoteRefresh, type XmlCachedQuote } from "./rates-xml-refresh";
 import { readPublishedXmlQuotes, savePublishedXmlQuote } from "./rates-xml-publication";
+import { startDrainingWorker } from "./draining-worker";
 
 type Diagnostic = typeof GetAdminRatesXmlPreviewResponse._output.diagnostics[number];
 const quoteCache = new Map<string, XmlCachedQuote<RatesXmlItem>>();
@@ -70,7 +71,7 @@ export async function priceXmlSwap(
     minamount: plainDecimal(min!), maxamount: plainDecimal(max!), symbol: source.assetCode, param: "manual",
   }, parts);
 }
-export async function buildRatesXmlPreview(staging = xmlStaging()) {
+export async function buildRatesXmlPreview(staging = xmlStaging(), skipConvert = false) {
   const row = await readXmlSettings();
   const [{ methods, catalogFingerprint }, pricing, fiat, crypto] = await Promise.all([
     readXmlMethods(row, { cacheOnly: true }), db.select().from(manualDeskPricingRulesTable),
@@ -107,7 +108,7 @@ export async function buildRatesXmlPreview(staging = xmlStaging()) {
       priceXmlSwap(d.sourceOptionId, d.targetOptionId, byId.get(d.sourceOptionId)!, byId.get(d.targetOptionId)!));
   }
   try {
-    const convert = await readConvertXmlPublication();
+    const convert = skipConvert ? { diagnostics: [], items: [] } : await readConvertXmlPublication();
     diagnostics.push(...convert.diagnostics);
     for (const published of convert.items) {
       if (!staging && (STAGING_ONLY_XML_CODES.has(published.item.from) || STAGING_ONLY_XML_CODES.has(published.item.to))) {
@@ -190,4 +191,19 @@ export async function buildRatesXmlPreview(staging = xmlStaging()) {
     xml: serializeRatesXml(accepted), generatedAt: new Date().toISOString(),
     exportedCount: accepted.length, diagnostics,
   });
+}
+
+/** Warm real Swap publication quotes before their 30-second expiry, not on the
+ * first visitor after expiry. Convert keeps its own bounded publication worker. */
+export function startManualXmlPublicationWorker() {
+  const stop = startDrainingWorker(
+    async () => { await buildRatesXmlPreview(xmlStaging(), true); },
+    5_000,
+    () => console.warn("Manual XML publication refresh unavailable; expired rates remain excluded."),
+  );
+  return async () => {
+    const tickDrain = stop();
+    await quoteRefresh.stop();
+    await tickDrain;
+  };
 }

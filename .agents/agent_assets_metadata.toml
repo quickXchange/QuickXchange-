@@ -322,3 +322,17 @@ mtime_ms = 1792020406398
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/5ef28f65-e489-42be-9803-7c213db0daae/f74ef3c9-ec8b-4cde-ac5e-feff07cd0e12"
 storage_version_token = "1792020474154555"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "lyK2QqExMiY86PajWRIsV"
+uri = "file://XML_MONITORING_RELEASE_REPORT.md"
+type = "text"
+title = "XML and monitoring — tested release report"
+description = "Implemented fixes, 115 passing targeted tests, fresh Production quote measurements, confirmed RPC capacity failures, and Owner actions required for rollout."
+logical_id = "83c682a0-fd07-41a8-86ac-3b0b074a76a2"
+content_hash = "sha256:a218ed4fdf08f8fd4245c5738edc4a0a2bd8af722c41eb5f3cbd58190f58d6a2"
+size = 8333
+mtime_ms = 1792022196805
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/83c682a0-fd07-41a8-86ac-3b0b074a76a2/34318185-4998-4c77-a9ff-7af7c05c6324"
+storage_version_token = "1792022227362476"
+content_type = "text/markdown"

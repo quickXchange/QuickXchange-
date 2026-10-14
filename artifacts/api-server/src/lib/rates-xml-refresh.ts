@@ -23,19 +23,30 @@ export async function xmlDiscoveryDeadline<T>(work: Promise<T>, waitMs: number):
 /** One bounded-concurrency refresh per configuration; continue warming after HTTP returns. */
 export class XmlQuoteRefresh<T> {
   private readonly flights = new Map<string, Promise<void>>();
+  private stopped = false;
+
+  async stop(): Promise<void> {
+    this.stopped = true;
+    await Promise.all([...this.flights.values()]);
+  }
 
   async refresh(
     scope: string, tasks: XmlQuoteTask<T>[], cache: Map<string, XmlCachedQuote<T>>,
     isCurrent: () => boolean, waitMs = 8_000,
     onSuccess?: (key: string, item: T, quotedAt: number) => Promise<void>,
   ): Promise<void> {
+    if (this.stopped) return;
     let flight = this.flights.get(scope);
     if (!flight) {
+      // Known publications take priority over cold routes when refreshing.
+      const ordered = [...tasks].sort((a, b) =>
+        (cache.get(a.key)?.quotedAt ?? Infinity) - (cache.get(b.key)?.quotedAt ?? Infinity));
       let next = 0;
       const worker = async () => {
-        while (next < tasks.length && isCurrent()) {
-          const task = tasks[next++];
-          if ((cache.get(task.key)?.until ?? 0) > Date.now()) continue;
+        while (next < ordered.length && !this.stopped && isCurrent()) {
+          const task = ordered[next++], existing = cache.get(task.key);
+          const ahead = existing?.item !== undefined && !existing.reason ? 10_000 : 0;
+          if ((existing?.until ?? 0) > Date.now() + ahead) continue;
           let entry: XmlCachedQuote<T>;
           try {
             const item = await task.run();

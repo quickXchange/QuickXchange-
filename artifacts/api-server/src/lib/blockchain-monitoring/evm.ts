@@ -1,4 +1,4 @@
-import { BlockchainMonitorError, sanitizedProviderError } from "./errors";
+import { BlockchainMonitorError, providerFailureDetails, sanitizedProviderError } from "./errors";
 import { positiveInteger, providerHeaders, providerJson, requireEndpoint } from "./http";
 import { setTimeout as delay } from "node:timers/promises";
 import type {
@@ -78,7 +78,7 @@ function tokenEventMatchesLog(
 
 function rpcError<T>(response: RpcResponse<T>): T {
   if (response.error !== undefined || response.result === undefined) {
-    throw sanitizedProviderError("PROVIDER");
+    throw sanitizedProviderError("PROVIDER", providerFailureDetails(response));
   }
   return response.result;
 }
@@ -212,6 +212,12 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
     } catch (error) {
       const completedAt = new Date();
       const errorCategory = error instanceof BlockchainMonitorError ? error.code : "NETWORK";
+      const details = error instanceof BlockchainMonitorError ? error.providerFailure : undefined;
+      const diagnostic = details ? [
+        details.httpStatus !== undefined ? `HTTP ${details.httpStatus}` : "",
+        details.rpcCode !== undefined ? `RPC ${details.rpcCode}` : "",
+        details.reason?.replace(/_/g, " ") ?? "",
+      ].filter(Boolean).join("; ") : "";
       this.config.rpcTrace?.({
         networkCode: this.networkCode,
         method,
@@ -221,12 +227,14 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
         timeoutMs: requestTimeoutMs,
         outcome: errorCategory === "TIMEOUT" ? "timeout" : "failure",
         errorCategory,
+        providerFailure: error instanceof BlockchainMonitorError ? error.providerFailure : undefined,
       });
       throw new BlockchainMonitorError(
         errorCategory,
         errorCategory === "TIMEOUT"
           ? `Blockchain RPC ${method} timed out.`
-          : `Blockchain RPC ${method} failed (${errorCategory}).`,
+          : `Blockchain RPC ${method} failed (${errorCategory}).${diagnostic ? ` ${diagnostic}.` : ""}`,
+        error instanceof BlockchainMonitorError ? error.providerFailure : undefined,
       );
     }
   }

@@ -29,6 +29,12 @@ const diagnostic = (row: ConvertXmlSaved, retained: boolean): Diagnostic => ({
     : "Live Quickex partner JSON rate, limits, reserve and network fee.",
 });
 const refresh = new ConvertXmlRefresh({
+  executableRoutes: async () => {
+    const config = await xmlDiscoveryDeadline(
+      getQuickexPublicCapabilityConfig(), CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS,
+    );
+    return config.signedOrders ? config.pairs : [];
+  },
   client: getQuickexXmlPublicClient,
   // The affiliate API supplies authoritative BestChange identities; no local Admin mapping is needed.
   codeAllowed: code => /^[A-Z][A-Z0-9_-]{0,63}$/.test(code),
@@ -61,6 +67,11 @@ export async function readConvertXmlPublication(waitMs = 250) {
     ? diagnostic(row, false)
     : { ...diagnostic(row, true), state: "omitted" as const,
       message: "Retained cached publication is expired or not currently executable; excluded from public XML." });
+  if (snapshot.pending) diagnostics.push({
+    routeId: "convert-json:pending", functionType: "convert", sourceOptionId: "", targetOptionId: "",
+    fromName: "Convert", toName: "Quickex partner JSON", state: "omitted",
+    message: `${snapshot.pending} eligible directions await a fresh provider rate. Pending rates are not published.`,
+  });
   if (snapshot.error || snapshot.skipped || !snapshot.rows.length) diagnostics.push({
     routeId: "convert-json:availability", functionType: "convert", sourceOptionId: "", targetOptionId: "",
     fromName: "Convert", toName: "Quickex partner JSON", state: "omitted",

@@ -45,6 +45,7 @@ export type MonitorConfig = {
     timeoutMs: number;
     outcome: "started" | "success" | "failure" | "timeout";
     errorCategory?: string;
+    providerFailure?: import("./errors").ProviderFailure;
   }) => void;
   maxRange?: number;
 };

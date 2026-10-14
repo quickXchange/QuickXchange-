@@ -13,6 +13,7 @@ import { startTelegramNewsWorker } from "./lib/telegram-news";
 import { startBlockchainMonitoringWorker } from "./lib/blockchain-monitoring/service";
 import { startConvertReconciliationWorker } from "./lib/convert-provider-boundary";
 import { startConvertXmlPublicationWorker } from "./lib/rates-xml-convert";
+import { startManualXmlPublicationWorker } from "./lib/rates-xml-export";
 import { applyConfiguredCustomerNotificationRecovery } from "./lib/customer-status-notifications";
 import { startTelegramSupportBotWorker } from "./lib/telegram-support-bot-outbox";
 
@@ -68,6 +69,7 @@ async function start() {
   const stopNotificationWorker = startExchangeStatusNotificationWorker();
   const stopConvertWorker = startConvertReconciliationWorker();
   const stopConvertXmlWorker = startConvertXmlPublicationWorker();
+  const stopManualXmlWorker = startManualXmlPublicationWorker();
   const stopNewsletterWorker = startNewsletterWorker();
   const stopTelegramWorker = startTelegramNotificationWorker();
   const stopTelegramNewsWorker = startTelegramNewsWorker();
@@ -115,6 +117,7 @@ async function start() {
   server.on("close", stopWhitebitHistoryWorker);
   server.on("close", stopConvertWorker);
   server.on("close", stopConvertXmlWorker);
+  server.on("close", stopManualXmlWorker);
   server.on("close", stopQuickexVerification);
 
   let shuttingDown = false;
@@ -124,6 +127,9 @@ async function start() {
     logger.info({ signal }, "Graceful shutdown started");
     stopQuickexVerification();
     stopNotificationWorker();
+    const monitoringDrain = stopBlockchainMonitoringWorker();
+    const xmlDrain = stopManualXmlWorker();
+    stopConvertXmlWorker();
 
     const forceExit = setTimeout(() => {
       logger.error("Graceful shutdown timed out");
@@ -133,6 +139,7 @@ async function start() {
 
     void stopTelegramSupportBotWorker().then(() => server.close(async (error) => {
       try {
+        await Promise.all([monitoringDrain, xmlDrain]);
         await pool.end();
       } catch (poolError) {
         logger.error({ err: poolError }, "PostgreSQL pool shutdown failed");

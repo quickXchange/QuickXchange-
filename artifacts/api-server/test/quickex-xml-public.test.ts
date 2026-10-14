@@ -271,11 +271,14 @@ test("credential/affiliate identity rotation fences old in-flight quotes and cac
 });
 test("429/5xx receive bounded retries and the same partner context remains in use", async () => {
   let rates = 0;
-  const { refresh } = fixture(async path => {
+  const { refresh, advance } = fixture(async path => {
     if (path === "/pairs/all") return { total: 1, pairs: [pair] };
     if (++rates < 3) throw failure(rates === 1 ? 429 : 503);
     return rate;
   });
+  assert.equal((await refresh.snapshot(1000)).rows.length, 0);
+  assert.equal(rates, 1, "429 yields the batch instead of sleeping/retrying every direction");
+  advance();
   assert.equal((await refresh.snapshot(1000)).rows.length, 1); assert.equal(rates, 3);
 });
 test("rate work is bounded to eight concurrent reads", async () => {

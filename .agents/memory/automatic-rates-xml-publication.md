@@ -3,6 +3,18 @@ name: Automatic rates XML boundaries
 description: User-confirmed replacement scope, authoritative specification and financial boundaries.
 ---
 
+Provider throughput, not the size of its catalog, bounds how many directions can
+be kept fresh. Prioritize existing near-expiry publications; leave cold
+directions pending rather than lengthening validity to claim full coverage.
+
+**Why:** The partner catalog contained tens of thousands of pairs, while rates
+were fetched individually under provider pacing. A full-matrix refresh could
+take far longer than a rate's freshness window.
+
+**How to apply:** Keep publication validity per row, independent of batch
+completion. Share the executable-route authority and expose pending directions
+honestly; batching must not silently become a total catalog cap.
+
 The user explicitly chose to remove the previous XML system first, then rebuild solely from the newly supplied rates prompt and currency-code CSV. Do not restore the legacy BestChange feed, manual XML direction store, legacy fallback or dynamic active-order percentage adjustment.
 
 **Why:** The user rejected retaining the previous implementation while staging a replacement, and confirmed removal before rebuilding.

@@ -15,6 +15,8 @@ import {
 import { randomUUID, createHash } from "node:crypto";
 import { createBlockchainMonitorAdapter, type IncomingEvidence, type MonitorAsset, type ScanCursor, type WatchedAddress } from "./index";
 import { normalizeTronAddress, TRON_MAINNET_CHAIN_ID } from "./tron";
+import { BlockchainMonitorError } from "./errors";
+import { startDrainingWorker } from "../draining-worker";
 import { enqueueSwapTelegramNotification } from "../telegram-swap-notifications";
 import { updateOrderAndQueueStatusNotificationTx } from "../customer-status-notifications";
 import { logger } from "../logger";
@@ -1530,6 +1532,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
         timeoutMs: number;
         outcome: "started" | "success" | "failure" | "timeout";
         errorCategory?: string;
+        providerFailure?: import("./errors").ProviderFailure;
       }) => {
         const details = {
           networkCode: event.networkCode,
@@ -1540,6 +1543,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
           requestTimeoutMs: event.timeoutMs,
           outcome: event.outcome,
           errorCategory: event.errorCategory,
+          providerFailure: event.providerFailure,
         };
         if (event.outcome === "success" || event.outcome === "started") {
           logger.info(details, `Blockchain RPC request ${event.outcome}`);
@@ -1838,7 +1842,10 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
         await withLease(network.id, leaseToken, (tx) => tx.update(blockchainMonitorNetworksTable).set({
           healthStatus: "disconnected", healthCheckedAt: new Date(),
           consecutiveFailures: sql`${blockchainMonitorNetworksTable.consecutiveFailures} + 1`,
-          nextAttemptAt: new Date(Date.now() + Math.min(15 * 60_000, 5_000 * 2 ** Math.min(network.consecutiveFailures, 8))),
+          nextAttemptAt: new Date(Date.now() + Math.max(
+            error instanceof BlockchainMonitorError ? error.providerFailure?.retryAfterMs ?? 0 : 0,
+            Math.min(15 * 60_000, 5_000 * 2 ** Math.min(network.consecutiveFailures, 8)),
+          )),
           healthError: error instanceof Error ? error.message.slice(0, 500) : "Provider error",
         }).where(eq(blockchainMonitorNetworksTable.id, network.id)));
       } catch (leaseError) {
@@ -1976,7 +1983,7 @@ export async function applyConfirmedMatches(
   }
 }
 
-export function startBlockchainMonitoringWorker(): () => void {
+export function startBlockchainMonitoringWorker(): () => Promise<void> {
   const applyRecoveryMigration = (): Promise<void> => {
     if (!recoveryMigration) {
       recoveryMigration = db.transaction(async (tx) => {
@@ -1988,14 +1995,12 @@ export function startBlockchainMonitoringWorker(): () => void {
     }
     return recoveryMigration;
   };
-  const runSafely = () => void applyRecoveryMigration().then(runBlockchainMonitoringCycle).catch((error) => {
+  return startDrainingWorker(
+    () => applyRecoveryMigration().then(runBlockchainMonitoringCycle), 15_000, (error) => {
     logger.warn({
       err: error,
       dbPool: databasePoolTelemetry("blockchain-monitoring-worker", error),
     }, "Blockchain monitoring worker failed");
-  });
-  const interval = setInterval(runSafely, 15_000);
-  interval.unref();
-  runSafely();
-  return () => clearInterval(interval);
+    },
+  );
 }
