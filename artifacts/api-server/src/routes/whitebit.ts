@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { Router, type IRouter } from "express";
-import { and, eq, isNotNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lte, or, sql } from "drizzle-orm";
 import {
   db,
   whitebitDepositAddressesTable,
@@ -633,12 +633,17 @@ function hasStableIdentity(record: Record<string, unknown>): boolean {
     (typeof record.uniqueId === "string" && record.uniqueId.length > 0);
 }
 
+const WHITEBIT_TICKER_NETWORK_ALIASES: Record<string, string> = {
+  ETH: "ERC20", ERC20: "ERC20", TRX: "TRC20", TRON: "TRC20", TRC20: "TRC20",
+  BSC: "BEP20", BEP20: "BEP20",
+};
+
 export function assetIdentity(ticker: string, network: string): { ticker: string; network: string; providerTicker: string } {
   const raw = ticker.trim().toUpperCase();
   let base = raw;
   let resolvedNetwork = network.trim().toUpperCase();
   const separator = raw.lastIndexOf("_");
-  const aliases: Record<string, string> = { ETH: "ERC20", ERC20: "ERC20", TRX: "TRC20", TRC20: "TRC20", BSC: "BEP20", BEP20: "BEP20" };
+  const aliases = WHITEBIT_TICKER_NETWORK_ALIASES;
   if (separator > 0) {
     const suffix = raw.slice(separator + 1);
     if (aliases[suffix] && (!resolvedNetwork || aliases[suffix] === aliases[resolvedNetwork])) {
@@ -647,6 +652,41 @@ export function assetIdentity(ticker: string, network: string): { ticker: string
     }
   }
   return { ticker: base, network: resolvedNetwork, providerTicker: raw };
+}
+
+/** Only explicit, same-network provider aliases; never strip an arbitrary suffix. */
+export function whitebitProviderTickerAliases(ticker: string, network: string): string[] {
+  const identity = assetIdentity(ticker, network);
+  return [...new Set([
+    identity.providerTicker, identity.ticker,
+    ...Object.entries(WHITEBIT_TICKER_NETWORK_ALIASES)
+      .filter(([, value]) => value === identity.network)
+      .map(([suffix]) => `${identity.ticker}_${suffix}`),
+  ])];
+}
+
+/** WhiteBIT webhooks use {actual, required}; history can use flat counters. */
+export function whitebitConfirmationEvidence(record: Record<string, unknown>) {
+  const nested = record.confirmations && typeof record.confirmations === "object" &&
+    !Array.isArray(record.confirmations)
+    ? record.confirmations as Record<string, unknown> : null;
+  if (nested && (!("actual" in nested) || !("required" in nested))) {
+    throw new ApiError("WHITEBIT_INVALID_RESPONSE", "WhiteBIT confirmation evidence is incomplete.", 400);
+  }
+  const counter = (value: unknown): number | null => {
+    if (value == null) return null;
+    if (!Number.isSafeInteger(value) || Number(value) < 0) {
+      throw new ApiError("WHITEBIT_INVALID_RESPONSE", "WhiteBIT confirmation evidence is malformed.", 400);
+    }
+    return Number(value);
+  };
+  const actual = counter(nested ? nested.actual : record.confirmations);
+  const required = counter(nested ? nested.required : record.confirmationsRequired);
+  const flatRequired = counter(record.confirmationsRequired);
+  if (nested && flatRequired != null && required != null && flatRequired !== required) {
+    throw new ApiError("WHITEBIT_INVALID_RESPONSE", "WhiteBIT confirmation evidence conflicts.", 400);
+  }
+  return { confirmationsActual: actual, confirmationsRequired: required ?? flatRequired };
 }
 
 function decimal(value: unknown, positive: boolean): string | null {
@@ -946,6 +986,7 @@ export type NormalizedDeposit = {
 
 export async function processNormalizedDeposit(tx: WhitebitTransaction, input: NormalizedDeposit): Promise<boolean> {
   const memo = normalizeWhitebitMemo(input.memo);
+  const tickerAliases = whitebitProviderTickerAliases(input.providerTicker, input.network);
   const stable = Boolean(input.transactionId || input.uniqueId);
   const identity = stable
     ? providerIdentity({ transactionId: input.transactionId ?? undefined, uniqueId: input.uniqueId ?? undefined })
@@ -960,10 +1001,7 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
   if (await hasOrderAddressTable()) {
     orderRows = (await tx.select().from(whitebitOrderAddressesTable).where(and(
       eq(whitebitOrderAddressesTable.address, input.address),
-      or(
-        eq(whitebitOrderAddressesTable.providerTicker, input.ticker),
-        eq(whitebitOrderAddressesTable.providerTicker, input.providerTicker),
-      ),
+      inArray(whitebitOrderAddressesTable.providerTicker, tickerAliases),
       eq(whitebitOrderAddressesTable.network, input.network),
       eq(whitebitOrderAddressesTable.status, "ready"),
     ))).filter((row) => normalizeWhitebitMemo(row.memo) === memo).slice(0, 2);
@@ -992,7 +1030,7 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
       eq(whitebitDepositsTable.transactionHash, input.transactionHash),
       eq(whitebitDepositsTable.address, input.address),
       eq(whitebitDepositsTable.network, input.network),
-      eq(whitebitDepositsTable.providerTicker, input.providerTicker),
+      inArray(whitebitDepositsTable.providerTicker, tickerAliases),
       eq(whitebitDepositsTable.amount, input.amount),
       memo === null ? sql`${whitebitDepositsTable.memo} IS NULL` : eq(whitebitDepositsTable.memo, memo),
       or(isNotNull(whitebitDepositsTable.uniqueId), isNotNull(whitebitDepositsTable.transactionId)),
@@ -1000,13 +1038,23 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
   if (aliasMatches.length > 1 || hashMatches.length > 1 ||
       (aliasMatches.length === 1 && hashMatches.length === 1 && aliasMatches[0]!.id !== hashMatches[0]!.id)) return false;
   const aliased = aliasMatches[0];
+  if (aliased?.conflict) return false;
+  // A previously authenticated webhook may have arrived before its ticker
+  // alias was recognized. Attach that same uncredited record, never insert
+  // another deposit or move an existing customer's/order's financial record.
+  const attachUnassignedOrderDeposit = Boolean(aliased && orderAddressRow && !ambiguousMapping &&
+    !aliased.orderId && !aliased.orderAddressId && !aliased.customerId && !aliased.addressId &&
+    !aliased.creditedAt && !aliased.conflict &&
+    assetIdentity(aliased.ticker, aliased.network ?? "").ticker === input.ticker &&
+    decimalEqual(aliased.amount, input.amount) && decimalEqual(aliased.fee, input.fee));
   if (aliased && (
     aliased.address !== input.address ||
-    aliased.ticker !== input.ticker ||
-    aliased.providerTicker !== input.providerTicker ||
+    (aliased.ticker !== canonicalTicker && !attachUnassignedOrderDeposit) ||
+    !tickerAliases.includes(aliased.providerTicker) ||
     aliased.network !== input.network ||
     normalizeWhitebitMemo(aliased.memo) !== memo ||
-    aliased.orderId !== (orderAddressRow?.orderId ?? null)
+    (aliased.orderId !== (orderAddressRow?.orderId ?? null) && !attachUnassignedOrderDeposit) ||
+    (aliased.orderAddressId != null && aliased.orderAddressId !== orderAddressRow?.id)
   )) return false;
   if (!aliased && hashMatches.length) {
     await tx.update(whitebitDepositsTable)
@@ -1045,6 +1093,7 @@ export async function processNormalizedDeposit(tx: WhitebitTransaction, input: N
     ? (input.event === "deposit.processed" && terminal ? "processed" : input.event === "deposit.accepted" ? "accepted" : "updated") : deposit.status;
   const nextAmount = terminal || rank(deposit.status) < 3 ? input.amount : deposit.amount;
   await tx.update(whitebitDepositsTable).set({
+     ...(attachUnassignedOrderDeposit ? { ticker: canonicalTicker } : {}),
      customerId: ambiguousMapping ? null : deposit.customerId ?? (orderAddressRow ? null : addressRow?.customerId) ?? null,
      addressId: ambiguousMapping ? null : deposit.addressId ?? (orderAddressRow ? null : addressRow?.id) ?? null,
      orderAddressId: ambiguousMapping ? null : deposit.orderAddressId ?? orderAddressRow?.id ?? null,
@@ -1213,6 +1262,7 @@ export function normalizeWhitebitHistoryDeposit(record: Record<string, unknown>)
     memo: normalizeWhitebitMemo(record.memo), amount, fee, status: Number.isInteger(rawStatus) ? Number(rawStatus) : null,
     event: "deposit.processed", transactionHash: typeof record.transactionHash === "string" ? record.transactionHash : typeof record.transaction_hash === "string" ? record.transaction_hash : null,
     uniqueId, transactionId, rawPayload: record,
+    ...whitebitConfirmationEvidence(record),
   };
 }
 
@@ -1294,7 +1344,16 @@ whitebitOperatorRouter.post("/admin/whitebit/assets/import", requireOwner, async
   });
   res.status(201).json({ imported, skipped });
 });
-whitebitOperatorRouter.post("/admin/whitebit/reconcile", requireOwner, async (_req, res): Promise<void> => {
+whitebitOperatorRouter.post("/admin/whitebit/reconcile", requireOwner, async (req, res): Promise<void> => {
+  if (req.body?.orderId !== undefined) {
+    if (typeof req.body.orderId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(req.body.orderId) ||
+        (req.body.apply !== undefined && typeof req.body.apply !== "boolean")) {
+      throw new ApiError("VALIDATION_ERROR", "A valid orderId and optional boolean apply are required.", 400);
+    }
+    const { reconcileSavedWhitebitWebhookForOrder } = await import("../lib/whitebit-webhook-recovery");
+    res.json(await reconcileSavedWhitebitWebhookForOrder(req.body.orderId, req.body.apply === true));
+    return;
+  }
   if (!whitebitHistoricalReconciliationAllowed()) {
     throw new ApiError("WHITEBIT_HISTORY_APPROVAL_REQUIRED", "Historical WhiteBIT reconciliation is blocked for this selected credential source.", 409);
   }
@@ -1550,8 +1609,7 @@ whitebitWebhookRouter.post("/webhooks/whitebit", async (req, res): Promise<void>
         memo: normalizeWhitebitMemo(params.memo), amount, fee,
         status: Number.isInteger(params.status) ? Number(params.status) : null, event,
         transactionHash: typeof params.transactionHash === "string" ? params.transactionHash : null,
-         confirmationsActual: Number.isInteger(params.confirmations) ? Number(params.confirmations) : null,
-         confirmationsRequired: Number.isInteger(params.confirmationsRequired) ? Number(params.confirmationsRequired) : null,
+        ...whitebitConfirmationEvidence(params),
         uniqueId, transactionId, envelopeId: id, payloadDigest, rawPayload: params,
       });
     });

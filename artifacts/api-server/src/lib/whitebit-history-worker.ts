@@ -11,6 +11,7 @@ import { matchWhitebitHistoryForOrder, matchesFrozenWhitebitClaim } from "./whit
 import {
   historyRecords, normalizeWhitebitMemo, processNormalizedDeposit,
   testWhitebitSignedConnection, WhitebitProviderHttpError, whitebitOrderHistory,
+  whitebitProviderTickerAliases,
   type NormalizedDeposit,
 } from "../routes/whitebit";
 
@@ -148,7 +149,7 @@ async function candidatesAfter(cursor: string | null, stateId: number, testOrder
     .innerJoin(ordersTable, eq(ordersTable.id, whitebitOrderAddressesTable.orderId))
     .where(and(
       eq(ordersTable.type, "manual"),
-      eq(ordersTable.status, "awaiting funds"),
+      or(eq(ordersTable.status, "awaiting funds"), eq(ordersTable.status, "payment detected")),
       eq(ordersTable.manualSettlementState, "awaiting_funds"),
       eq(ordersTable.fundingStatus, "ready_whitebit"),
       eq(ordersTable.fundingProviderSource, "whitebit"),
@@ -212,7 +213,7 @@ async function applyMatchedDeposit(
       throw new WhitebitHistoryWorkerError("ADDRESS_COLLISION", "Frozen address belongs to another funding claim.");
     }
     if (deposit.address !== claim.address ||
-        deposit.providerTicker !== claim.providerTicker || deposit.network !== claim.network ||
+        !whitebitProviderTickerAliases(deposit.providerTicker, deposit.network).includes(claim.providerTicker) || deposit.network !== claim.network ||
         normalizeWhitebitMemo(deposit.memo) !== normalizeWhitebitMemo(claim.memo)) {
       throw new WhitebitHistoryWorkerError("HISTORY_MISMATCH", "History record changed before application.");
     }

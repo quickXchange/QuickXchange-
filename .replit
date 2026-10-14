@@ -88,3 +88,19 @@ WHITEBIT_HISTORY_FRESH_AFTER = "2026-09-25T12:04:16.109Z"
 
 [objectStorage]
 defaultBucketID = "replit-objstore-77d8e649-ef02-4a1f-8c20-21e842be9461"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 19375
+externalPort = 80
+
+[[ports]]
+localPort = 24368
+externalPort = 3000

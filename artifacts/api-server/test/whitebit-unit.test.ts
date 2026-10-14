@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
-import { assetIdentity, classifyWhitebitHttpStatus, historyRecords, isCreditEligible, normalizeWhitebitMemo, parseWhitebitAddressResponse, verifyWhitebitSignature } from "../src/routes/whitebit";
+import { assetIdentity, classifyWhitebitHttpStatus, historyRecords, isCreditEligible, normalizeWhitebitMemo, normalizeWhitebitHistoryDeposit, parseWhitebitAddressResponse, verifyWhitebitSignature, whitebitConfirmationEvidence, whitebitProviderTickerAliases } from "../src/routes/whitebit";
 import { matchWhitebitCapability, matchWhitebitRouteCapability, parseWhitebitAssets, parseWhitebitCatalogAssets, shouldReserveWhitebitOrderFunding } from "../src/lib/whitebit-capabilities";
 import { listDepositProviderOptions } from "../src/lib/deposit-provider-registry";
 import {
@@ -28,6 +28,35 @@ import {
 import { whitebitHistoryFreshAfter, whitebitHistoryWorkerConfiguration } from "../src/lib/whitebit-history-health";
 
 const secret = "unit-test-webhook-secret";
+
+test("WhiteBIT TRON ticker aliases are exact-network identities, not arbitrary suffix stripping", () => {
+  assert.deepEqual(assetIdentity("USDT_TRON", "TRC20"), {
+    ticker: "USDT", network: "TRC20", providerTicker: "USDT_TRON",
+  });
+  assert.ok(whitebitProviderTickerAliases("USDT_TRON", "TRC20").includes("USDT"));
+  assert.ok(whitebitProviderTickerAliases("USDT", "TRC20").includes("USDT_TRON"));
+  assert.ok(!whitebitProviderTickerAliases("USDT_TRON", "ERC20").includes("USDT"));
+  assert.equal(assetIdentity("USDT_UNKNOWN", "TRC20").ticker, "USDT_UNKNOWN");
+});
+
+test("WhiteBIT nested and flat confirmation evidence stays exact and fails closed on malformed counters", () => {
+  const expected = { confirmationsActual: 20, confirmationsRequired: 20 };
+  assert.deepEqual(whitebitConfirmationEvidence({ confirmations: { actual: 20, required: 20 } }), expected);
+  assert.deepEqual(whitebitConfirmationEvidence({ confirmations: 20, confirmationsRequired: 20 }), expected);
+  assert.throws(() => whitebitConfirmationEvidence({ confirmations: { actual: -1, required: 20 } }));
+  assert.throws(() => whitebitConfirmationEvidence({ confirmations: {} }));
+  assert.throws(() => whitebitConfirmationEvidence({ confirmations: { actual: 20, required: 20 }, confirmationsRequired: 21 }));
+  const deposit = normalizeWhitebitHistoryDeposit({
+    ticker: "USDT_TRON", network: "TRC20", address: "synthetic-tron-address",
+    amount: "10.001000000000000000", fee: "0", status: 3, transactionId: "synthetic-provider-id",
+    confirmations: { actual: 20, required: 20 },
+  });
+  assert.equal(deposit?.ticker, "USDT");
+  assert.equal(deposit?.providerTicker, "USDT_TRON");
+  assert.equal(deposit?.confirmationsActual, 20);
+  assert.equal(deposit?.confirmationsRequired, 20);
+  assert.equal(deposit?.amount, "10.001000000000000000");
+});
 
 test("WhiteBIT credential source selector is explicit and canonical", () => {
   const original = process.env.WHITEBIT_CREDENTIAL_SOURCE;

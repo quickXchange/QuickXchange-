@@ -92,3 +92,9 @@ A WhiteBIT trading-credential source change must not promote proofs created unde
 **Why:** Admin verification, address provisioning, and order-history reads can otherwise use different trading accounts. A signed balance check proves the new credential works but does not prove access to old deposit addresses or make prior permission proofs transferable.
 
 **How to apply:** Make the operational source explicit and fail closed, check the same selected fingerprint at each proof/address boundary, and turn off customer deposits for stale routes. A worker re-enabled under a new identity needs a fresh persisted activation boundary that excludes earlier order and address creation timestamps; keep broad manual reconciliation separately gated. Signed webhooks retain their separate credential domain.
+
+WhiteBIT TRON notifications can identify USDT as `USDT_TRON` while its address API uses `USDT` on `TRC20`. Confirmation evidence can be an object containing `actual` and `required`, not a scalar.
+
+**Why:** An authenticated, fully processed deposit can otherwise remain unassigned despite an exact address/network match. Treating an unrecognized counter shape as absent also loses the provider's confirmation threshold.
+
+**How to apply:** Resolve only reviewed same-network ticker aliases and retain the original provider identity. Apply the same identity interpretation to matching and verified-funding presentation. Repair historical unassigned deposits only through explicit, one-order review of authenticated evidence, preserving stable IDs and rejecting credited, conflicting, or differently owned records; never turn on a broad historical replay to repair one order.

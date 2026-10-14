@@ -3,7 +3,7 @@ import { RatesXmlMethodEditor } from '../components/rates-xml-method-editor';
 import { PaymentMethodReserveEditor } from '../components/payment-method-reserve-editor';
 import { getGetAdminRatesXmlQueryKey, type PaymentMethodReserveInput } from '@workspace/api-client-react';
 
-import { useGetAdminNotificationEmailTemplates, getGetAdminNotificationEmailTemplatesQueryKey, useUpdateAdminNotificationEmailTemplates, useTestAdminNotificationEmailTemplate } from '@workspace/api-client-react';
+import { customFetch, useGetAdminNotificationEmailTemplates, getGetAdminNotificationEmailTemplatesQueryKey, useUpdateAdminNotificationEmailTemplates, useTestAdminNotificationEmailTemplate } from '@workspace/api-client-react';
 import type { NotificationEmailTemplate, NotificationEmailTemplateEventKind } from '@workspace/api-client-react';
 import '../admin-notifications-redesign.css';
 import '../network-drawer-redesign.css';
@@ -5207,7 +5207,7 @@ function ExchangeDetailsCard({
 function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const { t } = useI18n();
   const telegramSupportUrl = usePublishedTelegramSupportUrl();
-  const { can } = useAdminPermissions();
+  const { can, isOwner } = useAdminPermissions();
   const currentQueryClient = useQueryClient();
   const orderQuery = useGetOrder(id, { query: {
     queryKey: getGetOrderQueryKey(id),
@@ -5235,6 +5235,15 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const [reconciliationNotice, setReconciliationNotice] = useState<{ kind: 'error' | 'success' | 'warning'; text: string } | null>(null);
   const [copyInfoCopied, setCopyInfoCopied] = useState(false);
   const [invoicePending, setInvoicePending] = useState(false);
+  const [whitebitRecoveryPending, setWhitebitRecoveryPending] = useState(false);
+  const [whitebitRecoveryPreview, setWhitebitRecoveryPreview] = useState<{
+    amount?: string; asset?: string; network?: string; status: string;
+    confirmationsActual?: number | null; confirmationsRequired?: number | null;
+    applied: boolean; canApply: boolean; alreadyReconciled?: boolean;
+  } | null>(null);
+  const recoveryOrderRef = useRef(id);
+  recoveryOrderRef.current = id;
+  useEffect(() => { setWhitebitRecoveryPreview(null); }, [id]);
   const [paymentDetailsDraft, setPaymentDetailsDraft] = useState({
     name: '', iban: '', bankName: '', bicSwift: '', paymentReference: '', amount: '', customInstructions: '',
   });
@@ -5261,6 +5270,9 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     return can('orders.status');
   });
   const canReconcile = order?.provider === 'Quickex' && Boolean(order.outcomeUnknown || order.status === 'verification required');
+  const canRecoverWhitebit = isOwner && order?.type === 'manual' &&
+    order.fundingProviderSource === 'whitebit' && order.fundingStatus === 'ready_whitebit' &&
+    ['awaiting funds', 'payment detected'].includes(order.status);
   const reconciliationAttempts = useGetOrderReconciliationAttempts(id, {
     query: { queryKey: getGetOrderReconciliationAttemptsQueryKey(id), enabled: canReconcile },
   });
@@ -5400,6 +5412,29 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     setNotice(null);
     const action = order.archivedAt ? restore : archive;
     action.mutate({ id, data: { recordVersion: order.recordVersion } }, { onSuccess: async () => { notifyAdminAction('success', order.archivedAt ? 'Order restored.' : 'Order archived.'); await refresh(); }, onError: failed });
+  };
+
+  const recoverWhitebit = async (apply: boolean) => {
+    const requestedOrderId = id;
+    setWhitebitRecoveryPending(true);
+    try {
+      const result = await customFetch<NonNullable<typeof whitebitRecoveryPreview>>('/api/admin/whitebit/reconcile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: requestedOrderId, apply }),
+      });
+      if (recoveryOrderRef.current !== requestedOrderId) return;
+      if (apply || result.alreadyReconciled) {
+        setWhitebitRecoveryPreview(null);
+        notifyAdminAction('success', 'Deposit synchronized. Payout completion has not been changed.');
+        await refresh();
+      } else setWhitebitRecoveryPreview(result);
+    } catch (error) {
+      if (recoveryOrderRef.current === requestedOrderId) {
+        notifyAdminAction('error', apiErrorText(error, 'Could not verify the saved WhiteBIT deposit.'));
+      }
+    } finally {
+      setWhitebitRecoveryPending(false);
+    }
   };
 
   const reconcile = () => {
@@ -5874,6 +5909,27 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                      {reconcileOrder.isPending ? "Reconciling..." : "Reconcile with Provider"}
                    </button>
                 </div>
+             )}
+
+             {canRecoverWhitebit && (
+               <div className="quickx-order-card border p-4 rounded-xl space-y-3" data-testid="whitebit-deposit-recovery">
+                 <h4 className="quickx-section-label text-xs font-bold uppercase">Verify incoming deposit</h4>
+                 <p className="text-xs">Review authenticated deposit evidence for this order only. No payout is sent or marked complete.</p>
+                 {whitebitRecoveryPreview && (
+                   <div className="text-sm space-y-1" data-testid="whitebit-recovery-preview">
+                     <p>{formatDisplayAmount(whitebitRecoveryPreview.amount ?? '0')} {whitebitRecoveryPreview.asset} · {whitebitRecoveryPreview.network}</p>
+                     <p>Confirmations: {whitebitRecoveryPreview.confirmationsActual ?? 'Not supplied'} / {whitebitRecoveryPreview.confirmationsRequired ?? 'Not supplied'}</p>
+                     {!whitebitRecoveryPreview.canApply && <p className="text-amber-600 dark:text-amber-400">Funding has not yet met the frozen amount and confirmation requirements.</p>}
+                   </div>
+                 )}
+                 <button type="button" disabled={whitebitRecoveryPending || Boolean(whitebitRecoveryPreview && !whitebitRecoveryPreview.canApply)}
+                   onClick={() => void recoverWhitebit(Boolean(whitebitRecoveryPreview))}
+                   className="button button-secondary w-full" data-testid="button-recover-whitebit-deposit">
+                   {whitebitRecoveryPending ? 'Checking deposit…' : whitebitRecoveryPreview ? 'Apply confirmed deposit' : 'Review confirmed deposit'}
+                 </button>
+                 {whitebitRecoveryPreview && <button type="button" className="button button-ghost w-full"
+                   disabled={whitebitRecoveryPending} onClick={() => setWhitebitRecoveryPreview(null)}>Cancel</button>}
+               </div>
              )}
 
              {/* Notes */}

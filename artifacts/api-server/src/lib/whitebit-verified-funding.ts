@@ -11,6 +11,7 @@ import {
   projectWhitebitVerifiedFunding,
   selectWhitebitProviderDepositId,
 } from "./verified-funding";
+import { whitebitProviderTickerAliases } from "../routes/whitebit";
 
 /**
  * Read-only projection of a stored WhiteBIT chain hash. The deposit is joined
@@ -81,7 +82,8 @@ async function getMatchingWhitebitOrderDeposit(orderId: string) {
       deposit.address !== deposit.claimAddress ||
       deposit.ticker.trim().toUpperCase() !== order.fromAsset.trim().toUpperCase() ||
       deposit.claimTicker.trim().toUpperCase() !== order.fromAsset.trim().toUpperCase() ||
-      deposit.providerTicker.trim().toUpperCase() !== frozenProviderAsset.toUpperCase() ||
+      !whitebitProviderTickerAliases(deposit.providerTicker, deposit.network ?? "")
+        .includes(frozenProviderAsset.toUpperCase()) ||
       deposit.claimProviderTicker.trim().toUpperCase() !== frozenProviderAsset.toUpperCase() ||
       !deposit.network ||
       deposit.network.trim().toUpperCase() !== deposit.claimNetwork.trim().toUpperCase() ||

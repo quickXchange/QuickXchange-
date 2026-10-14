@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash, createHmac, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomInt, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import express from "express";
@@ -10,6 +10,7 @@ import { createPrivilegedTestPool } from "@workspace/db/test-admin";
 import {
   finalizeSwapFundingFromClaim,
   processNormalizedDeposit,
+  normalizeWhitebitHistoryDeposit,
   provisionSwapFundingAddress,
   replayHistoryRecord,
   whitebitPublicRouter,
@@ -1848,6 +1849,164 @@ test("signed WhiteBIT webhook attaches the exact Swap order without ledger credi
   const [row] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, webhookOrderId));
   assert.equal(row.fundingProviderSource, "whitebit");
   assert.equal(row.depositAddress, claim.address);
+});
+
+test("TRON alias recovery reuses a signed orphan deposit, synchronizes tracking and never credits or pays twice", async () => {
+  const targetId = `O${randomInt(100_000_000, 1_000_000_000)}`;
+  const unrelatedId = `${orderId}-tron-unrelated`;
+  const address = `tron-alias-address-${suffix}`;
+  const txId = `tron-alias-transaction-${suffix}`;
+  await insertProvisioningOrder(targetId);
+  await insertProvisioningOrder(unrelatedId);
+  const funding = {
+    networkId: "usdt-trc20", source: "whitebit", status: "ready", address, memo: null,
+    selectedProvider: "whitebit", depositProvider: "whitebit", addressSource: "live_api",
+    whitebitAssetCode: "USDT", whitebitNetworkCode: "TRC20", requiredConfirmations: 19,
+  };
+  await database.db.update(database.ordersTable).set({
+    fromAsset: "USDT", fromNetwork: "TRC20", amount: "10.000123456789",
+    sourceSettlementOptionId: "crypto:usdt-trc20", fundingStatus: "ready_whitebit",
+    depositAddress: address, depositMemo: "", fundingDetailsSnapshot: funding,
+    settlementSnapshot: { funding },
+  }).where(eq(database.ordersTable.id, targetId));
+  const [claim] = await database.db.insert(database.whitebitOrderAddressesTable).values({
+    orderId: targetId, ticker: "USDT", providerTicker: "USDT", network: "TRC20",
+    address, memo: null, status: "ready",
+  }).returning();
+  const params = {
+    ticker: "USDT_TRON", network: "TRC20", address, memo: "",
+    amount: "10.001000000000000000", fee: "0.000000000000000000", status: 3,
+    transactionId: txId, transactionHash: createHash("sha256").update(`tron-alias-${suffix}`).digest("hex"),
+    confirmations: { actual: 20, required: 20 },
+  };
+  const envelopeId = randomUUID();
+  const payload = { id: envelopeId, method: "deposit.processed", params: { ...params, nonce: ++signedWebhookNonce } };
+  // Reproduce the pre-fix record, including its unchanged raw provider ticker.
+  const [orphan] = await database.db.insert(database.whitebitDepositsTable).values({
+    ticker: "USDT_TRON", providerTicker: "USDT_TRON", network: "TRC20", address,
+    amount: params.amount, fee: params.fee, status: "processed", providerStatus: 3,
+    transactionId: txId, transactionHash: params.transactionHash,
+    providerIdentity: `transaction:${txId}`, rawPayload: params,
+  }).returning();
+  await database.db.insert(database.whitebitWebhookDeliveriesTable).values({
+    envelopeId, nonce: payload.params.nonce, method: payload.method, payload,
+    payloadDigest: createHash("sha256").update(JSON.stringify(payload)).digest("hex"),
+  });
+  const providerCallsBefore = providerCalls;
+  const preview = await fetch(`${baseUrl}/api/admin/whitebit/reconcile`, {
+    method: "POST", headers: { "content-type": "application/json", "x-test-operator": ownerClerkUserId },
+    body: JSON.stringify({ orderId: targetId }),
+  });
+  assert.equal(preview.status, 200, await preview.clone().text());
+  const inspected = await preview.json() as { applied: boolean; confirmationsActual: number; confirmationsRequired: number };
+  assert.equal(inspected.applied, false);
+  assert.equal(inspected.confirmationsActual, 20);
+  assert.equal(inspected.confirmationsRequired, 20);
+  let [row] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, targetId));
+  assert.equal(row.status, "awaiting funds");
+  const apply = await fetch(`${baseUrl}/api/admin/whitebit/reconcile`, {
+    method: "POST", headers: { "content-type": "application/json", "x-test-operator": ownerClerkUserId },
+    body: JSON.stringify({ orderId: targetId, apply: true }),
+  });
+  assert.equal(apply.status, 200, await apply.clone().text());
+  [row] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, targetId));
+  assert.equal(row.status, "processing");
+  assert.equal(row.manualSettlementState, "funds_confirmed");
+  assert.equal(row.amount, "10.000123456789");
+  assert.equal(row.receiveAmount, "100");
+  assert.equal(row.manualSettlementPaidAt, null);
+  const fundedAt = row.manualSettlementFundedAt!.getTime();
+  const normalized = normalizeWhitebitHistoryDeposit({ ...params, ticker: "USDT" })!;
+  await database.db.transaction(tx => processNormalizedDeposit(tx, normalized));
+  await database.db.transaction(tx => processNormalizedDeposit(tx, normalized));
+  const again = await fetch(`${baseUrl}/api/admin/whitebit/reconcile`, {
+    method: "POST", headers: { "content-type": "application/json", "x-test-operator": ownerClerkUserId },
+    body: JSON.stringify({ orderId: targetId, apply: true }),
+  });
+  assert.equal(again.status, 200, await again.clone().text());
+  const deposits = await database.db.select().from(database.whitebitDepositsTable)
+    .where(eq(database.whitebitDepositsTable.transactionId, txId));
+  assert.equal(deposits.length, 1);
+  assert.equal(deposits[0].id, orphan.id);
+  assert.equal(deposits[0].orderId, targetId);
+  assert.equal(deposits[0].orderAddressId, claim.id);
+  assert.equal(deposits[0].ticker, "USDT");
+  assert.equal(deposits[0].providerTicker, "USDT_TRON");
+  assert.equal(deposits[0].creditedAt, null);
+  assert.equal(deposits[0].amount, params.amount);
+  assert.equal(deposits[0].confirmationsActual, 20);
+  assert.equal((await ownedLedgerEntries()).rowCount, 0);
+  assert.equal(providerCalls, providerCallsBefore);
+  [row] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, targetId));
+  assert.equal(row.manualSettlementFundedAt!.getTime(), fundedAt);
+  assert.equal(row.manualSettlementPaidAt, null);
+  const [unrelated] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, unrelatedId));
+  assert.equal(unrelated.status, "awaiting funds");
+  const token = signOrderTrackingToken(targetId);
+  const tracked = await fetch(`${baseUrl}/api/orders/${targetId}/status?trackingToken=${encodeURIComponent(token)}`);
+  assert.equal(tracked.status, 200, await tracked.clone().text());
+  assert.equal((await tracked.json() as { status: string }).status, "processing");
+});
+
+test("signed USDT_TRON webhooks enforce nested confirmations and automatically fund only the exact TRC20 order once", async () => {
+  const targetId = `${orderId}-tron-auto`;
+  const address = `tron-auto-address-${suffix}`;
+  await insertProvisioningOrder(targetId);
+  const funding = {
+    networkId: "usdt-trc20", source: "whitebit", status: "ready", address, memo: "",
+    selectedProvider: "whitebit", depositProvider: "whitebit", addressSource: "live_api",
+    whitebitAssetCode: "USDT", whitebitNetworkCode: "TRC20", requiredConfirmations: 19,
+  };
+  await database.db.update(database.ordersTable).set({
+    fromAsset: "USDT", fromNetwork: "TRC20", sourceSettlementOptionId: "crypto:usdt-trc20",
+    fundingStatus: "ready_whitebit", depositAddress: address, depositMemo: "",
+    fundingDetailsSnapshot: funding, settlementSnapshot: { funding },
+  }).where(eq(database.ordersTable.id, targetId));
+  await database.db.insert(database.whitebitOrderAddressesTable).values({
+    orderId: targetId, ticker: "USDT", providerTicker: "USDT", network: "TRC20",
+    address, memo: null, status: "ready",
+  });
+  async function deliver(method: string, actual: number, network = "TRC20") {
+    const body = JSON.stringify({
+      id: randomUUID(), method, params: {
+        nonce: ++signedWebhookNonce, address, ticker: "USDT_TRON", network, memo: "",
+        amount: "1", fee: "0", transactionId: `tron-auto-tx-${suffix}`,
+        transactionHash: `tron-auto-hash-${suffix}`, status: method === "deposit.processed" ? 3 : 15,
+        confirmations: { actual, required: 20 },
+      },
+    });
+    const payload = Buffer.from(body).toString("base64");
+    const response = await fetch(`${baseUrl}/api/webhooks/whitebit`, {
+      method: "POST", body, headers: {
+        "content-type": "application/json", "x-txc-apikey": process.env.WHITEBIT_WEBHOOK_API_KEY!,
+        "x-txc-payload": payload,
+        "x-txc-signature": createHmac("sha512", process.env.WHITEBIT_WEBHOOK_SECRET!).update(payload).digest("hex"),
+      },
+    });
+    assert.equal(response.status, 200, await response.text());
+  }
+  await deliver("deposit.accepted", 2);
+  await deliver("deposit.processed", 20, "ERC20");
+  await deliver("deposit.processed", 19);
+  let [row] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, targetId));
+  assert.equal(row.status, "payment detected");
+  assert.equal(row.manualSettlementState, "awaiting_funds");
+  await deliver("deposit.processed", 20);
+  [row] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, targetId));
+  assert.equal(row.status, "processing");
+  const version = row.statusVersion;
+  await deliver("deposit.processed", 20);
+  const [after] = await database.db.select().from(database.ordersTable).where(eq(database.ordersTable.id, targetId));
+  assert.equal(after.statusVersion, version);
+  assert.equal(after.manualSettlementState, "funds_confirmed");
+  assert.equal(after.manualSettlementPaidAt, null);
+  const deposits = await database.db.select().from(database.whitebitDepositsTable)
+    .where(eq(database.whitebitDepositsTable.transactionId, `tron-auto-tx-${suffix}`));
+  assert.equal(deposits.length, 1);
+  assert.equal(deposits[0].confirmationsActual, 20);
+  assert.equal(deposits[0].confirmationsRequired, 20);
+  assert.equal(deposits[0].creditedAt, null);
+  assert.equal((await ownedLedgerEntries()).rowCount, 0);
 });
 
 test("canceled WhiteBIT delivery is audited without changing either order or its deposit", async () => {

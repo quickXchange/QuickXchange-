@@ -1,5 +1,5 @@
 import type { NormalizedDeposit } from "../routes/whitebit";
-import { normalizeWhitebitHistoryDeposit, normalizeWhitebitMemo } from "../routes/whitebit";
+import { normalizeWhitebitHistoryDeposit, normalizeWhitebitMemo, whitebitProviderTickerAliases } from "../routes/whitebit";
 
 export type PendingWhitebitOrder = {
   id: string;
@@ -59,7 +59,7 @@ export function matchesFrozenWhitebitClaim(order: PendingWhitebitOrder, claim: R
     : order.fromNetwork.trim().toUpperCase();
   return order.id === claim.orderId &&
     order.type === "manual" &&
-    order.status === "awaiting funds" &&
+    ["awaiting funds", "payment detected"].includes(order.status) &&
     order.manualSettlementState === "awaiting_funds" &&
     order.fundingStatus === "ready_whitebit" &&
     order.fundingProviderSource === "whitebit" &&
@@ -105,7 +105,7 @@ export function matchWhitebitHistoryForOrder(
     }
     if (deposit.status === null) return { kind: "unsafe", reason: "History record has an invalid provider status." };
     if (deposit.address !== claim.address ||
-        deposit.providerTicker !== claim.providerTicker ||
+        !whitebitProviderTickerAliases(deposit.providerTicker, deposit.network).includes(claim.providerTicker) ||
         deposit.network !== claim.network ||
         normalizeWhitebitMemo(deposit.memo) !== normalizeWhitebitMemo(claim.memo)) {
       return { kind: "unsafe", reason: "History record does not match the frozen provider address/asset/network/memo." };
