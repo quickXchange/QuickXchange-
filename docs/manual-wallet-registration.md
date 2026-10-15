@@ -32,6 +32,10 @@ The saved address and registration status are shown in the existing result cards
 
 ## Release and verification
 
-Migration `0150_redundant_satana.sql` creates configuration targets and asset-route registrations. It has been applied to Development, not Production. Apply it through the approved release process before running this version against Production.
+Migration `0150_redundant_satana.sql` creates configuration targets and asset-route registrations. The 2026-10-15 read-only integration review verified that Production already has its exact columns, defaults, validated foreign keys and valid indexes, matching Development. Its Drizzle journal hash is absent, so do not infer pending DDL from that journal or replay the raw CREATE statements. Managed Publish owns schema reconciliation; check its diff before any release.
+
+Wallet verification and provider-job admission are mutually exclusive for overlapping routes, including the interval after temporary deposit disablement and before RPC verification finishes. Duplicate wallet submissions fail fast. Control-session locks do not hold an SQL transaction or occupy a shared application-pool slot during RPC. Ending the control session releases its locks. A lost control session fails subsequent activation fences closed.
+
+For a code rollback, stop new bulk actions, allow existing durable jobs to complete, and return to the selected prior application release while retaining both additive tables and all financial/configuration data. Application rollback does not undo provider/address settings. Review configuration through Owner controls if restoration is needed; never restore an old database merely to undo this code release.
 
 Verification uses disposable database fixtures and mocked provider/RPC responses, plus desktop/mobile browser API fixtures. No live customer order, deposit, payout, message or Production configuration is created or changed by these tests.

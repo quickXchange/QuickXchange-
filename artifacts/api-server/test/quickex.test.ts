@@ -265,12 +265,22 @@ async function installReadyManualMonitorFixture(
 }
 
 async function restoreReadyManualMonitorFixture(fixture: ReadyManualMonitorFixture) {
-  const { cryptoAssetNetworksTable, db } = await import("@workspace/db");
+  const { cryptoAssetNetworksTable, db, manualWalletRegistrationsTable, manualWalletTargetsTable } = await import("@workspace/db");
   for (const route of fixture.routeSnapshots) {
     await db.update(cryptoAssetNetworksTable).set(route)
       .where(eq(cryptoAssetNetworksTable.id, route.id));
   }
   if (fixture.monitorAssetIds.length) {
+    // The wallet API now creates configuration registrations. Remove only
+    // this synthetic fixture's registrations/targets before its RESTRICTed
+    // monitor parent; never weaken the production foreign-key protection.
+    await db.delete(manualWalletRegistrationsTable)
+      .where(inArray(manualWalletRegistrationsTable.assetNetworkId,
+        fixture.routeSnapshots.map(route => route.id)));
+    if (fixture.monitorNetworkIds.length) {
+      await db.delete(manualWalletTargetsTable)
+        .where(inArray(manualWalletTargetsTable.monitorNetworkId, fixture.monitorNetworkIds));
+    }
     await db.delete(blockchainMonitorAssetsTable)
       .where(inArray(blockchainMonitorAssetsTable.id, fixture.monitorAssetIds));
   }

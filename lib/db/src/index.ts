@@ -33,6 +33,9 @@ pool.on("error", (error) => {
 });
 
 export const db = drizzle(pool, { schema });
+// Dedicated, bounded control-plane sessions must not occupy an application
+// pool slot while their RPC work needs other pooled transactions.
+export { Client as DatabaseLockClient } from "pg";
 
 export {
   classifyDatabasePoolError,

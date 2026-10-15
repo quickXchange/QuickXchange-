@@ -392,3 +392,17 @@ mtime_ms = 1792036858835
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/813c7edb-ea41-4609-81ca-a09fe5f0cdf3/e8fbe6b3-1548-4479-ad34-89d53603c81e"
 storage_version_token = "1792037038924323"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "O0wcD6XimZmETED99WMAA"
+uri = "file://docs/production-wallet-integration-review.md"
+type = "text"
+title = "Production Integration Readiness Report"
+description = "Migration 0150, read-only Production compatibility, rollback plan, combined workflow verification and exact remaining blockers."
+logical_id = "44695518-16c9-418a-bc01-f668d7c734b9"
+content_hash = "sha256:91abcb72018c594b680668dfba8f72187d50065576feb6bdb695fa30552a8e0a"
+size = 8687
+mtime_ms = 1792090018579
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/44695518-16c9-418a-bc01-f668d7c734b9/6759af91-24bd-4968-894d-7d669f9d20ae"
+storage_version_token = "1792090046406188"
+content_type = "text/markdown"

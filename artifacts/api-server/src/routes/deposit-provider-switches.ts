@@ -1,3 +1,4 @@
+import { assertNoManualWalletOperation } from "../lib/manual-wallet-operation-lock";
 import { Router, type Request, type Response } from "express";
 import { createHash, randomUUID } from "node:crypto";
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
@@ -303,6 +304,7 @@ export function createDepositProviderSwitchRouter(actions: DepositSwitchActions)
             if (duplicate.requestDigest !== requestDigest || duplicate.actorId !== actor.operator.id) throw new ApiError("PROVIDER_SWITCH_IDEMPOTENCY_CONFLICT", "Operation ID conflict.", 409);
             return;
           }
+          await assertNoManualWalletOperation(tx, input.networkIds);
           const networks = await tx.select().from(cryptoAssetNetworksTable)
             .where(inArray(cryptoAssetNetworksTable.id, input.networkIds)).for("update");
           if (networks.length !== input.networkIds.length) throw new ApiError("CRYPTO_NETWORK_NOT_FOUND", "One or more selected routes were not found.", 404);
@@ -375,10 +377,13 @@ export function createDepositProviderSwitchRouter(actions: DepositSwitchActions)
       await recover(id);
       const [selected] = await db.select().from(routes).where(routeWhere(id, input.networkId)).limit(1);
       if (!selected) throw new ApiError("PROVIDER_SWITCH_ROUTE_NOT_FOUND", "This route is not part of the operation.", 404);
-      await db.update(routes).set({
-        status: "queued", step: "pending", errorCode: null, message: "Retry queued; original deposit state preserved",
-        updatedAt: new Date(),
-      }).where(and(routeWhere(id, input.networkId), eq(routes.status, "failed")));
+      await db.transaction(async tx => {
+        await assertNoManualWalletOperation(tx, [input.networkId]);
+        await tx.update(routes).set({
+          status: "queued", step: "pending", errorCode: null, message: "Retry queued; original deposit state preserved",
+          updatedAt: new Date(),
+        }).where(and(routeWhere(id, input.networkId), eq(routes.status, "failed")));
+      });
       res.json(await snapshot(id));
       void wake(id).catch(() => undefined);
     } catch (error) { next(uniqueViolation(error) ? new ApiError("PROVIDER_SWITCH_ALREADY_ACTIVE", "A newer switch is active for this route. Resume that operation.", 409) : error); }

@@ -89,3 +89,15 @@ watch rejects a fingerprint that has no trusted capture time.
 
 **How to apply:** Fence both values against exact current identity and fresh
 network health. Reuse a batch probe rather than reprobing each token at enable.
+
+Wallet verification and bulk provider assignment must exclude each other
+throughout the remote-verification interval, not only during database writes.
+
+**Why:** A second bulk action can otherwise capture the wallet operation's
+temporary Customer Deposits OFF state as the original intent and permanently
+lose the requested ON restoration.
+
+**How to apply:** Fence admission in both directions, reject duplicate wallet
+saves, and retain current Owner/configuration checks before activation.
+Control-session coordination must not occupy shared application-pool slots
+while the operation needs pooled transactions to finish its RPC work.

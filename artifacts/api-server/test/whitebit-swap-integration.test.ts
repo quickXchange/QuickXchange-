@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import express from "express";
 import test, { after, before } from "node:test";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import * as database from "@workspace/db";
 import { createPrivilegedTestPool } from "@workspace/db/test-admin";
 import {
@@ -5000,6 +5000,7 @@ test("registered BEP20 wallets share one target across tokens, preserve standby 
   let rpcCalls = 0;
   let standby = true;
   let chainChecks = 0;
+  let pauseRpc: (() => Promise<void>) | undefined;
   process.env[endpointRef] = endpoint;
   globalThis.fetch = async (input, init) => {
     if (String(input) === endpoint) {
@@ -5007,6 +5008,7 @@ test("registered BEP20 wallets share one target across tokens, preserve standby 
       if (standby) throw new Error("Standby must never probe RPC");
       const rpc = JSON.parse(String(init?.body));
       if (rpc.method === "eth_chainId") chainChecks++;
+      if (rpc.method === "eth_chainId" && pauseRpc) await pauseRpc();
       const result = rpc.method === "eth_chainId" ? "0x38" : rpc.method === "eth_blockNumber" ? "0x64" :
         rpc.method === "eth_getLogs" ? [] : rpc.method === "eth_getTransactionReceipt" ? { status: "0x1" } :
         { number: "0x64", hash: `0x${"3".repeat(64)}`, timestamp: `0x${Math.floor(Date.now() / 1000).toString(16)}`,
@@ -5090,6 +5092,48 @@ test("registered BEP20 wallets share one target across tokens, preserve standby 
     const movedTargets = await database.db.select().from(database.manualWalletTargetsTable)
       .where(eq(database.manualWalletTargetsTable.monitorNetworkId, monitorId));
     assert.equal(movedTargets.length, 2, "the original target is retained rather than deleted");
+    let entered!: () => void;
+    let release!: () => void;
+    const enteredRpc = new Promise<void>(resolve => { entered = resolve; });
+    const releaseRpc = new Promise<void>(resolve => { release = resolve; });
+    await database.db.update(database.depositProviderSwitchRoutesTable)
+      .set({ status: "failed", step: "failed" }).where(and(
+        eq(database.depositProviderSwitchRoutesTable.jobId, operationId),
+        eq(database.depositProviderSwitchRoutesTable.networkId, ids[0])));
+    pauseRpc = async () => { entered(); await releaseRpc; };
+    const inFlight = walletOwnerRequest("/api/admin/crypto-networks/receiving-wallet",
+      { ...body, walletAddress: nextWallet, enabled: true });
+    try {
+      await Promise.race([enteredRpc, new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Wallet verification never reached RPC")), 5_000).unref();
+      })]);
+      const duplicateWallet = await walletOwnerRequest("/api/admin/crypto-networks/receiving-wallet", body);
+      assert.equal(duplicateWallet.status, 409, "a second wallet save cannot race temporary deposit disablement");
+      const currentReview = await walletOwnerRequest("/api/admin/crypto-networks/deposit-provider/preview",
+        { networkIds: ids, depositProvider: "manual" }, "POST");
+      assert.equal(currentReview.status, 200);
+      const conflictingJob = randomUUID();
+      const conflict = await walletOwnerRequest("/api/admin/crypto-networks/deposit-provider/jobs", {
+        networkIds: ids, depositProvider: "manual", operationId: conflictingJob,
+        reviewToken: (await currentReview.json()).reviewToken, confirmRealAddressCreation: true,
+      }, "POST");
+      assert.equal(conflict.status, 409);
+      assert.match(JSON.stringify(await conflict.json()), /MANUAL_WALLET_OPERATION_ACTIVE|wallet save is still verifying/);
+      const persisted = await database.db.select().from(database.depositProviderSwitchJobsTable)
+        .where(eq(database.depositProviderSwitchJobsTable.id, conflictingJob));
+      assert.equal(persisted.length, 0, "rejected overlap must not capture the temporary OFF state in a durable job");
+      const retry = await walletOwnerRequest(`/api/admin/crypto-networks/deposit-provider/jobs/${operationId}/retry`,
+        { networkId: ids[0], confirmRealAddressCreation: true }, "POST");
+      assert.equal(retry.status, 409, "individual retries obey the same cross-action guard");
+      assert.match(JSON.stringify(await retry.json()), /MANUAL_WALLET_OPERATION_ACTIVE|wallet save is still verifying/);
+      const [unmodifiedRetry] = await database.db.select().from(database.depositProviderSwitchRoutesTable)
+        .where(and(eq(database.depositProviderSwitchRoutesTable.jobId, operationId),
+          eq(database.depositProviderSwitchRoutesTable.networkId, ids[0])));
+      assert.equal(unmodifiedRetry.status, "failed", "a blocked retry must not be queued");
+    } finally { pauseRpc = undefined; release(); }
+    const finishedWallet = await inFlight;
+    assert.equal(finishedWallet.status, 200, await finishedWallet.clone().text());
+    assert.ok((await finishedWallet.json()).every((row: any) => row.customerDepositsEnabled === true));
     const invalid = await walletOwnerRequest("/api/admin/crypto-networks/receiving-wallet", { ...body, networkIds: [ids[0], "usdt-trc20"] });
     assert.equal(invalid.status, 422, "an EVM address cannot be applied across an incompatible TRON route");
     await database.db.update(database.cryptoAssetNetworksTable).set({ requiresMemo: true })

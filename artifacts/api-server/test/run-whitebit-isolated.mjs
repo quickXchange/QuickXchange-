@@ -128,6 +128,7 @@ try {
     NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import=${resolve("test/block-whitebit-network.mjs")}`.trim(),
   };
   const entries = [
+    "manual-wallet-migration.test.ts",
     "whitebit-unit.test.ts",
     "whitebit-history-worker.test.ts",
     "whitebit-integration.test.ts",

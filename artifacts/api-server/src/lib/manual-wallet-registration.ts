@@ -9,6 +9,7 @@ import { ApiError } from "./api-error";
 import { listReadyManualMonitoringRoutes } from "./manual-crypto";
 import { isSyntacticallyValidManualWalletAddress, isSyntacticallyValidManualWalletMemo } from "./manual-wallet-validation";
 import { normalizeTronAddress } from "./blockchain-monitoring/tron";
+import { withManualWalletOperationLock } from "./manual-wallet-operation-lock";
 import { isValidManualMonitoringTokenIdentity, prepareManualMonitoringReadiness, type ManualMonitoringReadiness } from "./manual-monitoring-readiness";
 import { applyProviderMonitoring, savePreparedMonitoringProof } from "./deposit-provider-monitoring";
 import type { SwitchActor, SwitchFence } from "../routes/deposit-provider-switches";
@@ -121,9 +122,11 @@ export async function saveRegisteredManualWallets(
 ) {
   if (!input.networkIds.length || new Set(input.networkIds).size !== input.networkIds.length)
     throw new ApiError("VALIDATION_ERROR", "Select unique asset/network routes.", 400);
+  return withManualWalletOperationLock(input.networkIds, async assertLockActive => {
   const expected = new Map<string, Route>();
   const desired = new Map<string, boolean>();
   const fence: SwitchFence = async tx => {
+    assertLockActive();
     const [owner] = await tx.select().from(operatorsTable).where(eq(operatorsTable.id, actor.operator.id)).for("share");
     if (!owner || owner.role !== "owner" || owner.status !== "active" ||
       owner.authVersion !== actor.operator.authVersion || owner.clerkUserId !== actor.clerkUserId)
@@ -200,6 +203,7 @@ export async function saveRegisteredManualWallets(
     }
   }
   return db.select().from(routes).where(inArray(routes.id, input.networkIds));
+  });
 }
 
 export async function previewRegisteredManualWallets(input: Input) {
