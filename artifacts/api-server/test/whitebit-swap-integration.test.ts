@@ -150,13 +150,13 @@ async function migrateTestTables() {
   await pool.query(migration);
 }
 
-async function mockAssets(network = "BITCOIN", asset = "BTC") {
+async function mockAssets(network = "BITCOIN", asset = "BTC", confirmationsRequired = 3) {
   orderAddress = network === "TRC20" ? "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb" : validBitcoinAddress();
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.endsWith("/api/v4/public/assets")) {
       return new Response(JSON.stringify({
-        [asset]: { can_deposit: true, networks: { deposits: [network] }, confirmations: { [network]: 3 } },
+        [asset]: { can_deposit: true, networks: { deposits: [network] }, confirmations: { [network]: confirmationsRequired } },
       }), { status: 200 });
     }
     if (url.endsWith("/api/v4/main-account/balance")) {
@@ -328,6 +328,7 @@ let signedWebhookNonce = Date.now() * 1000;
 async function signedOrderWebhook(
   uniqueId: string, address = orderAddress, network = "BITCOIN", memo: string | null = "TAG-1",
   method = "deposit.processed", status = 3, deliveryTag = "first", ticker = "BTC", amount = "1.25",
+  confirmations = { actual: 6, required: 3 },
 ) {
   const body = JSON.stringify({
     method,
@@ -340,8 +341,8 @@ async function signedOrderWebhook(
       amount,
       fee: "0",
       status,
-      confirmations: 6,
-      confirmationsRequired: 3,
+      confirmations: confirmations.actual,
+      confirmationsRequired: confirmations.required,
       unique_id: uniqueId,
       transaction_id: `tx-${uniqueId}`,
       transactionHash: `hash-${uniqueId}`,
@@ -3804,11 +3805,28 @@ test("WhiteBIT provisions simultaneous same-asset routes with independent proofs
   }
 });
 
-test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT deposit", async () => {
-  const routeId = "bnb-bnb";
+for (const { assetCode, routeId, customerNetwork } of [
+  { assetCode: "BNB", routeId: "bnb-bnb", customerNetwork: "BNB" },
+  { assetCode: "BNB", routeId: "bnb-bep20", customerNetwork: "BEP20" },
+  { assetCode: "USDT", routeId: "usdt-bep20", customerNetwork: "BEP20" },
+  { assetCode: "USDC", routeId: "usdc-bep20", customerNetwork: "BEP20" },
+]) {
+test(`actual ${assetCode}/${customerNetwork} WhiteBIT Swap preserves legacy funding and confirms only its own deposit`, async () => {
+  // Own the USDC fixture here; earlier catalog tests deliberately create and
+  // remove their own USDC asset and must not depend on this later scenario.
+  if (assetCode === "USDC") {
+    await database.db.insert(database.cryptoAssetsTable).values({
+      id: "usdc", code: "USDC", name: "Synthetic USDC", decimals: 6,
+    });
+    await database.db.insert(database.cryptoAssetNetworksTable).values({
+      id: routeId, assetId: "usdc", networkCode: "BEP20",
+      networkName: "Synthetic BSC", decimals: 6, executionMode: "manual",
+      depositProvider: "whitebit", whitebitAssetCode: "USDC", whitebitNetworkCode: "BEP20",
+    });
+  }
   const [originalRoute] = await database.db.select().from(database.cryptoAssetNetworksTable)
     .where(eq(database.cryptoAssetNetworksTable.id, routeId));
-  assert.ok(originalRoute, "isolated suite must contain its synthetic BNB route");
+  assert.ok(originalRoute, `isolated suite must contain its synthetic ${routeId} route`);
   const [originalAsset] = await database.db.select().from(database.cryptoAssetsTable)
     .where(eq(database.cryptoAssetsTable.id, originalRoute.assetId));
   assert.ok(originalAsset);
@@ -3817,8 +3835,25 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
     .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
   assert.ok(originalProviderSettings);
 
-  const ruleName = `BNB Swap end-to-end ${suffix}`;
-  const providerAddress = `0x22222222${suffix.replaceAll("-", "")}`;
+  const ruleName = `${assetCode}/${customerNetwork} Swap end-to-end ${suffix}`;
+  const legacyId = `${orderId}-legacy-${routeId}`;
+  const legacyAddress = "0x1111111111111111111111111111111111111111";
+  await database.db.insert(database.ordersTable).values({
+    id: legacyId, type: "manual", provider: "Manual desk", providerState: "",
+    status: "awaiting funds", manualSettlementState: "awaiting_funds",
+    fromAsset: assetCode, fromNetwork: customerNetwork,
+    toAsset: "EUR", toNetwork: "SEPA", amount: "0.05", receiveAmount: "5",
+    customerEmail: `${legacyId}@example.test`,
+    depositAddress: legacyAddress, fundingProviderSource: "manual", fundingStatus: "ready_manual",
+    sourceSettlementOptionId: `crypto:${routeId}`,
+    fundingDetailsSnapshot: {
+      networkId: routeId, source: "manual", depositProvider: "manual",
+      address: legacyAddress, manualWalletTrackingEnabled: true,
+    },
+  });
+  const [legacyBefore] = await database.db.select().from(database.ordersTable)
+    .where(eq(database.ordersTable.id, legacyId));
+  const providerAddress = `0x${createHash("sha256").update(`${suffix}:${routeId}`).digest("hex").slice(0, 40)}`;
   const createAddressRequests: Array<{
     request?: string; nonce?: number; ticker?: string; network?: string;
   }> = [];
@@ -3826,7 +3861,7 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
     "content-type": "application/json",
     "x-test-operator": ownerClerkUserId,
   };
-  await mockAssets("BEP20", "BNB");
+  await mockAssets("BEP20", assetCode, 20);
   const assetFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     if (String(input).endsWith("/api/v4/main-account/create-new-address")) {
@@ -3847,9 +3882,11 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
       lifecycle: "active",
       executionMode: "manual",
       depositProvider: "whitebit",
-      networkCode: "BNB",
+      networkCode: customerNetwork,
       customerDepositsEnabled: true,
-      whitebitAssetCode: "BNB",
+      manualFallbackEnabled: false,
+      manualWalletTrackingEnabled: false,
+      whitebitAssetCode: assetCode,
       whitebitNetworkCode: "BEP20",
     }).where(eq(database.cryptoAssetNetworksTable.id, routeId));
     await database.db.update(database.cryptoAssetsTable).set({
@@ -3861,8 +3898,8 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
       lifecycle: "active", rateMode: "manual", manualRate: "100",
     }).onConflictDoNothing({ target: fiatCurrenciesTable.code });
     await database.db.insert(manualDeskPricingRulesTable).values({
-      name: ruleName, sourceAsset: "BNB", targetAsset: "EUR",
-      sourceNetwork: "BNB", targetNetwork: "SEPA", markupBasisPoints: 0,
+      name: ruleName, sourceAsset: assetCode, targetAsset: "EUR",
+      sourceNetwork: customerNetwork, targetNetwork: "SEPA", markupBasisPoints: 0,
       exactRate: "100", fixedFee: "0", enabled: true, priority: Math.abs(pricingPriority) + 10_000_000,
     });
     const verified = await fetch(`${baseUrl}/api/admin/providers/whitebit/credentials/test`, {
@@ -3878,7 +3915,7 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
     });
     assert.equal(permission.status, 200, await permission.clone().text());
     assert.equal(createAddressRequests[0]?.request, "/api/v4/main-account/create-new-address");
-    assert.equal(createAddressRequests[0]?.ticker, "BNB");
+    assert.equal(createAddressRequests[0]?.ticker, assetCode);
     assert.equal(createAddressRequests[0]?.network, "BEP20");
     const enabled = await fetch(`${baseUrl}/api/admin/providers/whitebit`, {
       method: "PATCH",
@@ -3896,13 +3933,13 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
     };
     const source = config.manualSettlementOptions.find((option) =>
       option.id === `crypto:${routeId}` && option.kind === "crypto-network" &&
-      option.assetCode === "BNB" && option.routeNetwork === "BNB" &&
+      option.assetCode === assetCode && option.routeNetwork === customerNetwork &&
       ["send", "both"].includes(option.direction));
     const target = config.manualSettlementOptions.find((option) =>
       option.kind === "fiat-payment-method" && option.assetCode === "EUR" &&
       option.routeNetwork === "SEPA" && ["receive", "both"].includes(option.direction));
     if (!source || !target) {
-      throw new Error("API config should expose the exact BNB/BNB-to-EUR/SEPA route.");
+      throw new Error(`API config should expose the exact ${assetCode}/${customerNetwork}-to-EUR/SEPA route.`);
     }
 
     const quoteResponse = await fetch(`${baseUrl}/api/exchange/quote`, {
@@ -3910,8 +3947,8 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         type: "manual",
-        fromAsset: "BNB",
-        fromNetwork: "BNB",
+        fromAsset: assetCode,
+        fromNetwork: customerNetwork,
         toAsset: "EUR",
         toNetwork: "SEPA",
         amount: 0.05,
@@ -3930,7 +3967,7 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
     const settlementDetails = Object.fromEntries((quote.requiredSettlementFields ?? []).map((field) => [
       field.key,
       field.type === "email" ? `${suffix}@example.test` :
-        field.type === "account-iban" ? "DE89370400440532013000" : "BNB Swap end-to-end",
+        field.type === "account-iban" ? "DE89370400440532013000" : `${assetCode} Swap end-to-end`,
     ]));
     const clientRequestId = randomUUID();
     const createOrder = await fetch(`${baseUrl}/api/exchange/orders`, {
@@ -3938,8 +3975,8 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         type: "manual",
-        fromAsset: "BNB",
-        fromNetwork: "BNB",
+        fromAsset: assetCode,
+        fromNetwork: customerNetwork,
         toAsset: "EUR",
         toNetwork: "SEPA",
         amount: 0.05,
@@ -3949,7 +3986,7 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
         quoteId: quote.quoteId,
         clientRequestId,
         customerEmail: `${suffix}@example.test`,
-        customerName: "BNB Swap end-to-end",
+        customerName: `${assetCode} Swap end-to-end`,
         sourceSettlementOptionId: source.id,
         targetSettlementOptionId: target.id,
         settlementDetails,
@@ -3967,15 +4004,15 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
       if (order?.fundingStatus === "ready_whitebit") break;
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
-    assert.ok(order, "API-created BNB order should be persisted");
+    assert.ok(order, `API-created ${assetCode} order should be persisted`);
     assert.equal(order.fundingStatus, "ready_whitebit");
     assert.equal(order.depositAddress, providerAddress);
     assert.equal(createAddressRequests.length, 2);
     assert.ok(createAddressRequests.every((request) =>
-      request.ticker === "BNB" && request.network === "BEP20"));
+      request.ticker === assetCode && request.network === "BEP20"));
 
-    assert.equal(order.fromAsset, "BNB");
-    assert.equal(order.fromNetwork, "BNB");
+    assert.equal(order.fromAsset, assetCode);
+    assert.equal(order.fromNetwork, customerNetwork);
     assert.equal(order.status, "awaiting funds");
     assert.equal(order.manualSettlementState, "awaiting_funds");
     assert.equal(order.fundingProviderSource, "whitebit");
@@ -3984,21 +4021,22 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
     const funding = order.fundingDetailsSnapshot as {
       whitebitAssetCode?: string; whitebitNetworkCode?: string;
     };
-    assert.equal(funding.whitebitAssetCode, "BNB");
+    assert.equal(funding.whitebitAssetCode, assetCode);
     assert.equal(funding.whitebitNetworkCode, "BEP20");
 
     const [claim] = await database.db.select().from(database.whitebitOrderAddressesTable)
       .where(eq(database.whitebitOrderAddressesTable.orderId, created.id)).limit(1);
     assert.ok(claim);
     assert.equal(claim.status, "ready");
-    assert.equal(claim.ticker, "BNB");
-    assert.equal(claim.providerTicker, "BNB");
+    assert.equal(claim.ticker, assetCode);
+    assert.equal(claim.providerTicker, assetCode);
     assert.equal(claim.network, "BEP20");
     assert.equal(claim.address, providerAddress);
 
-    const uniqueId = `bnb-order-deposit-${suffix}`;
+    const uniqueId = `${routeId}-order-deposit-${suffix}`;
     const accepted = await signedOrderWebhook(
-      uniqueId, providerAddress, "BEP20", "", "deposit.accepted", 1, "bnb-accepted", "BNB", "0.05",
+      uniqueId, providerAddress, "BEP20", "", "deposit.accepted", 1, `${routeId}-accepted`, assetCode, "0.05",
+      { actual: 0, required: 20 },
     );
     assert.equal(accepted.status, 200, await accepted.clone().text());
     [order] = await database.db.select().from(database.ordersTable)
@@ -4007,8 +4045,20 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
     assert.equal(order.status, "payment detected");
     assert.equal(order.manualSettlementState, "awaiting_funds");
 
+    const insufficient = await signedOrderWebhook(
+      uniqueId, providerAddress, "BEP20", "", "deposit.processed", 3,
+      `${routeId}-nineteen-confirmations`, assetCode, "0.05", { actual: 19, required: 20 },
+    );
+    assert.equal(insufficient.status, 200, await insufficient.clone().text());
+    [order] = await database.db.select().from(database.ordersTable)
+      .where(eq(database.ordersTable.id, created.id));
+    assert.equal(order.manualSettlementState, "awaiting_funds");
+    assert.equal(order.manualSettlementFundedAt, null, "19/20 confirmations must not fund the order");
+    assert.equal(order.manualSettlementPaidAt, null);
+
     const processed = await signedOrderWebhook(
-      uniqueId, providerAddress, "BEP20", "", "deposit.processed", 3, "bnb-processed", "BNB", "0.05",
+      uniqueId, providerAddress, "BEP20", "", "deposit.processed", 3, `${routeId}-processed`, assetCode, "0.05",
+      { actual: 20, required: 20 },
     );
     assert.equal(processed.status, 200, await processed.clone().text());
     [order] = await database.db.select().from(database.ordersTable)
@@ -4024,6 +4074,37 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
       .where(eq(database.whitebitDepositsTable.uniqueId, uniqueId)).limit(1);
     assert.equal(deposit.orderId, created.id);
     assert.equal(deposit.network, "BEP20");
+    const fundedAt = order.manualSettlementFundedAt!.getTime();
+    const statusVersion = order.statusVersion;
+    const duplicate = await signedOrderWebhook(
+      uniqueId, providerAddress, "BEP20", "", "deposit.processed", 3,
+      `${routeId}-processed-duplicate`, assetCode, "0.05",
+      { actual: 20, required: 20 },
+    );
+    assert.equal(duplicate.status, 200, await duplicate.clone().text());
+    const deposits = await database.db.select().from(database.whitebitDepositsTable)
+      .where(eq(database.whitebitDepositsTable.uniqueId, uniqueId));
+    assert.equal(deposits.length, 1);
+    [order] = await database.db.select().from(database.ordersTable)
+      .where(eq(database.ordersTable.id, created.id));
+    assert.equal(order.manualSettlementFundedAt!.getTime(), fundedAt);
+    assert.equal(order.statusVersion, statusVersion);
+    assert.equal(order.manualSettlementPaidAt, null);
+    const watches = await database.db.select({ id: database.blockchainMonitorWatchesTable.id })
+      .from(database.blockchainMonitorWatchesTable)
+      .where(eq(database.blockchainMonitorWatchesTable.orderId, created.id));
+    assert.equal(watches.length, 0, "WhiteBIT order must not create a parallel RPC watch");
+    const tracking = await fetch(`${baseUrl}/api/orders/${created.id}/status?trackingToken=${encodeURIComponent(signOrderTrackingToken(created.id))}`);
+    assert.equal(tracking.status, 200, await tracking.clone().text());
+    assert.equal((await tracking.json() as { status: string }).status, "processing");
+    const operatorDetail = await fetch(`${baseUrl}/api/orders/${created.id}`, {
+      headers: { "x-test-operator": ownerClerkUserId },
+    });
+    assert.equal(operatorDetail.status, 200, await operatorDetail.clone().text());
+    assert.equal((await operatorDetail.json() as { status: string }).status, "processing");
+    const [legacyAfter] = await database.db.select().from(database.ordersTable)
+      .where(eq(database.ordersTable.id, legacyId));
+    assert.deepEqual(legacyAfter, legacyBefore, "cutover and WhiteBIT events must not rewrite historical Manual funding");
   } finally {
     await database.db.delete(manualDeskPricingRulesTable)
       .where(eq(manualDeskPricingRulesTable.name, ruleName));
@@ -4034,6 +4115,8 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
       depositProvider: originalRoute.depositProvider,
       networkCode: originalRoute.networkCode,
       customerDepositsEnabled: originalRoute.customerDepositsEnabled,
+      manualFallbackEnabled: originalRoute.manualFallbackEnabled,
+      manualWalletTrackingEnabled: originalRoute.manualWalletTrackingEnabled,
       whitebitAssetCode: originalRoute.whitebitAssetCode,
       whitebitNetworkCode: originalRoute.whitebitNetworkCode,
     }).where(eq(database.cryptoAssetNetworksTable.id, routeId));
@@ -4054,6 +4137,7 @@ test("actual BNB/BEP20 Swap creation assigns and confirms its own WhiteBIT depos
     resetWhitebitCapabilityCacheForTests();
   }
 });
+}
 
 test("first activation and restart leave a pre-existing WhiteBIT fixture order untouched", async () => {
   const historicalId = `${orderId}-history-before-activation`;

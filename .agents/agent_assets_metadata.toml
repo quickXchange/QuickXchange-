@@ -364,3 +364,17 @@ mtime_ms = 1792028533615
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/cb64724d-b9cb-4036-b58e-7e0bd49cabcf/3e1824a9-3ba3-4cf8-a924-68e6dfcb99ec"
 storage_version_token = "1792028608560483"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "n-5kv-c4orTvmtzkKK1kE"
+uri = "file://BEP20_WHITEBIT_CUTOVER_REPORT.md"
+type = "text"
+title = "BEP20 WhiteBIT Cutover — Safety Checks & Test Results"
+description = "Production blockers, exact route settings and Owner verification steps, 132 passing targeted tests, and the remaining Alchemy workload."
+logical_id = "832e423c-95d9-4a45-862e-651d5a56680b"
+content_hash = "sha256:57dd832f560f4e7b4156462c5151ca4bfd8dc569b8cbc586cd027a126809112c"
+size = 8810
+mtime_ms = 1792030101558
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/832e423c-95d9-4a45-862e-651d5a56680b/4ef68ca0-92a6-49c8-a939-914eb5278110"
+storage_version_token = "1792030107699120"
+content_type = "text/markdown"

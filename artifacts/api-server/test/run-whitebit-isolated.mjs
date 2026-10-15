@@ -81,6 +81,8 @@ async function seedSyntheticRoutes() {
       VALUES
         ('btc-bitcoin', 'btc', 'BITCOIN', 'Bitcoin', 8, 'manual', 'whitebit', NULL, NULL),
         ('bnb-bnb', 'bnb', 'BNB', 'BNB', 18, 'manual', 'whitebit', 'BNB', 'BEP20'),
+        ('bnb-bep20', 'bnb', 'BEP20', 'Synthetic BSC', 18, 'manual', 'whitebit', 'BNB', 'BEP20'),
+        ('usdt-bep20', 'usdt', 'BEP20', 'Synthetic BSC', 6, 'manual', 'whitebit', 'USDT', 'BEP20'),
         ('usdt-trc20', 'usdt', 'TRC20', 'Tron', 6, 'manual', 'whitebit', NULL, NULL);
       INSERT INTO fiat_currencies
         (id, code, name, network, precision, lifecycle, enabled, rate_mode, manual_rate)

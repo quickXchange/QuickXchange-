@@ -125,6 +125,7 @@
 - [Recovery migration replay isolation](recovery-migration-replay-isolation.md) — obsolete evidence recoveries must not replay ahead of a current recovery or one mismatch can stop the monitoring worker.
 - [Deposit monitoring readiness](deposit-monitoring-readiness.md) — gate deposits with locked exact-route identity, stable config digests, and fresh health; unhealthy routes remain payout-only.
 - [RPC consumption boundaries](rpc-consumption-boundaries.md) — preserve immutable deposit ownership when reducing polling; actual dispatch counts are not provider billing totals.
+- [WhiteBIT BEP20 policy](whitebit-bep20-cutover-policy.md) — new BNB/USDT/USDC deposits should use WhiteBIT; retire Manual watches only after all obligations are verified clear.
 - [Production migration entrypoint](production-migration-entrypoint.md) — Publish may not advance Drizzle history; run [one-shot release jobs](production-one-shot-release-jobs.md) separately.
 - [Verified funding transaction identity](verified-funding-transaction-identity.md) — Manual Swap TxIDs come only from applied immutable observations and must remain separate from editable operational references.
 - [Environment-specific RPC secret overrides](rpc-secret-environment-overrides.md) — a changed shared RPC secret can remain shadowed by an environment override; validate the runtime value in every target environment.
