@@ -5,6 +5,11 @@ export type MonitoringWorkload = {
   manualReadiness: boolean;
 };
 
+export function hasMonitoringWorkload(workload: MonitoringWorkload): boolean {
+  return workload.activeWatches || workload.pendingEvidence ||
+    workload.registrationGaps || workload.manualReadiness;
+}
+
 export function monitoringCadenceMs(pollSeconds: number, workload: MonitoringWorkload): number {
   const configured = Number.isSafeInteger(pollSeconds) && pollSeconds >= 5 ? pollSeconds * 1000 : 15_000;
   const base = Math.max(15_000, configured);
@@ -21,6 +26,9 @@ export function monitoringCycleDue(input: {
   pollSeconds: number;
   workload: MonitoringWorkload;
 }): boolean {
+  // Preserve configuration and let old readiness proofs expire normally.
+  // WhiteBIT-only routes do not need periodic chain health probes.
+  if (!hasMonitoringWorkload(input.workload)) return false;
   if (!input.nextAttemptAt || input.nextAttemptAt.getTime() <= input.now) return true;
   // A watch arriving during an idle interval must wake the network at its
   // normal cadence. Never bypass a disconnected provider's quota/backoff.

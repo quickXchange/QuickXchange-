@@ -8,8 +8,15 @@ import { EvmJsonRpcAdapter } from "../src/lib/blockchain-monitoring/evm";
 const idle: MonitoringWorkload = {
   activeWatches: false, pendingEvidence: false, registrationGaps: false, manualReadiness: false,
 };
-test("unused/WhiteBIT-only networks enter standby without disabling their monitor", () => {
-  assert.equal(monitoringCadenceMs(15, idle), 300_000);
+test("unused/WhiteBIT-only networks make no periodic RPC even with no due timer", () => {
+  for (const healthStatus of ["connected", "disconnected", "not_configured"]) {
+    for (const nextAttemptAt of [null, new Date(0)]) {
+      assert.equal(monitoringCycleDue({
+        now: Date.now(), healthStatus, nextAttemptAt,
+        healthCheckedAt: null, pollSeconds: 15, workload: idle,
+      }), false);
+    }
+  }
 });
 test("manual/fallback readiness remains inside the existing freshness fence", () => {
   for (const poll of [5, 15, 30, 60, 120]) {
@@ -58,14 +65,18 @@ test("new work cannot make a connected network poll faster than configured", () 
     workload: { ...idle, activeWatches: true },
   }), false);
 });
-test("idle checks remain idle until due; due failures are allowed to recover", () => {
+test("paused networks stay paused; selected Manual routes recover when backoff expires", () => {
   const now = Date.now();
   const input = {
     now, nextAttemptAt: new Date(now + 1000), healthStatus: "connected",
     healthCheckedAt: new Date(now - 60_000), pollSeconds: 15, workload: idle,
   };
   assert.equal(monitoringCycleDue(input), false);
-  assert.equal(monitoringCycleDue({ ...input, nextAttemptAt: new Date(now - 1), healthStatus: "disconnected" }), true);
+  assert.equal(monitoringCycleDue({ ...input, nextAttemptAt: new Date(now - 1), healthStatus: "disconnected" }), false);
+  assert.equal(monitoringCycleDue({
+    ...input, nextAttemptAt: new Date(now - 1), healthStatus: "disconnected",
+    workload: { ...idle, manualReadiness: true },
+  }), true);
 });
 test("usage windows contain exact dispatched counts and purpose, not endpoints or billed-CU claims", () => {
   const meter = new RpcUsageMeter(0);

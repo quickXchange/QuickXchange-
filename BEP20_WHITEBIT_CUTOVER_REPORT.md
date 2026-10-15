@@ -1,10 +1,15 @@
 # BEP20 WhiteBIT cutover: verification and safety result
 
-Date: 2026-10-15 UTC.
+Date: 2026-10-15 UTC. Saved Production route settings last checked at
+02:31:34 UTC.
 
 ## Result
 
-**NOT COMPLETED IN PRODUCTION. Legacy Manual monitoring must remain enabled.**
+**OWNER ACTION REQUIRED IN PRODUCTION. Legacy Manual monitoring is preserved.**
+
+Automatic RPC pause/resume is now implemented and tested in the workspace.
+It has not been published by this agent. The live provider switch and test-order
+closure have not been performed.
 
 Production was inspected read-only. No provider configuration, order, financial
 record, address, proof or watch was modified. No real order, payment, withdrawal
@@ -12,6 +17,9 @@ or customer message was created for testing.
 
 The requested condition—no pending deposits, active orders or outstanding
 obligations on the old Manual addresses—is not met.
+
+The Owner identifies these nine orders as tests. That authorizes investigation,
+not ignoring contradictory historical payment records or deleting evidence.
 
 ## Current Production records
 
@@ -33,6 +41,24 @@ the nine unresolved Manual records above.
 None of the five Manual Funds Confirmed orders has a recorded payout milestone.
 This is not proof that no external payout was ever sent; it means payout
 completion is not independently established by the inspected records.
+
+### Live investigation of the five historical matches
+
+All five Funds Confirmed orders have applied blockchain observations. A
+read-only BSC RPC check confirmed their referenced transactions exist, succeeded
+and belong to canonical confirmed blocks. A second public endpoint allowed
+chain/head calls but rejected receipt requests with HTTP 403.
+
+However, each saved observation's recipient and amount differs from its current
+frozen watch. Receipt verification against the current watch did not establish
+the claimed exact transfer. These mismatches require reconciliation: neither
+the applied-match label nor the Owner's test label alone establishes the
+correct financial disposition.
+
+This does **not** assert these transactions funded these orders, and it does
+**not** certify that the assigned addresses never received funds. No complete
+address-history reconciliation was available. Applied observations, order
+history and financial states were not edited or removed.
 
 No current confirming, matched, needs-review or recent applied match was found
 for these routes. **That does not prove absence of on-chain deposits.**
@@ -92,6 +118,30 @@ Existing protected operations:
 
 No replacement integration, status system or pricing logic is needed.
 
+### Exact Owner actions for new deposits
+
+In the existing BEP20 network editor for each asset:
+
+1. In **Deposit Provider**, select WhiteBIT. Use the matching asset ticker and
+   **BEP20** network.
+2. For active BNB/USDT Manual rows, use **Switch to WhiteBIT (turn Customer
+   Deposits OFF until verified)**. Do not delete the saved Manual wallet.
+3. In **Advanced: Manual fallback**, opt out of fallback if future deposits must
+   be WhiteBIT-only. Production USDT currently has fallback opted in.
+4. Click **Verify WhiteBIT** and confirm the real verification-address request.
+   This uses the selected signed credentials and does not place a customer
+   order or send funds.
+5. Once the exact-route proof/readiness is accepted, click **Turn Customer
+   Deposits ON**. For USDC, inspect the already saved WhiteBIT setup/proof rather
+   than blindly overwriting it.
+6. Keep the saved Manual addresses/memos, monitor endpoint references, contracts,
+   decimals, finality, confirmation and scan settings. Do not disable the network
+   or asset monitors to accomplish the switch.
+
+Old orders must be reconciled separately before cancellation/watch retirement.
+The five historical match inconsistencies and the older unregistered USDT order
+must not be cleared by an unchecked bulk cancellation.
+
 The available Production database tool is read-only; there is no authenticated
 Production Owner session available to this agent. It must not bypass those
 controls with synthetic authentication or direct database writes.
@@ -116,21 +166,38 @@ Retirement requires:
 Never mark an order complete, cancel it, delete it, backdate a watch or advance
 its cursor simply to pass this gate. Existing history and evidence must remain.
 
-## Tests completed
+## Automatic pause/resume implemented
+
+- Enabled EVM networks with no independent work and no Manual selection/fallback
+  make **zero periodic RPC requests**, including idle health checks.
+- Selecting Manual resumes readiness even while Customer Deposits is still OFF.
+  Fresh proof and explicit deposit enablement remain mandatory.
+- WhiteBIT-to-Manual fallback opt-in also resumes readiness.
+- Active legacy watches, eligible Manual orders without active watches,
+  confirming/matched/needs-review evidence and recent reorg checks prevent pause.
+- Provider error/quota backoff is respected.
+- Pausing leaves configuration, enabled switches, endpoint references and
+  existing health timestamps intact. It does not renew stale proofs.
+- Explicit Admin connection/evidence tests remain available.
+
+## Tests completed in this update
 
 WhiteBIT tests:
 
-- Unit: **23 passed**
-- History worker: **19 passed**
-- General integration: **20 passed**
 - Swap integration, including the expanded BEP20 cases: **55 passed**
 
 RPC policy/meter and real scheduler tests:
 
 - Unit: **14 passed**
 - Disposable-database scheduler integration: **1 passed**
+- Provider recovery: **6 passed**
+- EVM efficiency/fallback: **16 passed**
+- Monitoring service: **21 passed**
+- Manual readiness: **13 passed**
+- Watch registration: **2 passed**
+- Verified funding projections: **9 passed**
 
-**Total: 132 passed, zero remaining targeted failures.**
+**Total: 137 passed, zero failures or skips in this targeted verification.**
 
 The new cases retain the previous BNB customer-network alias scenario and add
 actual BNB/BEP20, USDT/BEP20 and USDC/BEP20 customer routes. Each proves:
@@ -149,13 +216,17 @@ actual BNB/BEP20, USDT/BEP20 and USDC/BEP20 customer routes. Each proves:
 - WhiteBIT orders do not create parallel blockchain watches.
 - The existing Manual order's full saved record is unchanged.
 
-A fixture collision with an earlier USDC catalog test was corrected by making
-the new USDC fixture local to its scenario. The affected Swap suite was rerun.
-The test runner confirms Development routes, credentials and provider settings
-remain unchanged. Type check and diff checks passed.
+The scheduler integration verifies zero idle dispatches, retained configuration,
+Manual selection wake-up, WhiteBIT pause on reselection, quota-safe recovery,
+legacy/fallback watch preservation and an unregistered Manual obligation
+preventing pause. The test runner confirms Development routes, credentials and
+provider settings remain unchanged. Type check, API build and diff checks passed.
 
-Only test fixtures/regressions and this report were changed. No financial
-application code or live configuration was changed, and nothing was published.
+Only EVM monitoring scheduling/workload selection, corresponding tests and this
+report were changed. No pricing, settlement, deposit matching, payout logic or
+live configuration was changed. Development API startup passed. Existing
+Quickex/provider availability warnings remain; this is not a full-project green
+claim. Nothing was published.
 
 ## Remaining Alchemy consumption
 
@@ -172,15 +243,18 @@ These are explicit workload estimates, not actual account billing totals.
 The previous scheduler optimizations are not confirmed published to Production.
 Quota-exhausted requests are not a representative healthy monthly workload.
 
-After safe retirement of all BEP20 obligations and no other BEP20 work:
+After Owner activation, safe retirement/reconciliation of all BEP20 obligations,
+Manual fallback opted out and publication of the tested source:
 
-- Leaving an enabled standby monitor costs approximately **0.9504 million CUs
-  per 30 days** under the optimized five-minute readiness cadence.
-- Disabling that genuinely unused monitor eliminates its routine BEP20 RPC
-  polling. Explicit Admin tests can still make requests.
+- The new scheduler makes **zero periodic BEP20 RPC requests** without disabling
+  the saved monitor. Explicit Admin tests can still make requests.
+- Selecting Manual resumes readiness against the preserved configuration.
 - Unchanged idle ERC20 Manual readiness would still cost approximately
   **4.752 million CUs / 30 days** under the optimized source, before any new
   ERC20 watches, confirmations, recovery or Admin calls.
 
-Production account usage must be reconciled with Alchemy's own metrics. Do not
-budget for zero Alchemy usage while the legacy Manual obligations remain.
+Production account usage/remaining quota must be reconciled with Alchemy's own
+metrics; those billing metrics are not exposed through the available access.
+No actual Production consumption reduction is claimed from an unapplied
+configuration or unpublished source. Do not budget for zero Alchemy usage while
+the legacy Manual obligations remain.

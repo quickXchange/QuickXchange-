@@ -17,6 +17,18 @@ Idle readiness may be cheaper only while respecting its existing freshness
 fence and waking promptly when work or Manual/fallback availability appears.
 Never use catalog edits alone to retire or redirect an existing address.
 
+WhiteBIT-only EVM networks with no independent work or opted-in Manual fallback
+should pause periodic RPC completely, not erase or disable their configuration.
+Selecting Manual resumes readiness, not customer deposit permission.
+
+**Why:** The Owner requested zero unnecessary polling while retaining reversible
+Manual/RPC configuration. A missing or inactive watch does not prove an unpaid
+Manual order is safe to ignore.
+
+**How to apply:** Include eligible legacy orders lacking active watches and
+unresolved evidence in the pause gate. Preserve health timestamps so old proofs
+expire normally, respect quota backoff, and retain explicit Admin tests.
+
 Application RPC dispatch counts are not billing totals.
 
 **Why:** Local cooldowns emit attempted-operation traces without another

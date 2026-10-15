@@ -10,7 +10,7 @@ import {
 } from "@workspace/db";
 import { registerManualBlockchainWatch, runBlockchainMonitoringCycle } from "../src/lib/blockchain-monitoring/service";
 
-test("real scheduler reduces idle calls, wakes Manual/fallback watches and never creates parallel WhiteBIT watches", async t => {
+test("real scheduler pauses WhiteBIT-only RPC, preserves configurations and resumes Manual/fallback work", async t => {
   assert.equal(process.env.API_TEST_DISPOSABLE_DATABASE, "1", "Only a disposable database may run this test.");
   t.after(async () => { await pool.end(); });
   // Prevent copied Development monitors or gaps from making real RPC calls.
@@ -60,12 +60,14 @@ test("real scheduler reduces idle calls, wakes Manual/fallback watches and never
     }).where(eq(blockchainMonitorNetworksTable.id, key));
   };
   await runBlockchainMonitoringCycle();
-  assert.equal(calls, 5);
+  assert.equal(calls, 0);
   let row = await network();
-  assert.equal(row.healthStatus, "connected");
-  assert.ok(row.nextAttemptAt!.getTime() - row.healthCheckedAt!.getTime() >= 299_000);
+  assert.equal(row.healthStatus, "not_configured");
+  assert.equal(row.enabled, true);
+  assert.equal(row.endpointSecretRef, secretRef);
+  assert.equal(row.healthCheckedAt, null, "Pausing must not renew a readiness proof");
   await runBlockchainMonitoringCycle();
-  assert.equal(calls, 5, "WhiteBIT-only idle network must not re-probe every scheduler tick.");
+  assert.equal(calls, 0, "WhiteBIT-only idle network must not make periodic health requests.");
 
   const insertOrder = async (id: string, fallback = false, manual = false) => {
     await db.insert(ordersTable).values({
@@ -76,7 +78,8 @@ test("real scheduler reduces idle calls, wakes Manual/fallback watches and never
       providerState: manual ? "" : fallback ? "whitebit_fallback" : "whitebit",
       fundingStatus: manual || fallback ? "ready_manual" : "ready_whitebit",
       manualSettlementState: "awaiting_funds",
-      fundingDetailsSnapshot: { addressSource: manual || fallback ? "manual_fallback" : "whitebit", address: `0x${"11".repeat(20)}` },
+      sourceSettlementOptionId: `crypto:${key}`,
+      fundingDetailsSnapshot: { networkId: key, addressSource: manual || fallback ? "manual_fallback" : "whitebit", address: `0x${"11".repeat(20)}` },
     });
   };
   const insertWatch = async (orderId: string) => {
@@ -92,16 +95,14 @@ test("real scheduler reduces idle calls, wakes Manual/fallback watches and never
   await registerManualBlockchainWatch(whitebitOrder);
   assert.equal((await db.select().from(blockchainMonitorWatchesTable)
     .where(eq(blockchainMonitorWatchesTable.orderId, whitebitOrder))).length, 0);
-  await resetIdle();
   await runBlockchainMonitoringCycle();
-  assert.equal(calls, 5, "Provider-created WhiteBIT deposit must not create parallel chain polling.");
+  assert.equal(calls, 0, "Provider-created WhiteBIT deposit must not create parallel chain polling.");
 
   const manualOrder = `${key}-manual`;
   await insertOrder(manualOrder, false, true);
   await insertWatch(manualOrder);
-  await resetIdle();
   await runBlockchainMonitoringCycle();
-  assert.equal(calls, 10, "New Manual watch wakes an idle network at the next normal cadence.");
+  assert.equal(calls, 5, "New Manual watch wakes a paused network at the next normal cadence.");
   row = await network();
   assert.equal(row.nextAttemptAt!.getTime() - row.healthCheckedAt!.getTime(), 15_000);
   assert.equal((await db.select().from(blockchainMonitorWatchesTable)
@@ -109,17 +110,21 @@ test("real scheduler reduces idle calls, wakes Manual/fallback watches and never
 
   await db.update(blockchainMonitorWatchesTable).set({ active: false })
     .where(eq(blockchainMonitorWatchesTable.orderId, manualOrder));
+  await db.update(ordersTable).set({ status: "cancelled", manualSettlementState: "cancelled" })
+    .where(eq(ordersTable.id, manualOrder));
   const fallbackOrder = `${key}-fallback`;
   await insertOrder(fallbackOrder, true);
   await insertWatch(fallbackOrder);
   await resetIdle();
   await runBlockchainMonitoringCycle();
-  assert.equal(calls, 15, "Frozen Manual fallback watch remains protected despite WhiteBIT catalog selection.");
+  assert.equal(calls, 10, "Frozen Manual fallback watch remains protected despite WhiteBIT catalog selection.");
   assert.equal((await db.select().from(blockchainMonitorWatchesTable)
     .where(eq(blockchainMonitorWatchesTable.orderId, fallbackOrder)))[0]!.active, true);
 
   await db.update(blockchainMonitorWatchesTable).set({ active: false })
     .where(eq(blockchainMonitorWatchesTable.orderId, fallbackOrder));
+  await db.update(ordersTable).set({ status: "cancelled", manualSettlementState: "cancelled" })
+    .where(eq(ordersTable.id, fallbackOrder));
   await db.update(cryptoAssetNetworksTable).set({ manualFallbackEnabled: true })
     .where(eq(cryptoAssetNetworksTable.id, key));
   await db.update(blockchainMonitorNetworksTable).set({
@@ -130,4 +135,43 @@ test("real scheduler reduces idle calls, wakes Manual/fallback watches and never
   row = await network();
   assert.equal(row.nextAttemptAt!.getTime() - row.healthCheckedAt!.getTime(), 60_000,
     "Opted-in fallback retains fresh readiness even without Manual tracking on the catalog row.");
+  assert.equal(calls, 15);
+
+  await db.update(cryptoAssetNetworksTable).set({
+    manualFallbackEnabled: false, depositProvider: "whitebit",
+  }).where(eq(cryptoAssetNetworksTable.id, key));
+  await db.update(blockchainMonitorNetworksTable).set({ nextAttemptAt: new Date(0) })
+    .where(eq(blockchainMonitorNetworksTable.id, key));
+  const paused = await network();
+  await runBlockchainMonitoringCycle();
+  await runBlockchainMonitoringCycle();
+  assert.equal(calls, 15, "Switching back to WhiteBIT pauses idle health checks, even when previously due.");
+  assert.deepEqual(await network(), paused, "Pausing must preserve network configuration and health timestamps.");
+
+  await db.update(cryptoAssetNetworksTable).set({
+    depositProvider: "manual", customerDepositsEnabled: false, manualWalletTrackingEnabled: false,
+  }).where(eq(cryptoAssetNetworksTable.id, key));
+  await runBlockchainMonitoringCycle();
+  assert.equal(calls, 20, "Selecting Manual alone resumes readiness; enabling deposits still requires separate proof.");
+  row = await network();
+  assert.equal(row.endpointSecretRef, secretRef);
+  assert.equal(row.enabled, true);
+  assert.equal(row.chainId, "0x1");
+  assert.equal(row.maxScanRange, 9);
+  assert.equal(row.nextAttemptAt!.getTime() - row.healthCheckedAt!.getTime(), 60_000);
+  const selectedRoute = (await db.select().from(cryptoAssetNetworksTable)
+    .where(eq(cryptoAssetNetworksTable.id, key)))[0]!;
+  assert.equal(selectedRoute.customerDepositsEnabled, false, "Resume must not silently enable deposits.");
+  assert.equal(selectedRoute.manualWalletTrackingEnabled, false);
+
+  await db.update(cryptoAssetNetworksTable).set({ depositProvider: "whitebit" })
+    .where(eq(cryptoAssetNetworksTable.id, key));
+  await db.update(blockchainMonitorNetworksTable).set({ nextAttemptAt: new Date(0) })
+    .where(eq(blockchainMonitorNetworksTable.id, key));
+  await runBlockchainMonitoringCycle();
+  assert.equal(calls, 20);
+
+  await insertOrder(`${key}-unregistered`, false, true);
+  await runBlockchainMonitoringCycle();
+  assert.equal(calls, 25, "An unregistered legacy Manual obligation must prevent RPC retirement.");
 });

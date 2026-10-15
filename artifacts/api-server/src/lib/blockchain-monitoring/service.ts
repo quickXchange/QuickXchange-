@@ -1519,7 +1519,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       join ${blockchainMonitorObservationsTable}
         on blockchain_monitor_observations.id = blockchain_monitor_matches.observation_id
       where blockchain_monitor_observations.monitor_network_id = blockchain_monitor_networks.id
-        and (blockchain_monitor_matches.state = 'confirming' or
+        and (blockchain_monitor_matches.state in ('confirming','matched','needs_review') or
           (blockchain_monitor_matches.state = 'applied'
             and blockchain_monitor_matches.applied_at >= now() - interval '1 hour'))
     )`,
@@ -1528,6 +1528,20 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       join ${ordersTable} on exchange_orders.id = blockchain_monitor_registration_gaps.order_id
       where blockchain_monitor_registration_gaps.network_code = blockchain_monitor_networks.network_code
         and blockchain_monitor_registration_gaps.resolved_at is null and ${ELIGIBLE}
+    ) or exists (
+      select 1 from ${ordersTable}
+      join ${cryptoAssetNetworksTable}
+        on crypto_asset_networks.id = coalesce(
+          nullif(exchange_orders.funding_details_snapshot ->> 'networkId', ''),
+          regexp_replace(coalesce(exchange_orders.source_settlement_option_id, ''), '^crypto:', '')
+        )
+      where crypto_asset_networks.network_code = blockchain_monitor_networks.network_code
+        and ${ELIGIBLE}
+        and not exists (
+          select 1 from ${blockchainMonitorWatchesTable}
+          where blockchain_monitor_watches.order_id = exchange_orders.id
+            and blockchain_monitor_watches.active = true
+        )
     )`,
     manualReadiness: sql<boolean>`exists (
       select 1 from ${blockchainMonitorAssetsTable}
@@ -1537,8 +1551,6 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
         and blockchain_monitor_assets.enabled = true
         and crypto_asset_networks.enabled = true
         and (crypto_asset_networks.deposit_provider = 'manual'
-          and crypto_asset_networks.customer_deposits_enabled = true
-          and crypto_asset_networks.manual_wallet_tracking_enabled = true
           or crypto_asset_networks.deposit_provider = 'whitebit'
             and crypto_asset_networks.manual_fallback_enabled = true)
     )`,
