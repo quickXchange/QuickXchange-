@@ -434,3 +434,17 @@ mtime_ms = 1792092832369
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/28432f91-376b-42b1-a852-3d97b05c660a/1d334112-fcf0-4567-88fb-5467d4924189"
 storage_version_token = "1792092961148728"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "Q93UhtDjz33CYlasKT0TI"
+uri = "file://reports/quickex-diagnostics-2026-10-15.zip"
+type = "unspecified"
+title = "Quickex Report & Evidence — ZIP"
+description = "Contains the complete Quickex support report and timestamped JSON diagnostic evidence. No credentials or customer data."
+logical_id = "049baf00-927f-42bf-83ab-dd4d21c6eb94"
+content_hash = "sha256:af3572988c821700193d789cf6184da82a13a36ff4c5069d86ebdfadab3bca01"
+size = 5423
+mtime_ms = 1792094681412
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/049baf00-927f-42bf-83ab-dd4d21c6eb94/c072cc26-9c24-4f1b-abc4-de6f7ce896e0"
+storage_version_token = "1792094687584631"
+content_type = "application/octet-stream"
