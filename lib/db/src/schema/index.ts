@@ -1,3 +1,4 @@
+export * from "./deposit-provider-switches";
 export * from './languages';
 // Export your models here. Add one export per file
 export * from "./rates-xml";

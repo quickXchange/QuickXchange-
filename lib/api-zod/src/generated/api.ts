@@ -11141,6 +11141,107 @@ export const ApplyCryptoDepositProviderAssignmentResponse = zod.object({
 })
 
 
+export const createCryptoDepositProviderSwitchJobBodyOneNetworkIdsItemRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
+export const createCryptoDepositProviderSwitchJobBodyOneNetworkIdsMax = 500;
+
+export const createCryptoDepositProviderSwitchJobBodyOneReviewTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+export const createCryptoDepositProviderSwitchJobBodyOneWhitebitMappingsItemNetworkIdRegExp = new RegExp('^[a-z0-9][a-z0-9-]{0,80}$');
+export const createCryptoDepositProviderSwitchJobBodyOneWhitebitMappingsItemAssetCodeMin = 2;
+export const createCryptoDepositProviderSwitchJobBodyOneWhitebitMappingsItemAssetCodeMax = 16;
+
+export const createCryptoDepositProviderSwitchJobBodyOneWhitebitMappingsItemNetworkCodeMax = 32;
+
+export const createCryptoDepositProviderSwitchJobBodyOneWhitebitMappingsMax = 500;
+
+export const createCryptoDepositProviderSwitchJobBodyTwoOperationIdMin = 16;
+export const createCryptoDepositProviderSwitchJobBodyTwoOperationIdMax = 80;
+
+
+
+export const CreateCryptoDepositProviderSwitchJobBody = zod.object({
+  "networkIds": zod.array(zod.string().regex(createCryptoDepositProviderSwitchJobBodyOneNetworkIdsItemRegExp)).min(1).max(createCryptoDepositProviderSwitchJobBodyOneNetworkIdsMax),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']),
+  "reviewToken": zod.string().regex(createCryptoDepositProviderSwitchJobBodyOneReviewTokenRegExp),
+  "whitebitMappings": zod.array(zod.object({
+  "networkId": zod.string().regex(createCryptoDepositProviderSwitchJobBodyOneWhitebitMappingsItemNetworkIdRegExp),
+  "assetCode": zod.string().min(createCryptoDepositProviderSwitchJobBodyOneWhitebitMappingsItemAssetCodeMin).max(createCryptoDepositProviderSwitchJobBodyOneWhitebitMappingsItemAssetCodeMax),
+  "networkCode": zod.string().min(1).max(createCryptoDepositProviderSwitchJobBodyOneWhitebitMappingsItemNetworkCodeMax)
+})).max(createCryptoDepositProviderSwitchJobBodyOneWhitebitMappingsMax).optional()
+}).and(zod.object({
+  "operationId": zod.string().min(createCryptoDepositProviderSwitchJobBodyTwoOperationIdMin).max(createCryptoDepositProviderSwitchJobBodyTwoOperationIdMax),
+  "confirmRealAddressCreation": zod.boolean()
+}))
+
+export const CreateCryptoDepositProviderSwitchJobResponse = zod.object({
+  "id": zod.string(),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']),
+  "createdAt": zod.coerce.date(),
+  "routes": zod.array(zod.object({
+  "networkId": zod.string(),
+  "originalCustomerDepositsEnabled": zod.boolean(),
+  "status": zod.enum(['queued', 'running', 'succeeded', 'failed']),
+  "step": zod.enum(['pending', 'disabling', 'assigning', 'verifying', 'restoring', 'checking', 'completed', 'failed']),
+  "message": zod.string(),
+  "errorCode": zod.string().nullish(),
+  "attempts": zod.number().int(),
+  "customerDepositsEnabled": zod.boolean(),
+  "savedProvider": zod.string()
+}))
+})
+
+
+export const GetCryptoDepositProviderSwitchJobParams = zod.object({
+  "jobId": zod.coerce.string()
+})
+
+export const GetCryptoDepositProviderSwitchJobResponse = zod.object({
+  "id": zod.string(),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']),
+  "createdAt": zod.coerce.date(),
+  "routes": zod.array(zod.object({
+  "networkId": zod.string(),
+  "originalCustomerDepositsEnabled": zod.boolean(),
+  "status": zod.enum(['queued', 'running', 'succeeded', 'failed']),
+  "step": zod.enum(['pending', 'disabling', 'assigning', 'verifying', 'restoring', 'checking', 'completed', 'failed']),
+  "message": zod.string(),
+  "errorCode": zod.string().nullish(),
+  "attempts": zod.number().int(),
+  "customerDepositsEnabled": zod.boolean(),
+  "savedProvider": zod.string()
+}))
+})
+
+
+export const RetryCryptoDepositProviderSwitchRouteParams = zod.object({
+  "jobId": zod.coerce.string()
+})
+
+
+
+
+export const RetryCryptoDepositProviderSwitchRouteBody = zod.object({
+  "networkId": zod.string().min(1),
+  "confirmRealAddressCreation": zod.boolean()
+})
+
+export const RetryCryptoDepositProviderSwitchRouteResponse = zod.object({
+  "id": zod.string(),
+  "depositProvider": zod.enum(['none', 'manual', 'whitebit']),
+  "createdAt": zod.coerce.date(),
+  "routes": zod.array(zod.object({
+  "networkId": zod.string(),
+  "originalCustomerDepositsEnabled": zod.boolean(),
+  "status": zod.enum(['queued', 'running', 'succeeded', 'failed']),
+  "step": zod.enum(['pending', 'disabling', 'assigning', 'verifying', 'restoring', 'checking', 'completed', 'failed']),
+  "message": zod.string(),
+  "errorCode": zod.string().nullish(),
+  "attempts": zod.number().int(),
+  "customerDepositsEnabled": zod.boolean(),
+  "savedProvider": zod.string()
+}))
+})
+
+
 /**
  * Reads the fresh public WhiteBIT catalog only. Existing mappings and WhiteBIT-provider routes with Customer Deposits enabled are protected. Exact identity metadata may be added to an eligible Manual-provider route even when Customer Deposits are enabled; this does not switch providers, change deposit flags, or modify addresses.
  * @summary Preview safe WhiteBIT identities for every Asset + Network route

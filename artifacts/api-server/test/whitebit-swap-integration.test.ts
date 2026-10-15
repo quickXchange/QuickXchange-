@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import express from "express";
 import test, { after, before } from "node:test";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import * as database from "@workspace/db";
 import { createPrivilegedTestPool } from "@workspace/db/test-admin";
 import {
@@ -99,6 +99,21 @@ function validTronAddress(): string {
 let orderAddress = validBitcoinAddress();
 const ownerClerkUserId = `whitebit-owner-${suffix}`;
 const ownerEmail = `whitebit-owner-${suffix}@example.test`;
+async function waitForProviderSwitch(jobId: string) {
+  for (let attempt = 0; attempt < 300; attempt++) {
+    const response = await originalFetch(`${baseUrl}/api/admin/crypto-networks/deposit-provider/jobs/${jobId}`, {
+      headers: { "x-test-operator": ownerClerkUserId },
+    });
+    assert.equal(response.status, 200);
+    const job = await response.json() as { id: string; routes: Array<{
+      networkId: string; status: string; errorCode: string | null; originalCustomerDepositsEnabled: boolean;
+      customerDepositsEnabled: boolean; savedProvider: string; attempts: number; message: string;
+    }> };
+    if (job.routes.every(route => route.status === "succeeded" || route.status === "failed")) return job;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  throw new Error("Provider switch did not finish within isolated test deadline.");
+}
 let providerCalls = 0;
 let providerPermissionCalls = 0;
 let baseUrl = "";
@@ -4507,5 +4522,243 @@ test("Manual USDT TRC20 to EUR accepts every absent refund representation", asyn
     }).where(eq(database.cryptoAssetNetworksTable.id, networkId));
     await database.db.update(database.cryptoAssetsTable).set({ enabled: originalAsset.enabled })
       .where(eq(database.cryptoAssetsTable.id, originalAsset.id));
+  }
+});
+
+test("automated Owner bulk switching verifies live permissions, supports partial success and safe idempotent retry without financial changes", async () => {
+  const ids = ["btc-bitcoin", "usdt-trc20"];
+  const originalNetworks = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(inArray(database.cryptoAssetNetworksTable.id, ids));
+  const originalAssets = await database.db.select().from(database.cryptoAssetsTable)
+    .where(inArray(database.cryptoAssetsTable.id, originalNetworks.map(row => row.assetId)));
+  const jobId = randomUUID();
+  let denyUsdt = true;
+  try {
+    await mockAssets("BITCOIN", "BTC");
+    const delegate = globalThis.fetch;
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/v4/public/assets")) return new Response(JSON.stringify({
+        BTC: { can_deposit: true, networks: { deposits: ["BITCOIN"] } },
+        USDT: { can_deposit: true, networks: { deposits: ["TRC20"] } },
+      }), { status: 200 });
+      if (url.endsWith("/api/v4/main-account/create-new-address") && String(init?.body).includes("USDT")) {
+        providerCalls++; providerPermissionCalls++;
+        return denyUsdt
+          ? new Response(JSON.stringify({ message: "Synthetic address permission denied" }), { status: 403 })
+          : new Response(JSON.stringify({ account: { address: validTronAddress(), memo: "TAG-1" } }), { status: 200 });
+      }
+      return delegate(input, init);
+    };
+    resetWhitebitCapabilityCacheForTests();
+    await database.db.update(database.whitebitProviderSettingsTable).set({ disabled: false })
+      .where(eq(database.whitebitProviderSettingsTable.provider, "whitebit"));
+    for (const asset of originalAssets) await database.db.update(database.cryptoAssetsTable)
+      .set({ enabled: true }).where(eq(database.cryptoAssetsTable.id, asset.id));
+    for (const id of ids) await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: true, executionMode: "manual", depositProvider: "manual",
+      customerDepositsEnabled: id === "btc-bitcoin", manualWalletTrackingEnabled: false,
+      sharedDepositAddress: id === "btc-bitcoin" ? validBitcoinAddress() : validTronAddress(),
+      requiresMemo: false, whitebitAssetCode: null, whitebitNetworkCode: null,
+    }).where(eq(database.cryptoAssetNetworksTable.id, id));
+    const beforeNetworks = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(inArray(database.cryptoAssetNetworksTable.id, ids));
+    const financialSnapshot = async () => Promise.all([
+      database.ordersTable, database.whitebitDepositsTable, database.whitebitOrderAddressesTable,
+      database.whitebitLedgerEntriesTable, database.blockchainMonitorWatchesTable,
+    ].map(async table => (await database.db.select({
+      total: sql<string>`count(*)`,
+      digest: sql<string>`md5(coalesce(jsonb_agg(to_jsonb(${table}) order by to_jsonb(${table})::text)::text, '[]'))`,
+    }).from(table))[0]));
+    const financialBefore = await financialSnapshot();
+    const headers = { "x-test-operator": ownerClerkUserId, "Content-Type": "application/json" };
+    const post = (path: string, body: unknown) => originalFetch(`${baseUrl}/api/admin/crypto-networks/deposit-provider/${path}`,
+      { method: "POST", headers, body: JSON.stringify(body) });
+    const previewResponse = await post("preview", { networkIds: ids, depositProvider: "whitebit" });
+    assert.equal(previewResponse.status, 200);
+    const preview = await previewResponse.json() as { reviewToken: string };
+    const input = { networkIds: ids, depositProvider: "whitebit", reviewToken: preview.reviewToken,
+      operationId: jobId, confirmRealAddressCreation: true };
+    const callsBefore = providerPermissionCalls;
+    const start = await post("jobs", input);
+    assert.equal(start.status, 200, await start.text());
+    const first = await waitForProviderSwitch(jobId);
+    const btc = first.routes.find(row => row.networkId === "btc-bitcoin")!;
+    const usdt = first.routes.find(row => row.networkId === "usdt-trc20")!;
+    assert.equal(btc.status, "succeeded", btc.message);
+    assert.equal(btc.originalCustomerDepositsEnabled, true);
+    assert.equal(btc.customerDepositsEnabled, true);
+    assert.equal(btc.savedProvider, "whitebit");
+    assert.equal(usdt.status, "failed", usdt.message);
+    assert.equal(usdt.customerDepositsEnabled, false);
+    assert.match(usdt.errorCode ?? "", /WHITEBIT/);
+    assert.equal(providerPermissionCalls - callsBefore, 2);
+    assert.equal((await post("jobs", input)).status, 200);
+    assert.equal(providerPermissionCalls - callsBefore, 2, "replayed operation cannot create more addresses");
+    assert.equal((await post("jobs", { ...input, depositProvider: "manual" })).status, 409);
+    assert.equal((await originalFetch(`${baseUrl}/api/admin/crypto-networks/deposit-provider/jobs/${jobId}`)).status, 401);
+    const operatorUserId = `bulk-operator-${suffix}`;
+    await database.db.insert(database.operatorsTable).values({
+      clerkUserId: operatorUserId, email: `${operatorUserId}@example.test`, name: "Cannot bulk switch",
+      role: "operator", status: "active", permissionAllows: ["receiving_wallets.manage"],
+    }).onConflictDoNothing();
+    const denied = await originalFetch(`${baseUrl}/api/admin/crypto-networks/deposit-provider/jobs/${jobId}`, {
+      headers: { "x-test-operator": operatorUserId },
+    });
+    assert.equal(denied.status, 403, "permission overrides must not grant Owner-only job access");
+    assert.equal((await post("jobs", { ...input, operationId: randomUUID(), confirmRealAddressCreation: false })).status, 400);
+    denyUsdt = false;
+    assert.equal((await post(`jobs/${jobId}/retry`, { networkId: "usdt-trc20", confirmRealAddressCreation: true })).status, 200);
+    const recovered = await waitForProviderSwitch(jobId);
+    const retried = recovered.routes.find(row => row.networkId === "usdt-trc20")!;
+    assert.equal(retried.status, "succeeded", retried.message);
+    assert.equal(retried.attempts, 2);
+    assert.equal(retried.originalCustomerDepositsEnabled, false);
+    assert.equal(retried.customerDepositsEnabled, false, "retry must preserve original OFF");
+    assert.equal(providerPermissionCalls - callsBefore, 3);
+    assert.deepEqual(await financialSnapshot(), financialBefore);
+    const saved = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(inArray(database.cryptoAssetNetworksTable.id, ids));
+    for (const row of saved) {
+      const before = beforeNetworks.find(item => item.id === row.id)!;
+      assert.equal(row.sharedDepositAddress, before.sharedDepositAddress);
+      assert.equal(row.sharedDepositMemo, before.sharedDepositMemo);
+      assert.equal(row.manualWalletTrackingEnabled, before.manualWalletTrackingEnabled);
+      assert.equal(row.whitebitAssetCode, row.id === "btc-bitcoin" ? "BTC" : "USDT");
+      assert.equal(row.whitebitNetworkCode, row.id === "btc-bitcoin" ? "BITCOIN" : "TRC20");
+    }
+  } finally {
+    for (const row of originalNetworks) await database.db.update(database.cryptoAssetNetworksTable).set(row)
+      .where(eq(database.cryptoAssetNetworksTable.id, row.id));
+    for (const row of originalAssets) await database.db.update(database.cryptoAssetsTable).set(row)
+      .where(eq(database.cryptoAssetsTable.id, row.id));
+  }
+});
+
+test("automated verification failure keeps original ON disabled; retry restores ON and interrupted work never blindly recreates an address", async () => {
+  const [original] = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const jobId = randomUUID();
+  let denied = true;
+  try {
+    await mockAssets("BITCOIN", "BTC");
+    const delegate = globalThis.fetch;
+    globalThis.fetch = async (input, init) => {
+      if (String(input).endsWith("/api/v4/main-account/create-new-address") && denied) {
+        providerPermissionCalls++;
+        return new Response(JSON.stringify({ message: "Synthetic permission revoked" }), { status: 403 });
+      }
+      return delegate(input, init);
+    };
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: true, customerDepositsEnabled: true, depositProvider: "whitebit",
+      whitebitAssetCode: "BTC", whitebitNetworkCode: "BITCOIN",
+      requiresMemo: false, manualWalletTrackingEnabled: false,
+    }).where(eq(database.cryptoAssetNetworksTable.id, original.id));
+    const headers = { "x-test-operator": ownerClerkUserId, "Content-Type": "application/json" };
+    const post = (path: string, body: unknown) => originalFetch(`${baseUrl}/api/admin/crypto-networks/deposit-provider/${path}`,
+      { method: "POST", headers, body: JSON.stringify(body) });
+    const preview = await (await post("preview", { networkIds: [original.id], depositProvider: "whitebit" })).json() as { reviewToken: string };
+    const calls = providerPermissionCalls;
+    assert.equal((await post("jobs", { networkIds: [original.id], depositProvider: "whitebit",
+      reviewToken: preview.reviewToken, operationId: jobId, confirmRealAddressCreation: true })).status, 200);
+    const failed = (await waitForProviderSwitch(jobId)).routes[0];
+    assert.equal(failed.status, "failed");
+    assert.equal(failed.originalCustomerDepositsEnabled, true);
+    assert.equal(failed.customerDepositsEnabled, false);
+    assert.equal(providerPermissionCalls - calls, 1, "new operation must not silently trust an old permission proof");
+    denied = false;
+    await Promise.all([1, 2].map(() => post(`jobs/${jobId}/retry`, { networkId: original.id, confirmRealAddressCreation: true })));
+    const succeeded = (await waitForProviderSwitch(jobId)).routes[0];
+    assert.equal(succeeded.status, "succeeded", succeeded.message);
+    assert.equal(succeeded.customerDepositsEnabled, true);
+    assert.equal(providerPermissionCalls - calls, 2, "duplicate retry requests must execute once");
+    const recoveryId = randomUUID();
+    const [owner] = await database.db.select().from(database.operatorsTable)
+      .where(eq(database.operatorsTable.clerkUserId, ownerClerkUserId));
+    const [network] = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(eq(database.cryptoAssetNetworksTable.id, original.id));
+    await database.db.insert(database.depositProviderSwitchJobsTable).values({
+      id: recoveryId, requestDigest: "interrupted-test", depositProvider: "whitebit",
+      actorId: owner.id, actorAuthVersion: owner.authVersion, actorClerkUserId: ownerClerkUserId,
+    });
+    const { providerSwitchSourceDigest } = await import("../src/routes/deposit-provider-switches");
+    await database.db.insert(database.depositProviderSwitchRoutesTable).values({
+      jobId: recoveryId, networkId: original.id, originalCustomerDepositsEnabled: true,
+      sourceDigest: providerSwitchSourceDigest(network), mapping: { assetCode: "BTC", networkCode: "BITCOIN" },
+      status: "running", step: "verifying", attempts: 1, runToken: "interrupted-worker",
+      verificationStartedAt: new Date(), leaseUntil: new Date(Date.now() - 1000),
+    });
+    const interrupted = (await waitForProviderSwitch(recoveryId)).routes[0];
+    assert.equal(interrupted.status, "failed");
+    assert.equal(interrupted.errorCode, "PROVIDER_SWITCH_INTERRUPTED");
+    assert.equal(interrupted.customerDepositsEnabled, false);
+    assert.equal(providerPermissionCalls - calls, 2, "recovery must not replay address creation");
+    assert.equal((await post(`jobs/${recoveryId}/retry`, { networkId: original.id, confirmRealAddressCreation: true })).status, 200);
+    const resumed = (await waitForProviderSwitch(recoveryId)).routes[0];
+    assert.equal(resumed.status, "succeeded", resumed.message);
+    assert.equal(resumed.customerDepositsEnabled, true);
+    assert.equal(providerPermissionCalls - calls, 2, "proof committed before interruption is reused");
+  } finally {
+    await database.db.update(database.cryptoAssetNetworksTable).set(original)
+      .where(eq(database.cryptoAssetNetworksTable.id, original.id));
+  }
+});
+
+test("automated Manual and None assignments preserve wallets and fail closed when tracked Manual readiness is unavailable", async () => {
+  const [original] = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const monitorAssets = await database.db.select().from(database.blockchainMonitorAssetsTable)
+    .where(eq(database.blockchainMonitorAssetsTable.assetNetworkId, original.id));
+  const calls = providerPermissionCalls;
+  try {
+    await mockAssets("BITCOIN", "BTC");
+    const wallet = validBitcoinAddress();
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: true, customerDepositsEnabled: true, depositProvider: "whitebit",
+      sharedDepositAddress: wallet, requiresMemo: false, manualWalletTrackingEnabled: false,
+    }).where(eq(database.cryptoAssetNetworksTable.id, original.id));
+    const headers = { "x-test-operator": ownerClerkUserId, "Content-Type": "application/json" };
+    const post = (path: string, body: unknown) => originalFetch(`${baseUrl}/api/admin/crypto-networks/deposit-provider/${path}`,
+      { method: "POST", headers, body: JSON.stringify(body) });
+    const start = async (provider: string) => {
+      const review = await (await post("preview", { networkIds: [original.id], depositProvider: provider })).json() as { reviewToken: string };
+      const id = randomUUID();
+      const response = await post("jobs", { networkIds: [original.id], depositProvider: provider,
+        reviewToken: review.reviewToken, operationId: id, confirmRealAddressCreation: true });
+      assert.equal(response.status, 200, await response.text());
+      return (await waitForProviderSwitch(id)).routes[0];
+    };
+    const manual = await start("manual");
+    assert.equal(manual.status, "succeeded", manual.message);
+    assert.equal(manual.savedProvider, "manual");
+    assert.equal(manual.customerDepositsEnabled, true);
+    const none = await start("none");
+    assert.equal(none.status, "succeeded", none.message);
+    assert.equal(none.savedProvider, "none");
+    assert.equal(none.customerDepositsEnabled, false);
+    const originallyOff = await start("manual");
+    assert.equal(originallyOff.status, "succeeded", originallyOff.message);
+    assert.equal(originallyOff.originalCustomerDepositsEnabled, false);
+    assert.equal(originallyOff.customerDepositsEnabled, false);
+    await database.db.update(database.blockchainMonitorAssetsTable).set({ enabled: false })
+      .where(eq(database.blockchainMonitorAssetsTable.assetNetworkId, original.id));
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      customerDepositsEnabled: true, manualWalletTrackingEnabled: true,
+    }).where(eq(database.cryptoAssetNetworksTable.id, original.id));
+    const blocked = await start("manual");
+    assert.equal(blocked.status, "failed");
+    assert.equal(blocked.errorCode, "CRYPTO_DEPOSIT_MONITORING_REQUIRED");
+    assert.equal(blocked.customerDepositsEnabled, false);
+    const [saved] = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(eq(database.cryptoAssetNetworksTable.id, original.id));
+    assert.equal(saved.sharedDepositAddress, wallet);
+    assert.equal(saved.manualWalletTrackingEnabled, true);
+    assert.equal(providerPermissionCalls, calls, "Manual/None must not create WhiteBIT permission addresses");
+  } finally {
+    await database.db.update(database.cryptoAssetNetworksTable).set(original)
+      .where(eq(database.cryptoAssetNetworksTable.id, original.id));
+    for (const asset of monitorAssets) await database.db.update(database.blockchainMonitorAssetsTable).set(asset)
+      .where(eq(database.blockchainMonitorAssetsTable.id, asset.id));
   }
 });

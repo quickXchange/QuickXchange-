@@ -5,6 +5,112 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type CryptoDepositProviderAssignmentApplyDepositProvider = typeof CryptoDepositProviderAssignmentApplyDepositProvider[keyof typeof CryptoDepositProviderAssignmentApplyDepositProvider];
+
+
+export const CryptoDepositProviderAssignmentApplyDepositProvider = {
+  none: 'none',
+  manual: 'manual',
+  whitebit: 'whitebit',
+} as const;
+
+export interface WhitebitRouteMappingSelection {
+  /** @pattern ^[a-z0-9][a-z0-9-]{0,80}$ */
+  networkId: string;
+  /**
+     * @minLength 2
+     * @maxLength 16
+     */
+  assetCode: string;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  networkCode: string;
+}
+
+export interface CryptoDepositProviderAssignmentApply {
+  /**
+     * @minItems 1
+     * @maxItems 500
+     * @items.pattern ^[a-z0-9][a-z0-9-]{0,80}$
+     */
+  networkIds: string[];
+  depositProvider: CryptoDepositProviderAssignmentApplyDepositProvider;
+  /** @pattern ^[a-f0-9]{64}$ */
+  reviewToken: string;
+  /** @maxItems 500 */
+  whitebitMappings?: WhitebitRouteMappingSelection[];
+}
+
+export type DepositProviderSwitchInput = CryptoDepositProviderAssignmentApply & {
+  /**
+     * @minLength 16
+     * @maxLength 80
+     */
+  operationId: string;
+  confirmRealAddressCreation: boolean;
+};
+
+export interface DepositProviderSwitchRetry {
+  /** @minLength 1 */
+  networkId: string;
+  confirmRealAddressCreation: boolean;
+}
+
+export type DepositProviderSwitchRouteStatus = typeof DepositProviderSwitchRouteStatus[keyof typeof DepositProviderSwitchRouteStatus];
+
+
+export const DepositProviderSwitchRouteStatus = {
+  queued: 'queued',
+  running: 'running',
+  succeeded: 'succeeded',
+  failed: 'failed',
+} as const;
+
+export type DepositProviderSwitchRouteStep = typeof DepositProviderSwitchRouteStep[keyof typeof DepositProviderSwitchRouteStep];
+
+
+export const DepositProviderSwitchRouteStep = {
+  pending: 'pending',
+  disabling: 'disabling',
+  assigning: 'assigning',
+  verifying: 'verifying',
+  restoring: 'restoring',
+  checking: 'checking',
+  completed: 'completed',
+  failed: 'failed',
+} as const;
+
+export interface DepositProviderSwitchRoute {
+  networkId: string;
+  originalCustomerDepositsEnabled: boolean;
+  status: DepositProviderSwitchRouteStatus;
+  step: DepositProviderSwitchRouteStep;
+  message: string;
+  /** @nullable */
+  errorCode?: string | null;
+  attempts: number;
+  customerDepositsEnabled: boolean;
+  savedProvider: string;
+}
+
+export type DepositProviderSwitchJobDepositProvider = typeof DepositProviderSwitchJobDepositProvider[keyof typeof DepositProviderSwitchJobDepositProvider];
+
+
+export const DepositProviderSwitchJobDepositProvider = {
+  none: 'none',
+  manual: 'manual',
+  whitebit: 'whitebit',
+} as const;
+
+export interface DepositProviderSwitchJob {
+  id: string;
+  depositProvider: DepositProviderSwitchJobDepositProvider;
+  createdAt: string;
+  routes: DepositProviderSwitchRoute[];
+}
+
 export type LanguageCode = typeof LanguageCode[keyof typeof LanguageCode];
 
 
@@ -3907,21 +4013,6 @@ export const CryptoDepositProviderAssignmentInputDepositProvider = {
   whitebit: 'whitebit',
 } as const;
 
-export interface WhitebitRouteMappingSelection {
-  /** @pattern ^[a-z0-9][a-z0-9-]{0,80}$ */
-  networkId: string;
-  /**
-     * @minLength 2
-     * @maxLength 16
-     */
-  assetCode: string;
-  /**
-     * @minLength 1
-     * @maxLength 32
-     */
-  networkCode: string;
-}
-
 export interface CryptoDepositProviderAssignmentInput {
   /**
      * @minItems 1
@@ -3930,29 +4021,6 @@ export interface CryptoDepositProviderAssignmentInput {
      */
   networkIds: string[];
   depositProvider: CryptoDepositProviderAssignmentInputDepositProvider;
-  /** @maxItems 500 */
-  whitebitMappings?: WhitebitRouteMappingSelection[];
-}
-
-export type CryptoDepositProviderAssignmentApplyDepositProvider = typeof CryptoDepositProviderAssignmentApplyDepositProvider[keyof typeof CryptoDepositProviderAssignmentApplyDepositProvider];
-
-
-export const CryptoDepositProviderAssignmentApplyDepositProvider = {
-  none: 'none',
-  manual: 'manual',
-  whitebit: 'whitebit',
-} as const;
-
-export interface CryptoDepositProviderAssignmentApply {
-  /**
-     * @minItems 1
-     * @maxItems 500
-     * @items.pattern ^[a-z0-9][a-z0-9-]{0,80}$
-     */
-  networkIds: string[];
-  depositProvider: CryptoDepositProviderAssignmentApplyDepositProvider;
-  /** @pattern ^[a-f0-9]{64}$ */
-  reviewToken: string;
   /** @maxItems 500 */
   whitebitMappings?: WhitebitRouteMappingSelection[];
 }

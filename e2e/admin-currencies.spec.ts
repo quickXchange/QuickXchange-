@@ -228,15 +228,46 @@ test('operators manage fiat currencies, reusable methods, and their attachments'
   await page.route('**/api/admin/providers/whitebit/verification-routes', route =>
     route.fulfill({ contentType: 'application/json', body: '[]' }),
   );
-  await page.route('**/api/admin/crypto-networks/deposit-provider/apply', route => {
-    const input = route.request().postDataJSON() as { networkIds: string[]; depositProvider: string };
+  await page.route('**/api/admin/providers/whitebit', route => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({ provider: 'whitebit', configured: true, credentialsConfigured: true, credentialsVerified: true, explicitDisabled: false, state: 'healthy', fetchedAt: now }),
+  }));
+  await page.route('**/api/admin/deposit-providers', route => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify([
+      { id: 'whitebit', label: 'WhiteBIT', implemented: true },
+      { id: 'manual', label: 'Manual Wallet', implemented: true },
+      { id: 'none', label: 'None', implemented: true },
+    ]),
+  }));
+  let providerSwitchJob: any;
+  await page.route('**/api/admin/crypto-networks/deposit-provider/jobs', route => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(providerSwitchJob) });
+    }
+    const input = route.request().postDataJSON() as { operationId: string; networkIds: string[]; depositProvider: string };
+    providerSwitchJob = {
+      id: input.operationId, depositProvider: input.depositProvider, createdAt: now,
+      routes: input.networkIds.map(networkId => {
+        const network = cryptoNetworks.find(candidate => candidate.id === networkId)!;
+        return {
+          networkId, originalCustomerDepositsEnabled: network.customerDepositsEnabled,
+          status: 'succeeded', step: 'completed', message: 'Provider verified; original deposit state preserved.',
+          errorCode: null, attempts: 1, customerDepositsEnabled: network.customerDepositsEnabled,
+          savedProvider: input.depositProvider,
+        };
+      }),
+    };
     cryptoNetworks = cryptoNetworks.map(network => input.networkIds.includes(network.id)
-      ? { ...network, depositProvider: input.depositProvider, customerDepositsEnabled: false }
+      ? { ...network, depositProvider: input.depositProvider }
       : network);
-    return route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ routes: input.networkIds.map(networkId => ({ networkId })), networks: cryptoNetworks.filter(network => input.networkIds.includes(network.id)) }),
-    });
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify(providerSwitchJob) });
+  });
+  await page.route('**/api/admin/crypto-networks/deposit-provider/jobs/*', route => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(providerSwitchJob) });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(providerSwitchJob) });
   });
 
   await page.goto('/admin/currencies');
@@ -384,7 +415,15 @@ test('operators manage fiat currencies, reusable methods, and their attachments'
   await expect(providerDialog.getByLabel('Select BTC BTC')).not.toBeChecked();
   await providerDialog.getByRole('button', { name: 'Review Changes' }).click();
   await expect(providerDialog.getByTestId('bulk-deposit-provider-review')).toContainText('XMR · XMR');
-  await providerDialog.getByRole('button', { name: 'Confirm Assignment' }).click();
+  const switchConsent = providerDialog.getByTestId('bulk-deposit-switch-consent');
+  await expect(switchConsent).toBeVisible();
+  await expect(providerDialog.getByTestId('button-bulk-deposit-confirm')).toBeDisabled();
+  await switchConsent.check();
+  await providerDialog.getByTestId('button-bulk-deposit-confirm').click();
+  await expect(providerDialog.getByTestId('bulk-deposit-switch-summary')).toContainText('2 succeeded, 0 failed');
+  await expect(providerDialog).toBeVisible();
+  expect(providerSwitchJob.id).toMatch(/^[0-9a-f-]{36}$/i);
+  await providerDialog.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(providerDialog).toHaveCount(0);
   expect(cryptoNetworks.find(network => network.id === 'usdt-trc20')?.depositProvider).toBe('whitebit');
   expect(cryptoNetworks.find(network => network.id === 'xmr-xmr')?.manualWalletTrackingEnabled).toBe(true);

@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, Loader2, Network, X } from 'lucide-react';
+import { Check, Loader2, Network, RotateCcw, X } from 'lucide-react';
+import { useAdminPermissions } from '../lib/admin-permissions';
 import {
   previewCryptoDepositProviderAssignment,
-  useApplyCryptoDepositProviderAssignment,
+  createCryptoDepositProviderSwitchJob,
+  getCryptoDepositProviderSwitchJob,
+  retryCryptoDepositProviderSwitchRoute,
+  useGetDepositProviderOptions,
   getGetCryptoNetworksQueryKey,
   getGetExchangeConfigQueryKey,
   getGetWhitebitVerificationRoutesQueryKey,
@@ -15,12 +19,26 @@ import type {
   CryptoAsset,
   CryptoNetwork,
   CryptoDepositProviderAssignmentPreview,
+  DepositProviderSwitchJob,
 } from '@workspace/api-client-react';
 
-type Provider = 'none' | 'manual' | 'whitebit';
+type Provider = string;
+const providerLabel = (id: string) => id === 'whitebit' ? 'WhiteBIT' : id === 'manual' ? 'Manual Wallet' : id === 'none' ? 'None' : id;
+const storageKey = (userId: string) => `bulk-deposit-switch:${userId}`;
+const isActive = (job: DepositProviderSwitchJob | null) => !!job && job.routes.some(r => r.status === 'queued' || r.status === 'running');
+type PendingRequest = { networkIds: string[]; depositProvider: 'none' | 'manual' | 'whitebit'; reviewToken: string; whitebitMappings?: { networkId: string; assetCode: string; networkCode: string }[]; operationId: string; confirmRealAddressCreation: true };
+type Stored = { operationId: string; request?: PendingRequest };
+const readStored = (userId: string): Stored | null => {
+  const raw = localStorage.getItem(storageKey(userId));
+  if (!raw) return null;
+  try { const v = JSON.parse(raw); if (v && typeof v.operationId === 'string') return v as Stored; } catch { /* legacy plain id */ }
+  return { operationId: raw };
+};
+const statusOf = (cause: unknown) => (cause as { status?: number } | null)?.status;
+const errText = (cause: unknown, fallback: string) => cause instanceof Error ? cause.message : fallback;
 
 export function BulkDepositProviderDialog({
-  networks, assets, initialNetworkIds, onClose, onSuccess,
+  networks: networksProp, assets, initialNetworkIds, onClose, onSuccess,
 }: {
   networks: CryptoNetwork[];
   assets: CryptoAsset[];
@@ -29,7 +47,29 @@ export function BulkDepositProviderDialog({
   onSuccess: (count: number) => void;
 }) {
   const client = useQueryClient();
-  const apply = useApplyCryptoDepositProviderAssignment();
+  const permissions = useAdminPermissions();
+  const userId = permissions.authorization?.member.id;
+  const isOwner = permissions.isOwner;
+  // Snapshot: automatic catalog refreshes must not reset choices, queries or progress.
+  const [networks] = useState(networksProp);
+  const providersQuery = useGetDepositProviderOptions();
+  const providerOptions = providersQuery.data?.length ? providersQuery.data
+    : [{ id: 'whitebit', label: 'WhiteBIT', implemented: true }, { id: 'manual', label: 'Manual Wallet', implemented: true }, { id: 'none', label: 'None', implemented: true }];
+  const [job, setJob] = useState<DepositProviderSwitchJob | null>(null);
+  const [operationId, setOperationId] = useState<string | null>(null);
+  const [resuming, setResuming] = useState(true);
+  const [consent, setConsent] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [retrying, setRetrying] = useState<string | null>(null);
+  const pendingOp = useRef<string | null>(null);
+  const [reconnectError, setReconnectError] = useState('');
+  const [pollTick, setPollTick] = useState(0);
+  const [resumeTick, setResumeTick] = useState(0);
+  const savedRequest = useRef<PendingRequest | null>(null);
+  const notified = useRef(false);
+  const onSuccessRef = useRef(onSuccess);
+  onSuccessRef.current = onSuccess;
+  const apply = { isPending: starting || isActive(job) };
   const [provider, setProvider] = useState<Provider>('whitebit');
   const whitebitVerificationRoutesQuery = useGetWhitebitVerificationRoutes({
     query: { queryKey: getGetWhitebitVerificationRoutesQueryKey(), enabled: provider === 'whitebit' },
@@ -86,7 +126,7 @@ export function BulkDepositProviderDialog({
     }
     void previewCryptoDepositProviderAssignment({
       networkIds: networks.map(network => network.id),
-      depositProvider: provider,
+      depositProvider: provider as 'none' | 'manual' | 'whitebit',
       ...(provider === 'whitebit' && selectedWhitebitMappings.length
         ? { whitebitMappings: selectedWhitebitMappings }
         : {}),
@@ -99,6 +139,95 @@ export function BulkDepositProviderDialog({
     });
     return () => { cancelled = true; };
   }, [networks, provider, mappingSignature]);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    const stored = readStored(userId);
+    if (!stored) { setResuming(false); return; }
+    setOperationId(stored.operationId);
+    savedRequest.current = stored.request ?? null;
+    pendingOp.current = stored.operationId;
+    setResuming(true);
+    setReconnectError('');
+    getCryptoDepositProviderSwitchJob(stored.operationId).then(result => {
+      if (!cancelled) setJob(result);
+    }).catch(async cause => {
+      if (cancelled) return;
+      if (statusOf(cause) === 404) {
+        if (stored.request) {
+          try {
+            // Create response was lost: repeat the exact saved request with the same operation id.
+            const created = await createCryptoDepositProviderSwitchJob(stored.request);
+            if (!cancelled) setJob(created);
+          } catch (inner) {
+            if (!cancelled) setReconnectError(errText(inner, 'Could not confirm the switch request. Operation kept; try again.'));
+          }
+        } else {
+          localStorage.removeItem(storageKey(userId));
+          pendingOp.current = null;
+          setOperationId(null);
+          setError('The previous operation no longer exists on the server.');
+        }
+      } else {
+        setReconnectError(errText(cause, 'Could not reach the server. The operation is kept; reconnect to continue.'));
+      }
+    }).finally(() => { if (!cancelled) setResuming(false); });
+    return () => { cancelled = true; };
+  }, [userId, resumeTick]);
+
+  useEffect(() => {
+    if (!job || !isActive(job)) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      getCryptoDepositProviderSwitchJob(job.id).then(next => {
+        if (cancelled) return;
+        setReconnectError('');
+        setJob(next);
+      }).catch(cause => {
+        if (cancelled) return;
+        setReconnectError(errText(cause, 'Lost connection while refreshing progress. Showing the last known state; reconnecting.'));
+        setPollTick(tick => tick + 1);
+      });
+    }, reconnectError ? 3000 : 1000);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [job, pollTick, reconnectError]);
+
+  useEffect(() => {
+    if (!job || isActive(job) || notified.current) return;
+    notified.current = true;
+    void Promise.all([
+      client.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
+      client.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
+      client.invalidateQueries({ queryKey: getGetWhitebitVerificationRoutesQueryKey() }),
+      client.invalidateQueries({ queryKey: getGetWhitebitProviderStatusQueryKey() }),
+    ]);
+    const ok = job.routes.filter(r => r.status === 'succeeded').length;
+    if (ok > 0) onSuccessRef.current(ok);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job]);
+
+  const retryRoute = async (networkId: string) => {
+    if (!job) return;
+    if (!window.confirm('Retrying re-checks real WhiteBIT address-creation permission and may create a real deposit address, because the previous attempt may have partly completed. Continue?')) return;
+    setRetrying(networkId);
+    setError('');
+    try {
+      notified.current = false;
+      setJob(await retryCryptoDepositProviderSwitchRoute(job.id, { networkId, confirmRealAddressCreation: true }));
+    } catch (cause) {
+      setError(errText(cause, 'Retry could not be started.'));
+    } finally { setRetrying(null); }
+  };
+
+  const newAssignment = () => {
+    if (userId) localStorage.removeItem(storageKey(userId));
+    pendingOp.current = null;
+    savedRequest.current = null;
+    setReconnectError('');
+    notified.current = false;
+    setJob(null); setOperationId(null); setReview(null); setConsent(false); setError('');
+  };
 
   const toggle = (id: string) => {
     setSelected(previous => {
@@ -129,7 +258,7 @@ export function BulkDepositProviderDialog({
     try {
       const result = await previewCryptoDepositProviderAssignment({
         networkIds: [...selected],
-        depositProvider: provider,
+        depositProvider: provider as 'none' | 'manual' | 'whitebit',
         ...(provider === 'whitebit' && selectedWhitebitMappings.length
           ? { whitebitMappings: selectedWhitebitMappings.filter(mapping => selected.has(mapping.networkId)) }
           : {}),
@@ -143,42 +272,37 @@ export function BulkDepositProviderDialog({
   };
 
   const confirm = async () => {
-    if (!review || review.routes.some(route => route.status === 'unsupported' ||
-      route.customerDepositsAfter && (route.currentProvider !== provider ||
-        provider === 'whitebit' && selectedWhitebitMappings.some(mapping =>
-          mapping.networkId === route.networkId &&
-          (mapping.assetCode !== route.whitebitAssetCode || mapping.networkCode !== route.whitebitNetworkCode)
-        )))) return;
+    if (!review || !userId || !isOwner || (provider === 'whitebit' && !consent)) return;
     setError('');
+    setStarting(true);
+    const op = pendingOp.current ?? crypto.randomUUID();
+    pendingOp.current = op;
+    const request: PendingRequest = {
+      networkIds: review.routes.map(route => route.networkId),
+      depositProvider: provider as 'none' | 'manual' | 'whitebit',
+      reviewToken: review.reviewToken,
+      operationId: op,
+      confirmRealAddressCreation: true,
+      ...(provider === 'whitebit' && selectedWhitebitMappings.length
+        ? { whitebitMappings: selectedWhitebitMappings.filter(mapping => review.routes.some(route => route.networkId === mapping.networkId)) }
+        : {}),
+    };
+    // Persist operation and exact request BEFORE the POST so a lost response is recoverable.
+    localStorage.setItem(storageKey(userId), JSON.stringify({ operationId: op, request } satisfies Stored));
+    savedRequest.current = request;
+    setOperationId(op);
     try {
-      const result = await apply.mutateAsync({
-        data: {
-          networkIds: review.routes.map(route => route.networkId),
-          depositProvider: provider,
-          reviewToken: review.reviewToken,
-          ...(provider === 'whitebit' && selectedWhitebitMappings.length
-            ? { whitebitMappings: selectedWhitebitMappings.filter(mapping => review.routes.some(route => route.networkId === mapping.networkId)) }
-            : {}),
-        },
-      });
-      await Promise.all([
-        client.invalidateQueries({ queryKey: getGetCryptoNetworksQueryKey() }),
-        client.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
-        client.invalidateQueries({ queryKey: getGetWhitebitVerificationRoutesQueryKey() }),
-        client.invalidateQueries({ queryKey: getGetWhitebitProviderStatusQueryKey() }),
-      ]);
-      onSuccess(result.networks.length);
+      const result = await createCryptoDepositProviderSwitchJob(request);
+      notified.current = false;
+      setReconnectError('');
+      setJob(result);
     } catch (cause) {
-      setReview(null);
-      setError(cause instanceof Error ? cause.message : 'Assignment failed. Review the routes again.');
-    }
+      setError(errText(cause, 'Switch request failed. Submitting again reuses the same operation.'));
+    } finally { setStarting(false); }
   };
 
-  const selectedUnsupported = review?.routes.filter(route => route.status === 'unsupported' ||
-    provider === 'whitebit' && route.mappingStatus !== 'supported') ?? [];
-  const selectedDepositsEnabled = review?.routes.filter(route =>
-    route.customerDepositsAfter && (route.currentProvider !== provider ||
-      route.reason.includes('Turn off Customer Deposits'))) ?? [];
+  const selectedUnsupported: unknown[] = [];
+  const selectedDepositsEnabled: unknown[] = [];
 
   return (
     <div className="drawer-backdrop" onClick={event => event.target === event.currentTarget && onClose()}>
@@ -192,17 +316,17 @@ export function BulkDepositProviderDialog({
         </div>
         <div className="catalog-editor-scroll scrollbar-thin">
           <div className="admin-form admin-form-card catalog-editor-form space-y-4">
-            <p className="field-hint">Select exact Asset + Network routes. This changes only their Deposit Provider. Turn off Customer Deposits in its own control before switching an enabled route. Saved manual addresses, memos and Manual Wallet Tracking remain unchanged. It never creates a WhiteBIT address.</p>
+            <p className="field-hint">Owner-only automated switch. For each selected route the server turns Customer Deposits off, assigns the provider, verifies it, then restores Customer Deposits only on routes that were originally ON. Routes can fail individually; failed routes can be retried.</p>
             <label><span className="field-label">Set Deposit Provider</span>
-              <select data-testid="bulk-deposit-provider-target" value={provider} disabled={apply.isPending} onChange={event => { setProvider(event.target.value as Provider); setReview(null); }}>
-                <option value="whitebit">WhiteBIT</option>
-                <option value="manual">Manual Wallet</option>
-                <option value="none">None</option>
+              <select data-testid="bulk-deposit-provider-target" value={provider} disabled={apply.isPending || !!job} onChange={event => { setProvider(event.target.value); setReview(null); setConsent(false); pendingOp.current = null; }}>
+                {providerOptions.map(option => <option key={option.id} value={option.id} disabled={!option.implemented}>{option.label}{option.implemented ? '' : ' (not implemented)'}</option>)}
               </select>
             </label>
+            {!isOwner && !permissions.isLoading && <div role="alert" className="rounded-lg border border-amber-500/40 p-3 text-sm text-amber-500" data-testid="bulk-deposit-owner-only">Only the Owner can run an automated Deposit Provider switch.</div>}
             {error && <div role="alert" className="rounded-lg border border-red-500/40 p-3 text-sm text-red-500">{error}</div>}
-            {loadingCatalog && <p className="text-sm flex items-center gap-2"><Loader2 size={15} className="animate-spin" /> Checking routes…</p>}
-            {!loadingCatalog && catalogReview && (
+            {resuming && !job && <p className="text-sm flex items-center gap-2"><Loader2 size={15} className="animate-spin" /> Resuming previous switch…</p>}
+            {!job && !resuming && loadingCatalog && <p className="text-sm flex items-center gap-2"><Loader2 size={15} className="animate-spin" /> Checking routes…</p>}
+            {!job && !resuming && !loadingCatalog && catalogReview && (
               <>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" className="button button-secondary" onClick={selectAllSupported}>Select All Supported</button>
@@ -285,7 +409,7 @@ export function BulkDepositProviderDialog({
                 </div>
               </>
             )}
-            {review && (
+            {!job && review && (
               <section aria-label="Provider assignment review" className="space-y-2 rounded-xl border border-border p-3 text-sm" data-testid="bulk-deposit-provider-review">
                 <h3 className="font-semibold">Review {review.routes.length} exact routes</h3>
                 {review.routes.map(route => <div key={route.networkId} className="border-t border-border pt-2">
@@ -295,20 +419,72 @@ export function BulkDepositProviderDialog({
                   )}
                   <p className="text-xs text-muted-foreground">{route.reason} Customer Deposits: {route.customerDepositsAfter ? 'remain enabled' : 'disabled'}.</p>
                 </div>)}
-                {selectedUnsupported.length > 0 && <p role="alert" className="text-red-500">Deselect {selectedUnsupported.length} unsupported {selectedUnsupported.length === 1 ? 'route' : 'routes'} before applying.</p>}
-                {selectedDepositsEnabled.length > 0 && <p role="alert" className="text-red-500">Turn off Customer Deposits for {selectedDepositsEnabled.length} selected {selectedDepositsEnabled.length === 1 ? 'route' : 'routes'} in their own controls before switching providers. Then review again.</p>}
+                <div className="rounded-lg border border-border p-3 text-xs space-y-2" data-testid="bulk-deposit-switch-explainer">
+                  <p>The server will turn Customer Deposits off on each route, assign {providerLabel(provider)}, verify the saved provider, and restore Customer Deposits only on routes that were originally ON. Unsupported or failing routes fail individually; the rest proceed.</p>
+                  {provider === 'none' && <p className="font-semibold">Choosing None removes the deposit provider and leaves every selected route OFF.</p>}
+                  {provider === 'whitebit' && (
+                    <>
+                      <p>WhiteBIT verification performs real address-creation permission checks and may create a real deposit address on the selected WhiteBIT routes.</p>
+                      <label className="flex items-start gap-2"><input type="checkbox" data-testid="bulk-deposit-switch-consent" checked={consent} onChange={event => setConsent(event.target.checked)} /><span>I allow real WhiteBIT address creation and permission checks for these routes.</span></label>
+                    </>
+                  )}
+                </div>
               </section>
             )}
+            {reconnectError && <div role="alert" className="rounded-lg border border-amber-500/40 p-3 text-sm text-amber-500" data-testid="bulk-deposit-switch-reconnect">{reconnectError}{' '}{!job && <button type="button" data-testid="button-bulk-deposit-reconnect" onClick={() => setResumeTick(tick => tick + 1)}>Reconnect</button>}{job && isActive(job) && <button type="button" data-testid="button-bulk-deposit-reconnect" onClick={() => setPollTick(tick => tick + 1)}>Retry now</button>}</div>}
+            {job && <JobPanel job={job} networks={networks} assets={assets} retrying={retrying} onRetry={networkId => void retryRoute(networkId)} />}
             <div className="catalog-editor-actions">
-              {review && <button type="button" onClick={() => setReview(null)}>Back</button>}
-              <button type="button" className="catalog-editor-primary" disabled={!catalogReview || !selected.size || reviewing || apply.isPending || selectedUnsupported.length > 0 || selectedDepositsEnabled.length > 0} onClick={() => void (review ? confirm() : reviewSelection())}>
+              {job && !isActive(job) && <button type="button" data-testid="button-bulk-deposit-new-assignment" onClick={newAssignment}>New Assignment</button>}
+              {job && <button type="button" onClick={onClose}>{isActive(job) ? 'Close (server keeps running)' : 'Close'}</button>}
+              {!job && review && <button type="button" onClick={() => setReview(null)}>Back</button>}
+              {!job && !resuming && <button type="button" className="catalog-editor-primary" data-testid="button-bulk-deposit-confirm" disabled={!isOwner || !catalogReview || !selected.size || reviewing || apply.isPending || (!!review && provider === 'whitebit' && !consent)} onClick={() => void (review ? confirm() : reviewSelection())}>
                 {reviewing || apply.isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                {review ? 'Confirm Assignment' : 'Review Changes'}
-              </button>
+                {review ? 'Confirm and Start Switch' : 'Review Changes'}
+              </button>}
             </div>
           </div>
         </div>
       </aside>
     </div>
+  );
+}
+function JobPanel({ job, networks, assets, retrying, onRetry }: {
+  job: DepositProviderSwitchJob; networks: CryptoNetwork[]; assets: CryptoAsset[]; retrying: string | null; onRetry: (networkId: string) => void;
+}) {
+  const nameOf = (id: string) => {
+    const network = networks.find(n => n.id === id);
+    const asset = assets.find(a => a.id === network?.assetId);
+    return network ? `${asset?.code ?? network.assetId} · ${network.networkCode}` : id;
+  };
+  const done = job.routes.filter(r => r.status === 'succeeded' || r.status === 'failed').length;
+  const failed = job.routes.filter(r => r.status === 'failed').length;
+  const succeeded = job.routes.filter(r => r.status === 'succeeded').length;
+  const active = isActive(job);
+  const pct = job.routes.length ? Math.round(done / job.routes.length * 100) : 0;
+  return (
+    <section className="space-y-2 rounded-xl border border-border p-3 text-sm" data-testid="bulk-deposit-switch-progress" aria-live="polite">
+      <h3 className="font-semibold">Switch to {providerLabel(job.depositProvider)} · {done} of {job.routes.length} finished</h3>
+      <div className="h-2 w-full overflow-hidden rounded bg-muted"><div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>
+      <div className="space-y-2 max-h-80 overflow-y-auto">
+        {job.routes.map(route => (
+          <div key={route.networkId} className="rounded-lg border border-border p-2" data-testid={`bulk-deposit-switch-route-${route.networkId}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <strong>{nameOf(route.networkId)}</strong>
+              <span className={route.status === 'failed' ? 'text-red-500' : route.status === 'succeeded' ? 'text-emerald-500' : 'text-muted-foreground'}>
+                {route.status === 'running' && <Loader2 size={13} className="mr-1 inline animate-spin" />}{route.status} · {route.step}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">{route.message}{route.errorCode ? ` (${route.errorCode})` : ''}</p>
+            <p className="text-xs">Customer Deposits: originally {route.originalCustomerDepositsEnabled ? 'ON' : 'OFF'}, now {route.customerDepositsEnabled ? 'ON' : 'OFF'} · Saved provider: {providerLabel(route.savedProvider)} · Attempts: {route.attempts}</p>
+            {route.status === 'failed' && (
+              <button type="button" className="button button-secondary mt-2" data-testid={`button-retry-route-${route.networkId}`} disabled={retrying !== null} onClick={() => onRetry(route.networkId)}>
+                {retrying === route.networkId ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />} Retry route
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      {!active && <p data-testid="bulk-deposit-switch-summary" className={failed ? 'text-amber-500' : 'text-emerald-500'}>Finished: {succeeded} succeeded, {failed} failed.{failed ? ' Retry failed routes individually.' : ''}</p>}
+    </section>
   );
 }

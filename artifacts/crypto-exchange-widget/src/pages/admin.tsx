@@ -7840,8 +7840,7 @@ function AdminCurrencies() {
           onClose={() => setBulkDepositProviderOpen(false)}
           onSuccess={(count) => {
             setCatalogSelected(prev => ({ ...prev, networks: new Set() }));
-            notifyAdminAction('success', `Deposit Provider assigned for ${count} exact Asset + Network ${count === 1 ? 'route' : 'routes'}. Manual Wallet Tracking and saved wallet fields were preserved.`);
-            setBulkDepositProviderOpen(false);
+            notifyAdminAction('success', `Deposit Provider switched for ${count} exact Asset + Network ${count === 1 ? 'route' : 'routes'}. Manual Wallet Tracking and saved wallet fields were preserved.`);
           }}
         />
       )}

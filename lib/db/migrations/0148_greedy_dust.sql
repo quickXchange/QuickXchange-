@@ -1,0 +1,2 @@
+ALTER TABLE "deposit_provider_switch_jobs" ADD COLUMN "actor_auth_version" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "deposit_provider_switch_routes" ADD COLUMN "verification_started_at" timestamp with time zone;

@@ -2476,6 +2476,7 @@ paths:
           description: Bulk edit would create invalid deposit configuration
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /admin/crypto-networks/deposit-provider/preview:
+    description: Read-only route review.
     post:
       operationId: previewCryptoDepositProviderAssignment
       tags: [admin]
@@ -2492,6 +2493,7 @@ paths:
           description: WhiteBIT capability is unavailable
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
   /admin/crypto-networks/deposit-provider/apply:
+    description: Legacy assignment-only endpoint; automated workflows use the jobs endpoints.
     post:
       operationId: applyCryptoDepositProviderAssignment
       tags: [admin]
@@ -2507,6 +2509,43 @@ paths:
         "409":
           description: Route or capability changed since review
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } }
+  /admin/crypto-networks/deposit-provider/jobs:
+    post:
+      operationId: createCryptoDepositProviderSwitchJob
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/DepositProviderSwitchInput" } } }
+      responses:
+        "200":
+          description: Durable authorized operation and current progress
+          content: { application/json: { schema: { $ref: "#/components/schemas/DepositProviderSwitchJob" } } }
+  /admin/crypto-networks/deposit-provider/jobs/{jobId}:
+    get:
+      operationId: getCryptoDepositProviderSwitchJob
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      parameters:
+        - { name: jobId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Persisted per-route progress and actual saved settings
+          content: { application/json: { schema: { $ref: "#/components/schemas/DepositProviderSwitchJob" } } }
+  /admin/crypto-networks/deposit-provider/jobs/{jobId}/retry:
+    post:
+      operationId: retryCryptoDepositProviderSwitchRoute
+      tags: [admin]
+      security: [{ OwnerSession: [] }]
+      parameters:
+        - { name: jobId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/DepositProviderSwitchRetry" } } }
+      responses:
+        "200":
+          description: Failed route queued with original enablement intent preserved
+          content: { application/json: { schema: { $ref: "#/components/schemas/DepositProviderSwitchJob" } } }
   /admin/crypto-networks/whitebit-auto-mapping/preview:
     post:
       operationId: previewWhitebitAutomaticRouteMappings
@@ -4839,6 +4878,43 @@ components:
       name: __session
       description: Clerk owner session. The authenticated user must match the single active owner account in the server-side operator registry.
   schemas:
+    DepositProviderSwitchInput:
+      allOf:
+        - $ref: "#/components/schemas/CryptoDepositProviderAssignmentApply"
+        - type: object
+          required: [operationId, confirmRealAddressCreation]
+          properties:
+            operationId: { type: string, minLength: 16, maxLength: 80 }
+            confirmRealAddressCreation: { type: boolean }
+    DepositProviderSwitchRetry:
+      type: object
+      required: [networkId, confirmRealAddressCreation]
+      properties:
+        networkId: { type: string, minLength: 1 }
+        confirmRealAddressCreation: { type: boolean }
+    DepositProviderSwitchRoute:
+      type: object
+      required: [networkId, originalCustomerDepositsEnabled, status, step, message, attempts, customerDepositsEnabled, savedProvider]
+      properties:
+        networkId: { type: string }
+        originalCustomerDepositsEnabled: { type: boolean }
+        status: { type: string, enum: [queued, running, succeeded, failed] }
+        step: { type: string, enum: [pending, disabling, assigning, verifying, restoring, checking, completed, failed] }
+        message: { type: string }
+        errorCode: { type: [string, "null"] }
+        attempts: { type: integer }
+        customerDepositsEnabled: { type: boolean }
+        savedProvider: { type: string }
+    DepositProviderSwitchJob:
+      type: object
+      required: [id, depositProvider, createdAt, routes]
+      properties:
+        id: { type: string }
+        depositProvider: { type: string, enum: [none, manual, whitebit] }
+        createdAt: { type: string, format: date-time }
+        routes:
+          type: array
+          items: { $ref: "#/components/schemas/DepositProviderSwitchRoute" }
     LanguageCode:
       type: string
       enum: [en, fr, de, ru, es, ko, uk]

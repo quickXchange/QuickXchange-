@@ -108,6 +108,9 @@ import type {
   CustomerPasswordReset,
   CustomerReferralPage,
   DepositProviderOption,
+  DepositProviderSwitchInput,
+  DepositProviderSwitchJob,
+  DepositProviderSwitchRetry,
   ExchangeConfig,
   ExchangeOrderInput,
   ExchangeRoutePricing,
@@ -9109,6 +9112,208 @@ export const useApplyCryptoDepositProviderAssignment = <TError = ErrorType<ApiEr
         TContext
       > => {
       return useMutation(getApplyCryptoDepositProviderAssignmentMutationOptions(options));
+    }
+
+export const getCreateCryptoDepositProviderSwitchJobUrl = () => {
+
+
+
+
+  return `/api/admin/crypto-networks/deposit-provider/jobs`
+}
+
+export const createCryptoDepositProviderSwitchJob = async (depositProviderSwitchInput: DepositProviderSwitchInput, options?: Parameters<typeof customFetch>[1]): Promise<DepositProviderSwitchJob> => {
+
+  return customFetch<DepositProviderSwitchJob>(getCreateCryptoDepositProviderSwitchJobUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(depositProviderSwitchInput)
+  }
+);}
+
+
+
+
+
+export const getCreateCryptoDepositProviderSwitchJobMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCryptoDepositProviderSwitchJob>>, TError,{data: BodyType<DepositProviderSwitchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCryptoDepositProviderSwitchJob>>, TError,{data: BodyType<DepositProviderSwitchInput>}, TContext> => {
+
+const mutationKey = ['createCryptoDepositProviderSwitchJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCryptoDepositProviderSwitchJob>>, {data: BodyType<DepositProviderSwitchInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCryptoDepositProviderSwitchJob(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCryptoDepositProviderSwitchJobMutationResult = NonNullable<Awaited<ReturnType<typeof createCryptoDepositProviderSwitchJob>>>
+    export type CreateCryptoDepositProviderSwitchJobMutationBody = BodyType<DepositProviderSwitchInput>
+    export type CreateCryptoDepositProviderSwitchJobMutationError = ErrorType<unknown>
+
+    export const useCreateCryptoDepositProviderSwitchJob = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCryptoDepositProviderSwitchJob>>, TError,{data: BodyType<DepositProviderSwitchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCryptoDepositProviderSwitchJob>>,
+        TError,
+        {data: BodyType<DepositProviderSwitchInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCryptoDepositProviderSwitchJobMutationOptions(options));
+    }
+
+export const getGetCryptoDepositProviderSwitchJobUrl = (jobId: string,) => {
+
+
+
+
+  return `/api/admin/crypto-networks/deposit-provider/jobs/${jobId}`
+}
+
+export const getCryptoDepositProviderSwitchJob = async (jobId: string, options?: Parameters<typeof customFetch>[1]): Promise<DepositProviderSwitchJob> => {
+
+  return customFetch<DepositProviderSwitchJob>(getGetCryptoDepositProviderSwitchJobUrl(jobId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCryptoDepositProviderSwitchJobQueryKey = (jobId: string,) => {
+    return [
+    `/api/admin/crypto-networks/deposit-provider/jobs/${jobId}`
+    ] as const;
+    }
+
+
+export const getGetCryptoDepositProviderSwitchJobQueryOptions = <TData = Awaited<ReturnType<typeof getCryptoDepositProviderSwitchJob>>, TError = ErrorType<unknown>>(jobId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCryptoDepositProviderSwitchJob>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCryptoDepositProviderSwitchJobQueryKey(jobId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCryptoDepositProviderSwitchJob>>> = ({ signal }) => getCryptoDepositProviderSwitchJob(jobId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: jobId !== null && jobId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCryptoDepositProviderSwitchJob>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCryptoDepositProviderSwitchJobQueryResult = NonNullable<Awaited<ReturnType<typeof getCryptoDepositProviderSwitchJob>>>
+export type GetCryptoDepositProviderSwitchJobQueryError = ErrorType<unknown>
+
+
+
+export function useGetCryptoDepositProviderSwitchJob<TData = Awaited<ReturnType<typeof getCryptoDepositProviderSwitchJob>>, TError = ErrorType<unknown>>(
+ jobId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCryptoDepositProviderSwitchJob>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCryptoDepositProviderSwitchJobQueryOptions(jobId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRetryCryptoDepositProviderSwitchRouteUrl = (jobId: string,) => {
+
+
+
+
+  return `/api/admin/crypto-networks/deposit-provider/jobs/${jobId}/retry`
+}
+
+export const retryCryptoDepositProviderSwitchRoute = async (jobId: string,
+    depositProviderSwitchRetry: DepositProviderSwitchRetry, options?: Parameters<typeof customFetch>[1]): Promise<DepositProviderSwitchJob> => {
+
+  return customFetch<DepositProviderSwitchJob>(getRetryCryptoDepositProviderSwitchRouteUrl(jobId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(depositProviderSwitchRetry)
+  }
+);}
+
+
+
+
+
+export const getRetryCryptoDepositProviderSwitchRouteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryCryptoDepositProviderSwitchRoute>>, TError,{jobId: string;data: BodyType<DepositProviderSwitchRetry>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryCryptoDepositProviderSwitchRoute>>, TError,{jobId: string;data: BodyType<DepositProviderSwitchRetry>}, TContext> => {
+
+const mutationKey = ['retryCryptoDepositProviderSwitchRoute'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryCryptoDepositProviderSwitchRoute>>, {jobId: string;data: BodyType<DepositProviderSwitchRetry>}> = (props) => {
+          const {jobId,data} = props ?? {};
+
+          return  retryCryptoDepositProviderSwitchRoute(jobId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryCryptoDepositProviderSwitchRouteMutationResult = NonNullable<Awaited<ReturnType<typeof retryCryptoDepositProviderSwitchRoute>>>
+    export type RetryCryptoDepositProviderSwitchRouteMutationBody = BodyType<DepositProviderSwitchRetry>
+    export type RetryCryptoDepositProviderSwitchRouteMutationError = ErrorType<unknown>
+
+    export const useRetryCryptoDepositProviderSwitchRoute = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryCryptoDepositProviderSwitchRoute>>, TError,{jobId: string;data: BodyType<DepositProviderSwitchRetry>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retryCryptoDepositProviderSwitchRoute>>,
+        TError,
+        {jobId: string;data: BodyType<DepositProviderSwitchRetry>},
+        TContext
+      > => {
+      return useMutation(getRetryCryptoDepositProviderSwitchRouteMutationOptions(options));
     }
 
 export const getPreviewWhitebitAutomaticRouteMappingsUrl = () => {
