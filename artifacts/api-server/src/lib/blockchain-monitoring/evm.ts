@@ -2,6 +2,7 @@ import { BlockchainMonitorError, providerFailureDetails, sanitizedProviderError 
 import { positiveInteger, providerHeaders, providerJson, requireEndpoint } from "./http";
 import { setTimeout as delay } from "node:timers/promises";
 import { queryEvmLogs } from "./evm-log-query";
+import { rpcUsageMeter, rpcUsageProvider } from "./rpc-usage";
 import type {
   BlockchainMonitorAdapter, ChainHead, ConnectionResult, IncomingEvidence,
   MonitorAsset, MonitorConfig, ScanCursor, ScanResult, WatchedAddress,
@@ -198,7 +199,9 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
         method: "POST",
         headers: { "content-type": "application/json", ...this.headers },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-      }, requestTimeoutMs);
+      }, requestTimeoutMs, () => rpcUsageMeter.record(
+        this.networkCode, rpcUsageProvider(this.endpoint), this.config.rpcPurpose ?? "unspecified", method,
+      ));
       const result = rpcError(response);
       const completedAt = new Date();
       this.config.rpcTrace?.({

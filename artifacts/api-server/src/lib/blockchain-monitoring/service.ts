@@ -17,6 +17,8 @@ import { createBlockchainMonitorAdapter, type IncomingEvidence, type MonitorAsse
 import { normalizeTronAddress, TRON_MAINNET_CHAIN_ID } from "./tron";
 import { BlockchainMonitorError } from "./errors";
 import { startDrainingWorker } from "../draining-worker";
+import { monitoringCadenceMs, monitoringCycleDue } from "./workload-policy";
+import { rpcUsageMeter } from "./rpc-usage";
 import { enqueueSwapTelegramNotification } from "../telegram-swap-notifications";
 import { updateOrderAndQueueStatusNotificationTx } from "../customer-status-notifications";
 import { logger } from "../logger";
@@ -643,7 +645,7 @@ export async function registerManualBlockchainWatch(
     const config = adapterConfig(network);
     if (config) {
       try {
-        const adapter = createBlockchainMonitorAdapter(config);
+        const adapter = createBlockchainMonitorAdapter({ ...config, rpcPurpose: "registration" });
         const capturedHead = (await adapter.getHead()).cursor;
         startCursor = options.freshCursor
           ? cursorAfterCapturedHead(capturedHead) ?? null
@@ -1446,7 +1448,7 @@ async function refreshConfirming(
   const rows = [...confirmingRows, ...appliedRows];
   const config = adapterConfig(network);
   if (!config) return;
-  const adapter = createBlockchainMonitorAdapter({ ...config, deadlineAtMs });
+  const adapter = createBlockchainMonitorAdapter({ ...config, deadlineAtMs, rpcPurpose: "confirmation" });
   for (const row of rows) {
     if (Date.now() >= deadlineAtMs - CATCH_UP_DEADLINE_GUARD_MS) return;
     const [lease] = await db.select({ token: blockchainMonitorNetworksTable.leaseToken, expires: blockchainMonitorNetworksTable.leaseExpiresAt })
@@ -1503,9 +1505,54 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
   cycleRunning = true;
   try {
   await reconcileResolvableRegistrationGaps();
-  const networks = await db.select().from(blockchainMonitorNetworksTable)
-    .where(and(eq(blockchainMonitorNetworksTable.enabled, true), inArray(blockchainMonitorNetworksTable.providerKind, ["rpc", "indexer"]), or(isNull(blockchainMonitorNetworksTable.nextAttemptAt), lte(blockchainMonitorNetworksTable.nextAttemptAt, new Date()))));
-  for (const network of networks) {
+  // Keep correlated SQL columns explicitly qualified: Drizzle SELECT-fragment
+  // column interpolation can strip table names and bind to the inner table.
+  const networks = await db.select({
+    network: blockchainMonitorNetworksTable,
+    activeWatches: sql<boolean>`exists (
+      select 1 from ${blockchainMonitorWatchesTable}
+      where blockchain_monitor_watches.monitor_network_id = blockchain_monitor_networks.id
+        and blockchain_monitor_watches.active = true
+    )`,
+    pendingEvidence: sql<boolean>`exists (
+      select 1 from ${blockchainMonitorMatchesTable}
+      join ${blockchainMonitorObservationsTable}
+        on blockchain_monitor_observations.id = blockchain_monitor_matches.observation_id
+      where blockchain_monitor_observations.monitor_network_id = blockchain_monitor_networks.id
+        and (blockchain_monitor_matches.state = 'confirming' or
+          (blockchain_monitor_matches.state = 'applied'
+            and blockchain_monitor_matches.applied_at >= now() - interval '1 hour'))
+    )`,
+    registrationGaps: sql<boolean>`exists (
+      select 1 from ${blockchainMonitorRegistrationGapsTable}
+      join ${ordersTable} on exchange_orders.id = blockchain_monitor_registration_gaps.order_id
+      where blockchain_monitor_registration_gaps.network_code = blockchain_monitor_networks.network_code
+        and blockchain_monitor_registration_gaps.resolved_at is null and ${ELIGIBLE}
+    )`,
+    manualReadiness: sql<boolean>`exists (
+      select 1 from ${blockchainMonitorAssetsTable}
+      join ${cryptoAssetNetworksTable}
+        on crypto_asset_networks.id = blockchain_monitor_assets.asset_network_id
+      where blockchain_monitor_assets.monitor_network_id = blockchain_monitor_networks.id
+        and blockchain_monitor_assets.enabled = true
+        and crypto_asset_networks.enabled = true
+        and (crypto_asset_networks.deposit_provider = 'manual'
+          and crypto_asset_networks.customer_deposits_enabled = true
+          and crypto_asset_networks.manual_wallet_tracking_enabled = true
+          or crypto_asset_networks.deposit_provider = 'whitebit'
+            and crypto_asset_networks.manual_fallback_enabled = true)
+    )`,
+  }).from(blockchainMonitorNetworksTable)
+    .where(and(eq(blockchainMonitorNetworksTable.enabled, true), inArray(blockchainMonitorNetworksTable.providerKind, ["rpc", "indexer"])));
+  for (const { network, ...workload } of networks) {
+    // Restrict consumption changes to EVM RPCs; other adapters retain cadence.
+    if (network.adapterKind === "evm") {
+      if (!monitoringCycleDue({
+        now: Date.now(), nextAttemptAt: network.nextAttemptAt,
+        healthStatus: network.healthStatus, healthCheckedAt: network.healthCheckedAt,
+        pollSeconds: network.pollIntervalSeconds, workload,
+      })) continue;
+    } else if (network.nextAttemptAt && network.nextAttemptAt > new Date()) continue;
     const leaseToken = randomUUID();
     const [leased] = await db.update(blockchainMonitorNetworksTable).set({
       leaseToken, leaseExpiresAt: new Date(Date.now() + 30_000),
@@ -1522,6 +1569,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
     const cycleDeadlineAt = Date.now() + MONITOR_CYCLE_DEADLINE_MS;
     const config = {
       ...baseConfig,
+      rpcPurpose: "monitoring" as const,
       deadlineAtMs: cycleDeadlineAt,
       rpcTrace: (event: {
         networkCode: string;
@@ -1759,7 +1807,9 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
            healthCheckedAt: checkedAt,
            lastSuccessfulScanAt: checkedAt,
            consecutiveFailures: 0,
-           nextAttemptAt: null,
+           nextAttemptAt: network.adapterKind === "evm"
+             ? new Date(checkedAt.getTime() + monitoringCadenceMs(network.pollIntervalSeconds, workload))
+             : null,
            healthError: null,
            ...(legacyBep20 || !currentConfigDigest ? {} : {
              healthProofFingerprint: currentConfigDigest,
@@ -1878,6 +1928,8 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
   }
   } finally {
     cycleRunning = false;
+    const usage = rpcUsageMeter.flush();
+    if (usage && usage.requests.length) logger.info(usage, "Blockchain RPC usage window");
   }
 }
 

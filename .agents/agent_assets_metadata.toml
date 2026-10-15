@@ -350,3 +350,17 @@ mtime_ms = 1792026598662
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/c60cde8e-c443-455c-b5ea-ae2f3531fd08/e45f65e9-28d7-462c-8724-2626041d7a27"
 storage_version_token = "1792026622903776"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "sfLbRqAywiWI4zkiahvuF"
+uri = "file://ALCHEMY_USAGE_AUDIT.md"
+type = "text"
+title = "Alchemy Usage Audit & Monthly Forecast"
+description = "Production and Development workload audit, safe polling optimizations, 97 passing tests, method CU costs, and explicit monthly forecast assumptions."
+logical_id = "cb64724d-b9cb-4036-b58e-7e0bd49cabcf"
+content_hash = "sha256:79470f34bbbabaa01096e9b697d9f496988858888c611bda3d1ffa2488f8aedc"
+size = 13690
+mtime_ms = 1792028533615
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/cb64724d-b9cb-4036-b58e-7e0bd49cabcf/3e1824a9-3ba3-4cf8-a924-68e6dfcb99ec"
+storage_version_token = "1792028608560483"
+content_type = "text/markdown"

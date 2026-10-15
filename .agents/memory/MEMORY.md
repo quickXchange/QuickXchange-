@@ -4,6 +4,7 @@
 - [Quickex catalog/order quirks](quickex-instrument-mapping.md) — rates omit titles; [order payloads](quickex-order-payload.md) need markup and IDs.
 - [Drizzle migrations](drizzle-migration-paths.md) — preserve snapshot paths and [post-merge idempotency](drizzle-post-merge-idempotency.md).
 - [Drizzle constraint errors](drizzle-constraint-errors.md) — PostgreSQL error codes may live under nested causes, not on the thrown query error.
+- [Drizzle correlated SELECTs](drizzle-correlated-selects.md) — raw projection fragments can lose column qualification; verify correlation against a real disposable DB.
 - [Order-directory indexing](order-directory-indexing.md) — add large-table order indexes through a safe online path, not a regular transactional migration.
 - [Clerk test identity](clerk-verified-email-testing.md) — role linking needs verified email; alias [exports](clerk-test-aliases.md) and mind [test domains](clerk-test-email-domains.md).
 - [Customer status delivery](customer-notification-outboxes.md) — fence outboxes; [email-only alerts](customer-email-only-status.md) suppress Telegram status messages.
@@ -123,6 +124,7 @@
 - [BSC payment evidence lookup](bsc-payment-evidence-lookup.md) — public BSC RPCs may reject broad token-log scans; discover the tx narrowly, then verify its receipt and canonical block by RPC.
 - [Recovery migration replay isolation](recovery-migration-replay-isolation.md) — obsolete evidence recoveries must not replay ahead of a current recovery or one mismatch can stop the monitoring worker.
 - [Deposit monitoring readiness](deposit-monitoring-readiness.md) — gate deposits with locked exact-route identity, stable config digests, and fresh health; unhealthy routes remain payout-only.
+- [RPC consumption boundaries](rpc-consumption-boundaries.md) — preserve immutable deposit ownership when reducing polling; actual dispatch counts are not provider billing totals.
 - [Production migration entrypoint](production-migration-entrypoint.md) — Publish may not advance Drizzle history; run [one-shot release jobs](production-one-shot-release-jobs.md) separately.
 - [Verified funding transaction identity](verified-funding-transaction-identity.md) — Manual Swap TxIDs come only from applied immutable observations and must remain separate from editable operational references.
 - [Environment-specific RPC secret overrides](rpc-secret-environment-overrides.md) — a changed shared RPC secret can remain shadowed by an environment override; validate the runtime value in every target environment.

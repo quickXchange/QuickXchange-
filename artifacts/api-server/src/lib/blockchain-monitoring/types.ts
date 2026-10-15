@@ -26,6 +26,8 @@ export type MonitorConfig = {
   adapterKind?: "evm" | "tron" | "solana" | "bitcoin";
   provider: MonitoringProvider;
   endpoint: string;
+  /** Internal usage attribution only; never affects provider or payment logic. */
+  rpcPurpose?: import("./rpc-usage").RpcUsagePurpose;
   /** Passed at runtime only. Never persist, serialize, or return it. */
   apiKey?: string;
   /** Provider-specific header name, e.g. TRON-PRO-API-KEY. */

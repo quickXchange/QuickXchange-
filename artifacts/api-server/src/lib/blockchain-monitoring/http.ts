@@ -7,6 +7,7 @@ export async function providerJson<T>(
   endpoint: string,
   init: RequestInit,
   timeoutMs: number,
+  onDispatch?: () => void,
 ): Promise<T> {
   const cooldown = cooldowns.get(endpoint);
   if (cooldown && cooldown.until > Date.now()) {
@@ -18,6 +19,7 @@ export async function providerJson<T>(
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const request = (async () => {
+    onDispatch?.();
     const response = await fetch(endpoint, { ...init, signal: controller.signal });
     if (!response.ok) {
       let body: unknown;

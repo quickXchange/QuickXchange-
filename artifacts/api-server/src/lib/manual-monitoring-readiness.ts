@@ -288,7 +288,7 @@ export async function prepareManualMonitoringReadiness(
           value: T,
         ) => value === null ? isNull(column as never) : eq(column as never, value);
         try {
-          const adapter = createBlockchainMonitorAdapter(config);
+          const adapter = createBlockchainMonitorAdapter({ ...config, rpcPurpose: "readiness" });
           const connection = await adapter.testConnection();
           if (!connection.connected) throw new Error("Provider reported disconnected.");
           if (network.chainId && connection.chainId?.toLowerCase() !== network.chainId.toLowerCase()) {

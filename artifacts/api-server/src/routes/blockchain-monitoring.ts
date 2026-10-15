@@ -320,6 +320,7 @@ router.post("/admin/blockchain-monitoring/networks/:id/test", async (req, res, n
     const endpoint = row.endpointSecretRef ? process.env[row.endpointSecretRef] : undefined;
     if (!endpoint) { res.status(422).json({ error: "MONITOR_NOT_CONFIGURED", message: "The provider endpoint is not configured." }); return; }
     const adapter = createBlockchainMonitorAdapter({
+      rpcPurpose: "admin_test",
       networkCode: row.networkCode,
       provider: row.providerKind as "rpc" | "indexer",
       adapterKind: row.adapterKind as "evm" | "tron" | "solana" | "bitcoin",
@@ -363,7 +364,7 @@ router.post("/admin/blockchain-monitoring/matches/:id/review", async (req, res, 
       if (preflight?.order.status === "needs review" && preflight.order.manualSettlementState === "funds_confirmed") {
         const config = adapterConfig(preflight.network);
         if (!config) throw new ApiError("MONITORING_NOT_CONFIGURED", "Monitoring provider is not configured.", 409);
-        reviewStatus = await createBlockchainMonitorAdapter(config).getEvidenceStatus({ transactionHash: preflight.observation.transactionHash, blockOrSlot: preflight.observation.blockReference, blockHash: preflight.observation.blockHash ?? undefined } as any);
+        reviewStatus = await createBlockchainMonitorAdapter({ ...config, rpcPurpose: "admin_review" }).getEvidenceStatus({ transactionHash: preflight.observation.transactionHash, blockOrSlot: preflight.observation.blockReference, blockHash: preflight.observation.blockHash ?? undefined } as any);
         if (!reviewStatus.exists || !reviewStatus.successful || !reviewStatus.canonical || !isFinalitySatisfied(preflight.network.finalityPolicy, reviewStatus.confirmations, preflight.match.confirmationsRequired, reviewStatus.finalized)) throw new ApiError("BLOCKCHAIN_EVIDENCE_NOT_FINAL", "Fresh canonical finalized evidence is required.", 409);
       }
     }
