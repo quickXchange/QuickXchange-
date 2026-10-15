@@ -1,0 +1,278 @@
+{
+  "startedAt": "2026-10-15T19:32:16.925649+00:00",
+  "affiliate": "aff_35637",
+  "testOrigin": "Replit Development workspace; public unauthenticated HTTPS requests with affiliate query parameter",
+  "requests": [
+    {
+      "label": "catalogue offset 0",
+      "url": "https://quickex.io/api/v2/pairs/all?limit=1000&offset=0&referrerId=aff_35637",
+      "startedAt": "2026-10-15T19:32:16.925738+00:00",
+      "status": 200,
+      "headers": {
+        "Date": "Thu, 15 Oct 2026 19:32:17 GMT",
+        "Server": "openresty"
+      },
+      "elapsedSeconds": 2.215,
+      "total": "57062",
+      "returned": 1000,
+      "active": 708,
+      "inactive": 292,
+      "missingXmlCodes": 899
+    },
+    {
+      "label": "catalogue offset 28000",
+      "url": "https://quickex.io/api/v2/pairs/all?limit=1000&offset=28000&referrerId=aff_35637",
+      "startedAt": "2026-10-15T19:32:32.150604+00:00",
+      "status": 200,
+      "headers": {
+        "Date": "Thu, 15 Oct 2026 19:32:32 GMT",
+        "Server": "openresty"
+      },
+      "elapsedSeconds": 3.351,
+      "total": "57062",
+      "returned": 1000,
+      "active": 849,
+      "inactive": 151,
+      "missingXmlCodes": 959
+    },
+    {
+      "label": "catalogue offset 57000",
+      "url": "https://quickex.io/api/v2/pairs/all?limit=1000&offset=57000&referrerId=aff_35637",
+      "startedAt": "2026-10-15T19:32:48.509954+00:00",
+      "status": 200,
+      "headers": {
+        "Date": "Thu, 15 Oct 2026 19:32:49 GMT",
+        "Server": "openresty"
+      },
+      "elapsedSeconds": 4.99,
+      "total": "57062",
+      "returned": 62,
+      "active": 57,
+      "inactive": 5,
+      "missingXmlCodes": 38
+    },
+    {
+      "label": "Production Convert configuration",
+      "url": "https://quickchange.exchange/api/quickex/config",
+      "startedAt": "2026-10-15T19:32:53.501446+00:00",
+      "status": 200,
+      "headers": {
+        "Date": "Thu, 15 Oct 2026 19:32:54 GMT",
+        "Server": "Google Frontend"
+      },
+      "elapsedSeconds": 0.862,
+      "signedOrders": true,
+      "instrumentCount": 205,
+      "routeCount": 41820
+    },
+    {
+      "label": "quote BTC/BTC -> USDT/TRC20",
+      "url": "https://quickex.io/api/v2/rates/public/one?referrerId=aff_35637&rateMode=FLOATING&instrumentFromCurrencyTitle=BTC&instrumentFromNetworkTitle=BTC&instrumentToCurrencyTitle=USDT&instrumentToNetworkTitle=TRC20",
+      "startedAt": "2026-10-15T19:32:54.411898+00:00",
+      "status": 200,
+      "headers": {
+        "Date": "Thu, 15 Oct 2026 19:32:54 GMT",
+        "Server": "openresty"
+      },
+      "elapsedSeconds": 0.471,
+      "quote": {
+        "updatedAt": 1792092774801,
+        "sellQuoteWithoutNetworkFee": {
+          "baseValue": "1",
+          "quoteValue": "81937.3086"
+        },
+        "finalNetworkFeeAmount": "1.99"
+      }
+    },
+    {
+      "label": "quote ETH/ERC20 -> USDT/TRC20",
+      "url": "https://quickex.io/api/v2/rates/public/one?referrerId=aff_35637&rateMode=FLOATING&instrumentFromCurrencyTitle=ETH&instrumentFromNetworkTitle=ERC20&instrumentToCurrencyTitle=USDT&instrumentToNetworkTitle=TRC20",
+      "startedAt": "2026-10-15T19:32:55.983861+00:00",
+      "status": 422,
+      "headers": {
+        "Date": "Thu, 15 Oct 2026 19:32:56 GMT"
+      },
+      "elapsedSeconds": 0.395,
+      "providerError": {
+        "status": "ERR_UNPROCESSABLE_ENTITY",
+        "message": "Pair not found [iF]"
+      }
+    },
+    {
+      "label": "quote USDT/TRC20 -> BTC/BTC",
+      "url": "https://quickex.io/api/v2/rates/public/one?referrerId=aff_35637&rateMode=FLOATING&instrumentFromCurrencyTitle=USDT&instrumentFromNetworkTitle=TRC20&instrumentToCurrencyTitle=BTC&instrumentToNetworkTitle=BTC",
+      "startedAt": "2026-10-15T19:32:57.479974+00:00",
+      "status": 200,
+      "headers": {
+        "Date": "Thu, 15 Oct 2026 19:32:57 GMT",
+        "Server": "openresty"
+      },
+      "elapsedSeconds": 0.446,
+      "quote": {
+        "updatedAt": 1792092777843,
+        "sellQuoteWithoutNetworkFee": {
+          "baseValue": "82431.9",
+          "quoteValue": "0.994"
+        },
+        "finalNetworkFeeAmount": "0.00009"
+      }
+    },
+    {
+      "label": "quote USDT/ERC20 -> BTC/BTC",
+      "url": "https://quickex.io/api/v2/rates/public/one?referrerId=aff_35637&rateMode=FLOATING&instrumentFromCurrencyTitle=USDT&instrumentFromNetworkTitle=ERC20&instrumentToCurrencyTitle=BTC&instrumentToNetworkTitle=BTC",
+      "startedAt": "2026-10-15T19:32:59.028597+00:00",
+      "status": 200,
+      "headers": {
+        "Date": "Thu, 15 Oct 2026 19:33:00 GMT",
+        "Server": "openresty"
+      },
+      "elapsedSeconds": 1.787,
+      "quote": {
+        "updatedAt": 1792092780748,
+        "sellQuoteWithoutNetworkFee": {
+          "baseValue": "82431.9",
+          "quoteValue": "0.994"
+        },
+        "finalNetworkFeeAmount": "0.00009"
+      }
+    },
+    {
+      "label": "quote BNB/BEP20 -> USDT/TRC20",
+      "url": "https://quickex.io/api/v2/rates/public/one?referrerId=aff_35637&rateMode=FLOATING&instrumentFromCurrencyTitle=BNB&instrumentFromNetworkTitle=BEP20&instrumentToCurrencyTitle=USDT&instrumentToNetworkTitle=TRC20",
+      "startedAt": "2026-10-15T19:33:01.916173+00:00",
+      "status": 200,
+      "headers": {
+        "Date": "Thu, 15 Oct 2026 19:33:02 GMT",
+        "Server": "openresty"
+      },
+      "elapsedSeconds": 0.423,
+      "quote": {
+        "updatedAt": 1792092782269,
+        "sellQuoteWithoutNetworkFee": {
+          "baseValue": "1",
+          "quoteValue": "728.56721"
+        },
+        "finalNetworkFeeAmount": "1.99"
+      }
+    },
+    {
+      "label": "quote USDT/TRC20 -> USDT/ERC20",
+      "url": "https://quickex.io/api/v2/rates/public/one?referrerId=aff_35637&rateMode=FLOATING&instrumentFromCurrencyTitle=USDT&instrumentFromNetworkTitle=TRC20&instrumentToCurrencyTitle=USDT&instrumentToNetworkTitle=ERC20",
+      "startedAt": "2026-10-15T19:33:03.440065+00:00",
+      "status": 200,
+      "headers": {
+        "Date": "Thu, 15 Oct 2026 19:33:03 GMT",
+        "Server": "openresty"
+      },
+      "elapsedSeconds": 0.434,
+      "quote": {
+        "updatedAt": 1792092783810,
+        "sellQuoteWithoutNetworkFee": {
+          "baseValue": "1",
+          "quoteValue": "0.994"
+        },
+        "finalNetworkFeeAmount": "5.70377"
+      }
+    },
+    {
+      "label": "quote GRAM/TON -> RVN/RVN",
+      "url": "https://quickex.io/api/v2/rates/public/one?referrerId=aff_35637&rateMode=FLOATING&instrumentFromCurrencyTitle=GRAM&instrumentFromNetworkTitle=TON&instrumentToCurrencyTitle=RVN&instrumentToNetworkTitle=RVN",
+      "startedAt": "2026-10-15T19:33:04.974766+00:00",
+      "status": 422,
+      "headers": {
+        "Date": "Thu, 15 Oct 2026 19:33:05 GMT"
+      },
+      "elapsedSeconds": 0.446,
+      "providerError": {
+        "status": "ERR_NO_LIQUIDITY_AVAILABLE",
+        "message": "KUCOIN_PROVIDER quotes not found for pair GRAM_RVN"
+      }
+    },
+    {
+      "label": "Production XML",
+      "url": "https://quickchange.exchange/api/rates.xml",
+      "startedAt": "2026-10-15T19:33:06.521317+00:00",
+      "status": 200,
+      "headers": {
+        "Date": "Thu, 15 Oct 2026 19:33:08 GMT",
+        "Server": "Google Frontend",
+        "X-Xml-Exported-Count": "5",
+        "X-Xml-Rate-Source": "fresh"
+      },
+      "elapsedSeconds": 1.657,
+      "items": 5,
+      "convertItems": 0,
+      "manualItems": 5
+    },
+    {
+      "label": "quote ETH/ETH -> USDT/TRC20 (correct provider network identifier)",
+      "url": "https://quickex.io/api/v2/rates/public/one?referrerId=aff_35637&rateMode=FLOATING&instrumentFromCurrencyTitle=ETH&instrumentFromNetworkTitle=ETH&instrumentToCurrencyTitle=USDT&instrumentToNetworkTitle=TRC20",
+      "startedAt": "2026-10-15T19:33:50.680378+00:00",
+      "status": 200,
+      "elapsedSeconds": 1.294,
+      "quote": {
+        "updatedAt": 1792092831874,
+        "sellQuoteWithoutNetworkFee": {
+          "baseValue": "1",
+          "quoteValue": "2439.75312"
+        }
+      }
+    },
+    {
+      "label": "small catalogue activation examples",
+      "url": "https://quickex.io/api/v2/pairs/all?referrerId=aff_35637&limit=2&offset=0",
+      "startedAt": "2026-10-15T19:33:51.974622+00:00",
+      "status": 200,
+      "elapsedSeconds": 0.393,
+      "examples": [
+        {
+          "from": "GRAM/TON",
+          "to": "RVN/RVN",
+          "isActive": true,
+          "fromXmlCode": "GRAM",
+          "toXmlCode": "RVN"
+        },
+        {
+          "from": "GRAM/TON",
+          "to": "S/Sonic",
+          "isActive": true,
+          "fromXmlCode": "GRAM",
+          "toXmlCode": ""
+        }
+      ]
+    }
+  ],
+  "finishedAt": "2026-10-15T19:33:52.368893+00:00",
+  "nodeRuntimeProbes": [
+    {
+      "transport": "Node native fetch",
+      "at": "2026-10-15T19:32:41.547Z",
+      "rateMode": "FLOATING",
+      "query": "referrerId=aff_35637&rateMode=FLOATING&instrumentFromCurrencyTitle=BTC&instrumentFromNetworkTitle=BTC&instrumentToCurrencyTitle=USDT&instrumentToNetworkTitle=TRC20",
+      "http": 200,
+      "elapsedMs": 570,
+      "providerUpdatedAt": 1792092762005,
+      "quote": {
+        "baseValue": "1",
+        "quoteValue": "81933.7302"
+      },
+      "requestId": null,
+      "cfRay": null
+    },
+    {
+      "transport": "Node native fetch",
+      "at": "2026-10-15T19:32:43.322Z",
+      "rateMode": "FIXED",
+      "query": "referrerId=aff_35637&rateMode=FIXED&instrumentFromCurrencyTitle=BTC&instrumentFromNetworkTitle=BTC&instrumentToCurrencyTitle=USDT&instrumentToNetworkTitle=TRC20",
+      "http": 200,
+      "elapsedMs": 176,
+      "providerUpdatedAt": 1792092763399,
+      "quote": {
+        "baseValue": "1",
+        "quoteValue": "80783.262"
+      },
+      "requestId": null,
+      "cfRay": null
+    }
+  ]
+}

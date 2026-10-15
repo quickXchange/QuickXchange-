@@ -406,3 +406,31 @@ mtime_ms = 1792090018579
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/44695518-16c9-418a-bc01-f668d7c734b9/6759af91-24bd-4968-894d-7d669f9d20ae"
 storage_version_token = "1792090046406188"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "8dOb-oPXkGmKo6bUfGH-x"
+uri = "file://reports/QUICKEX_SUPPORT_REPORT_2026-10-15.md"
+type = "text"
+title = "Quickex Support Report — aff_35637"
+description = "Ready-to-forward technical report with live JSON results, inactive directions, missing XML codes, liquidity errors and Production timeout evidence."
+logical_id = "b40b9ccf-ab1e-49ae-b458-442469228034"
+content_hash = "sha256:4242f5e602160f4de75f3d0e3f44246774a0ae3d85739a27bfc8a848ec85a527"
+size = 7369
+mtime_ms = 1792092951100
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/b40b9ccf-ab1e-49ae-b458-442469228034/4dac69bc-010e-45d8-89cf-17a361cc22d7"
+storage_version_token = "1792092960592059"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "vOhFfpzscdOv37PYSKjkf"
+uri = "file://reports/quickex-connectivity-evidence-2026-10-15.json"
+type = "unspecified"
+title = "Quickex Diagnostic Evidence"
+description = "Timestamped public request results and Node Fixed/Floating probes. No API keys, credentials or customer data."
+logical_id = "28432f91-376b-42b1-a852-3d97b05c660a"
+content_hash = "sha256:599da8dbae915942caa924f702f4ed679ac0a0ace68361183280247ca59aec71"
+size = 9688
+mtime_ms = 1792092832369
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/28432f91-376b-42b1-a852-3d97b05c660a/1d334112-fcf0-4567-88fb-5467d4924189"
+storage_version_token = "1792092961148728"
+content_type = "application/octet-stream"
