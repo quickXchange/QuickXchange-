@@ -10617,8 +10617,13 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
            {!isNew && (
              <section className="receiving-wallet-section qx-network-section" aria-label="Blockchain Monitoring">
                <div className="panel-heading mb-3">
-                 <div><span className="section-kicker">4 / Detection</span><h2>Blockchain Monitoring</h2></div>
+                 <div><span className="section-kicker">4 / Detection</span><h2>Manual / RPC Monitoring</h2></div>
                </div>
+               {isWhitebitProvider && (
+                 <p className="field-hint" data-testid="network-provider-monitoring-boundary">
+                   WhiteBIT deposits use authenticated WhiteBIT deposit monitoring. Manual/RPC readiness below is separate: it applies to opted-in Manual fallback and historical Manual addresses, not to WhiteBIT address permission. Existing Manual obligations remain monitored independently.
+                 </p>
+               )}
                {isWhitebitProvider || form.depositProvider === 'manual' || Boolean(form.sharedDepositAddress) ? (
                  <details className="rounded-lg border border-border p-3">
                    <summary className="cursor-pointer font-semibold">
@@ -10637,7 +10642,7 @@ function NetworkDrawer({ network, onClose }: { network?: CryptoNetwork | 'new'; 
                      </label>
                      {form.manualWalletTrackingEnabled ? (
                        <InlineNotice kind={monitoringReadiness?.ready === true ? 'success' : 'warning'}>
-                         <strong>{monitoringReadiness?.ready === true ? 'READY' : 'BLOCKED'}</strong>
+                         <strong>Manual/RPC: {monitoringReadiness?.ready === true ? 'READY' : 'BLOCKED'}</strong>
                          {monitoringReadiness?.message
                            ? ` — ${monitoringReadiness.message}`
                            : ' — Save the route to evaluate monitoring readiness.'}

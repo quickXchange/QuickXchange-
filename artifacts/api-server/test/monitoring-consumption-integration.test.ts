@@ -23,8 +23,13 @@ test("real scheduler pauses WhiteBIT-only RPC, preserves configurations and resu
     req.on("data", chunk => { body += chunk; });
     req.on("end", () => {
       calls++;
-      const { method } = JSON.parse(body);
-      const result = method === "eth_chainId" ? "0x1" :
+      if (req.url?.startsWith("/tron/wallet/getnowblock")) {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({ block_header: { raw_data: { number: 100 } } }));
+        return;
+      }
+      const { method } = JSON.parse(body || "{}");
+      const result = method === "eth_chainId" ? req.url?.startsWith("/tron") ? "0x2b6653dc" : "0x1" :
         method === "eth_blockNumber" ? "0x64" :
         method === "eth_getLogs" ? [] :
         method === "eth_getBlockByNumber" ? { hash: "0xblock", number: "0x64", timestamp: "0x1", transactions: ["0xtx"] } :
@@ -132,9 +137,13 @@ test("real scheduler pauses WhiteBIT-only RPC, preserves configurations and resu
   })
     .where(eq(blockchainMonitorNetworksTable.id, key));
   await runBlockchainMonitoringCycle();
+  assert.equal(calls, 10, "Remembered fallback with tracking OFF must not cause idle RPC.");
+  await db.update(cryptoAssetNetworksTable).set({ manualWalletTrackingEnabled: true })
+    .where(eq(cryptoAssetNetworksTable.id, key));
+  await runBlockchainMonitoringCycle();
   row = await network();
   assert.equal(row.nextAttemptAt!.getTime() - row.healthCheckedAt!.getTime(), 60_000,
-    "Opted-in fallback retains fresh readiness even without Manual tracking on the catalog row.");
+    "Effective opted-in tracked fallback retains fresh readiness.");
   assert.equal(calls, 15);
 
   await db.update(cryptoAssetNetworksTable).set({
@@ -174,4 +183,64 @@ test("real scheduler pauses WhiteBIT-only RPC, preserves configurations and resu
   await insertOrder(`${key}-unregistered`, false, true);
   await runBlockchainMonitoringCycle();
   assert.equal(calls, 25, "An unregistered legacy Manual obligation must prevent RPC retirement.");
+
+  // Isolate the independent TRON scheduler case from this synthetic EVM work.
+  await db.update(blockchainMonitorNetworksTable).set({ enabled: false })
+    .where(eq(blockchainMonitorNetworksTable.id, key));
+  const tronId = `${key}-tron`;
+  const tronRef = `${secretRef}_TRON`;
+  process.env[tronRef] = `${process.env[secretRef]}/tron`;
+  t.after(() => { delete process.env[tronRef]; });
+  await db.insert(blockchainMonitorNetworksTable).values({
+    id: tronId, networkCode: tronId.toUpperCase(), networkName: "Synthetic TRON",
+    adapterKind: "tron", providerKind: "indexer", chainId: "0x2b6653dc",
+    endpointSecretRef: tronRef, enabled: true, pollIntervalSeconds: 15,
+  });
+  await db.insert(cryptoAssetNetworksTable).values({
+    id: tronId, assetId: key, networkCode: tronId.toUpperCase(), networkName: "Synthetic TRON",
+    decimals: 6, depositProvider: "whitebit", manualFallbackEnabled: false,
+    manualWalletTrackingEnabled: true,
+  });
+  await db.insert(blockchainMonitorAssetsTable).values({
+    monitorNetworkId: tronId, assetNetworkId: tronId, identityKind: "native",
+    decimals: 6, enabled: true,
+  });
+  await runBlockchainMonitoringCycle();
+  assert.equal(calls, 25, "WhiteBIT-only TRON must not poll its indexer.");
+  await db.update(cryptoAssetNetworksTable).set({ depositProvider: "manual" })
+    .where(eq(cryptoAssetNetworksTable.id, tronId));
+  await runBlockchainMonitoringCycle();
+  assert.equal(calls, 27, "TRON Manual selection verifies chain/head once, without duplicate head reads.");
+  const [tron] = await db.select().from(blockchainMonitorNetworksTable)
+    .where(eq(blockchainMonitorNetworksTable.id, tronId));
+  assert.equal(tron!.healthStatus, "connected");
+  assert.equal(tron!.nextAttemptAt!.getTime() - tron!.healthCheckedAt!.getTime(), 60_000);
+  await db.update(cryptoAssetNetworksTable).set({ depositProvider: "whitebit" })
+    .where(eq(cryptoAssetNetworksTable.id, tronId));
+  await db.update(blockchainMonitorNetworksTable).set({ nextAttemptAt: new Date(0) })
+    .where(eq(blockchainMonitorNetworksTable.id, tronId));
+  await runBlockchainMonitoringCycle();
+  assert.equal(calls, 27, "Switching TRON back to WhiteBIT pauses without disabling configuration.");
+  await db.update(cryptoAssetNetworksTable).set({ depositProvider: "manual" })
+    .where(eq(cryptoAssetNetworksTable.id, tronId));
+  await db.update(blockchainMonitorNetworksTable).set({ endpointSecretRef: null })
+    .where(eq(blockchainMonitorNetworksTable.id, tronId));
+  await runBlockchainMonitoringCycle();
+  const [unconfigured] = await db.select().from(blockchainMonitorNetworksTable)
+    .where(eq(blockchainMonitorNetworksTable.id, tronId));
+  assert.equal(unconfigured!.healthStatus, "not_configured");
+  assert.match(unconfigured!.healthError!, /configuration is unavailable/);
+  assert.equal(calls, 27, "Missing configuration must not dispatch an RPC.");
+  await runBlockchainMonitoringCycle();
+  const [backedOff] = await db.select().from(blockchainMonitorNetworksTable)
+    .where(eq(blockchainMonitorNetworksTable.id, tronId));
+  assert.equal(backedOff!.healthCheckedAt!.getTime(), unconfigured!.healthCheckedAt!.getTime());
+  await db.update(blockchainMonitorNetworksTable).set({
+    endpointSecretRef: tronRef, nextAttemptAt: new Date(0),
+  }).where(eq(blockchainMonitorNetworksTable.id, tronId));
+  await runBlockchainMonitoringCycle();
+  const [recovered] = await db.select().from(blockchainMonitorNetworksTable)
+    .where(eq(blockchainMonitorNetworksTable.id, tronId));
+  assert.equal(recovered!.healthStatus, "connected");
+  assert.equal(calls, 29, "Restored exact configuration must recover through live readiness checks.");
 });

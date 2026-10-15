@@ -346,6 +346,7 @@ import {
   type ManualMonitoringReadiness,
 } from "../lib/manual-monitoring-readiness";
 import { adapterConfig } from "../lib/blockchain-monitoring/service";
+import { requiresManualMonitoringReadiness } from "../lib/blockchain-monitoring/workload-policy";
 import { initializeAffiliateForOrder, processPendingAffiliateCompletions } from "../lib/affiliate-accounting";
 import { finalizeSwapFundingFromClaim, provisionSwapFundingAddress } from "./whitebit";
 import {
@@ -6092,6 +6093,7 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
       sharedDepositAddress: cryptoAssetNetworksTable.sharedDepositAddress,
       manualWalletTrackingEnabled: cryptoAssetNetworksTable.manualWalletTrackingEnabled,
       depositProvider: cryptoAssetNetworksTable.depositProvider,
+      manualFallbackEnabled: cryptoAssetNetworksTable.manualFallbackEnabled,
     }).from(cryptoAssetNetworksTable)
       .where(inArray(cryptoAssetNetworksTable.id, affectedRouteIds));
     const readinessRoutes = affectedRouteIds.flatMap(routeId => {
@@ -6103,7 +6105,11 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
         ? input.depositProvider ?? fallback?.depositProvider
         : fallback?.depositProvider;
       const address = input.walletAddress.trim() || fallback?.sharedDepositAddress || "";
-      return trackingEnabled && provider !== "none" && address
+      return requiresManualMonitoringReadiness({
+        depositProvider: provider,
+        manualWalletTrackingEnabled: trackingEnabled,
+        manualFallbackEnabled: fallback?.manualFallbackEnabled,
+      }) && address
         ? [{
           routeId,
           address,
@@ -6459,7 +6465,11 @@ router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, asy
       const trackingEnabled = input.manualWalletTrackingEnabled ??
         network.manualWalletTrackingEnabled;
       const address = input.clearWalletAddress ? "" : input.walletAddress.trim() || network.sharedDepositAddress;
-      return trackingEnabled && address
+      return requiresManualMonitoringReadiness({
+        depositProvider: provider,
+        manualWalletTrackingEnabled: trackingEnabled,
+        manualFallbackEnabled: network.manualFallbackEnabled,
+      }) && address
         ? [{
             routeId,
             address,
@@ -6645,7 +6655,11 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
       const trackingEnabled = input.manualWalletTrackingEnabled ??
         row.manualWalletTrackingEnabled;
       const address = input.clearWalletAddress ? "" : input.walletAddress.trim() || row.sharedDepositAddress;
-      return trackingEnabled && provider !== "none" && address
+      return requiresManualMonitoringReadiness({
+        depositProvider: provider,
+        manualWalletTrackingEnabled: trackingEnabled,
+        manualFallbackEnabled: row.manualFallbackEnabled,
+      }) && address
         ? [{
             routeId,
             address,

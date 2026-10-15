@@ -1547,24 +1547,30 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       select 1 from ${blockchainMonitorAssetsTable}
       join ${cryptoAssetNetworksTable}
         on crypto_asset_networks.id = blockchain_monitor_assets.asset_network_id
+      join ${cryptoAssetsTable}
+        on crypto_assets.id = crypto_asset_networks.asset_id
       where blockchain_monitor_assets.monitor_network_id = blockchain_monitor_networks.id
         and blockchain_monitor_assets.enabled = true
+        and crypto_assets.enabled = true
+        and crypto_assets.lifecycle <> 'deprecated'
         and crypto_asset_networks.enabled = true
+        and crypto_asset_networks.lifecycle <> 'deprecated'
+        and crypto_asset_networks.execution_mode = 'manual'
         and (crypto_asset_networks.deposit_provider = 'manual'
           or crypto_asset_networks.deposit_provider = 'whitebit'
-            and crypto_asset_networks.manual_fallback_enabled = true)
+            and crypto_asset_networks.manual_fallback_enabled = true
+            and crypto_asset_networks.manual_wallet_tracking_enabled = true)
     )`,
   }).from(blockchainMonitorNetworksTable)
     .where(and(eq(blockchainMonitorNetworksTable.enabled, true), inArray(blockchainMonitorNetworksTable.providerKind, ["rpc", "indexer"])));
   for (const { network, ...workload } of networks) {
-    // Restrict consumption changes to EVM RPCs; other adapters retain cadence.
-    if (network.adapterKind === "evm") {
-      if (!monitoringCycleDue({
-        now: Date.now(), nextAttemptAt: network.nextAttemptAt,
-        healthStatus: network.healthStatus, healthCheckedAt: network.healthCheckedAt,
-        pollSeconds: network.pollIntervalSeconds, workload,
-      })) continue;
-    } else if (network.nextAttemptAt && network.nextAttemptAt > new Date()) continue;
+    // Provider policy is independent of adapter: WhiteBIT-only TRON, Bitcoin
+    // and Solana routes need the same safe pause gate as EVM routes.
+    if (!monitoringCycleDue({
+      now: Date.now(), nextAttemptAt: network.nextAttemptAt,
+      healthStatus: network.healthStatus, healthCheckedAt: network.healthCheckedAt,
+      pollSeconds: network.pollIntervalSeconds, workload,
+    })) continue;
     const leaseToken = randomUUID();
     const [leased] = await db.update(blockchainMonitorNetworksTable).set({
       leaseToken, leaseExpiresAt: new Date(Date.now() + 30_000),
@@ -1575,6 +1581,25 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
     if (!leased) continue;
     const baseConfig = adapterConfig(network);
     if (!baseConfig) {
+      // Do not leave an old "disconnected" explanation or retry an absent
+      // endpoint every tick. Lock current configuration before recording this
+      // failed readiness check; an Owner repair must not be overwritten.
+      await withLease(network.id, leaseToken, async tx => {
+        const [current] = await tx.select().from(blockchainMonitorNetworksTable)
+          .where(eq(blockchainMonitorNetworksTable.id, network.id)).for("update").limit(1);
+        if (current && !adapterConfig(current)) {
+          const checkedAt = new Date();
+          await tx.update(blockchainMonitorNetworksTable).set({
+            healthStatus: "not_configured",
+            healthCheckedAt: checkedAt,
+            healthError: "Monitoring endpoint or adapter/finality configuration is unavailable. Restore the saved configuration and test readiness.",
+            nextAttemptAt: new Date(checkedAt.getTime() + 60_000),
+          }).where(and(
+            eq(blockchainMonitorNetworksTable.id, network.id),
+            eq(blockchainMonitorNetworksTable.leaseToken, leaseToken),
+          ));
+        }
+      });
       await releaseLease(network.id, leaseToken);
       continue;
     }
@@ -1646,9 +1671,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       }
        // testConnection already obtained a fresh verified head in this cycle.
        // Never reuse it across cycles or for subsequent confirmation checks.
-       const head = network.adapterKind === "evm"
-         ? { cursor: connection.head, observedAt: new Date().toISOString() }
-         : await adapter.getHead();
+       const head = { cursor: connection.head, observedAt: new Date().toISOString() };
        const recoveryEligible = await ensureVerifiedErc20RecoveryAssetEligibility(
          network,
          leaseToken,
@@ -1819,9 +1842,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
            healthCheckedAt: checkedAt,
            lastSuccessfulScanAt: checkedAt,
            consecutiveFailures: 0,
-           nextAttemptAt: network.adapterKind === "evm"
-             ? new Date(checkedAt.getTime() + monitoringCadenceMs(network.pollIntervalSeconds, workload))
-             : null,
+           nextAttemptAt: new Date(checkedAt.getTime() + monitoringCadenceMs(network.pollIntervalSeconds, workload)),
            healthError: null,
            ...(legacyBep20 || !currentConfigDigest ? {} : {
              healthProofFingerprint: currentConfigDigest,

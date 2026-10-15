@@ -1,9 +1,28 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import test from "node:test";
-import { monitoringCadenceMs, monitoringCycleDue, type MonitoringWorkload } from "../src/lib/blockchain-monitoring/workload-policy";
+import { monitoringCadenceMs, monitoringCycleDue, requiresManualMonitoringReadiness, type MonitoringWorkload } from "../src/lib/blockchain-monitoring/workload-policy";
 import { RpcUsageMeter, rpcUsageMeter, rpcUsageProvider } from "../src/lib/blockchain-monitoring/rpc-usage";
 import { EvmJsonRpcAdapter } from "../src/lib/blockchain-monitoring/evm";
+
+test("Manual wallet readiness needs tracking and effective Manual/fallback use", () => {
+  for (const depositProvider of ["whitebit", "none"]) {
+    assert.equal(requiresManualMonitoringReadiness({
+      depositProvider, manualWalletTrackingEnabled: true, manualFallbackEnabled: false,
+    }), false);
+  }
+  assert.equal(requiresManualMonitoringReadiness({
+    depositProvider: "manual", manualWalletTrackingEnabled: true, manualFallbackEnabled: false,
+  }), true);
+  assert.equal(requiresManualMonitoringReadiness({
+    depositProvider: "whitebit", manualWalletTrackingEnabled: true, manualFallbackEnabled: true,
+  }), true);
+  for (const depositProvider of ["manual", "whitebit"]) {
+    assert.equal(requiresManualMonitoringReadiness({
+      depositProvider, manualWalletTrackingEnabled: false, manualFallbackEnabled: true,
+    }), false);
+  }
+});
 
 const idle: MonitoringWorkload = {
   activeWatches: false, pendingEvidence: false, registrationGaps: false, manualReadiness: false,

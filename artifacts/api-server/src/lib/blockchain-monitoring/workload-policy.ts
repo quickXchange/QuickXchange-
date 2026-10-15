@@ -5,6 +5,17 @@ export type MonitoringWorkload = {
   manualReadiness: boolean;
 };
 
+/** Saved tracking intent alone does not make WhiteBIT use a Manual wallet. */
+export function requiresManualMonitoringReadiness(route: {
+  depositProvider: string | null | undefined;
+  manualFallbackEnabled: boolean | null | undefined;
+  manualWalletTrackingEnabled: boolean | null | undefined;
+}): boolean {
+  return route.manualWalletTrackingEnabled === true &&
+    (route.depositProvider === "manual" ||
+      route.depositProvider === "whitebit" && route.manualFallbackEnabled === true);
+}
+
 export function hasMonitoringWorkload(workload: MonitoringWorkload): boolean {
   return workload.activeWatches || workload.pendingEvidence ||
     workload.registrationGaps || workload.manualReadiness;

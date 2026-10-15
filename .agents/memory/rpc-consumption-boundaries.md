@@ -17,7 +17,7 @@ Idle readiness may be cheaper only while respecting its existing freshness
 fence and waking promptly when work or Manual/fallback availability appears.
 Never use catalog edits alone to retire or redirect an existing address.
 
-WhiteBIT-only EVM networks with no independent work or opted-in Manual fallback
+WhiteBIT-only networks, across all supported adapters, with no independent work or effective Manual fallback
 should pause periodic RPC completely, not erase or disable their configuration.
 Selecting Manual resumes readiness, not customer deposit permission.
 
@@ -28,6 +28,19 @@ Manual order is safe to ignore.
 **How to apply:** Include eligible legacy orders lacking active watches and
 unresolved evidence in the pause gate. Preserve health timestamps so old proofs
 expire normally, respect quota backoff, and retain explicit Admin tests.
+
+Retaining a Manual wallet or tracking switch must not cause WhiteBIT-only
+receiving-wallet previews/saves to probe RPC. For fallback readiness, both
+fallback opt-in and tracking must be effective; Manual provider selection still
+maintains network readiness without automatically granting deposit permission.
+
+**Why:** The Owner wants reversible Manual/RPC configuration, not parallel
+polling merely because those saved fields remain populated.
+
+**How to apply:** Keep WhiteBIT permission and Manual/RPC readiness visibly
+separate. Do not confuse a missing saved endpoint reference with failure of an
+available endpoint secret, or fake a fresh successful scan when configuration
+is absent.
 
 Application RPC dispatch counts are not billing totals.
 

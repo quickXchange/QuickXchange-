@@ -378,3 +378,17 @@ mtime_ms = 1792031557940
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/832e423c-95d9-4a45-862e-651d5a56680b/e4eeaeee-9de9-4d7b-826c-be90408605b9"
 storage_version_token = "1792031606129245"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "E8EQ-ycvwlC-9dnhpB3n7"
+uri = "file://CRYPTO_PROVIDER_AUDIT_2026-10-15.md"
+type = "text"
+title = "Crypto Provider & RPC Audit — All 49 Routes"
+description = "Complete saved Production inventory, verified public WhiteBIT mapping candidates, monitoring root causes, test results and required Owner actions. No secrets or wallet addresses included."
+logical_id = "813c7edb-ea41-4609-81ca-a09fe5f0cdf3"
+content_hash = "sha256:cc148aa721759157f25e191e6d669784842c5da45eb72ba032fdbf71732fceda"
+size = 14984
+mtime_ms = 1792036858835
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/813c7edb-ea41-4609-81ca-a09fe5f0cdf3/e8fbe6b3-1548-4479-ad34-89d53603c81e"
+storage_version_token = "1792037038924323"
+content_type = "text/markdown"
