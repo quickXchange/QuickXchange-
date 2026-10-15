@@ -1,6 +1,7 @@
 import { BlockchainMonitorError, providerFailureDetails, sanitizedProviderError } from "./errors";
 import { positiveInteger, providerHeaders, providerJson, requireEndpoint } from "./http";
 import { setTimeout as delay } from "node:timers/promises";
+import { queryEvmLogs } from "./evm-log-query";
 import type {
   BlockchainMonitorAdapter, ChainHead, ConnectionResult, IncomingEvidence,
   MonitorAsset, MonitorConfig, ScanCursor, ScanResult, WatchedAddress,
@@ -16,6 +17,7 @@ type EvmTransaction = {
   hash?: string; from?: string; to?: string; value?: string; blockNumber?: string; blockHash?: string;
 };
 type EvmLog = {
+  removed?: boolean;
   address?: string; topics?: string[]; data?: string; transactionHash?: string; blockNumber?: string; blockHash?: string; logIndex?: string;
 };
 type EvmBlock = {
@@ -97,11 +99,11 @@ export function parseEvmTransferLog(
   const blockNumber = typeof log.blockNumber === "string" ? log.blockNumber : "";
   const rawAmount = quantityToRawAmount(log.data);
   if (
-    asset.kind !== "token" || !contract ||
+    log.removed === true || asset.kind !== "token" || !contract ||
     normalizeEvmAddress(log.address ?? "") !== contract ||
     topics[0]?.toLowerCase() !== TRANSFER_TOPIC ||
     !watchedAddress || recipientTopic !== topicAddress(watchedAddress) ||
-    !transactionHash || !blockNumber || !rawAmount
+    !transactionHash || !/^0x[0-9a-f]+$/i.test(blockNumber) || !rawAmount
   ) return undefined;
   const fromAddress = topics[1] ? normalizeEvmAddress(`0x${topics[1].slice(-40)}`) : "";
   return {
@@ -241,13 +243,12 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
 
   async testConnection(): Promise<ConnectionResult> {
     const started = Date.now();
-    const [chainId, head] = await Promise.all([
-      this.rpc<string>("eth_chainId", []),
-      this.rpc<string>("eth_blockNumber", []),
-    ]);
+    // Fail identity/quota checks before spending any more provider capacity.
+    const chainId = await this.rpc<string>("eth_chainId", []);
     if (this.config.chainId && chainId.toLowerCase() !== this.config.chainId.toLowerCase()) {
       throw new BlockchainMonitorError("PROVIDER", "Blockchain monitoring provider returned an unexpected network.");
     }
+    const head = await this.rpc<string>("eth_blockNumber", []);
     const block = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [head, false]);
     if (!block?.hash || !block.timestamp) {
       throw new BlockchainMonitorError("PROVIDER", "Blockchain monitoring provider did not return the current block.");
@@ -297,6 +298,17 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
       throw new BlockchainMonitorError("RANGE", "Blockchain monitoring scan range is invalid.");
     }
     const evidence: IncomingEvidence[] = [];
+    // Only share immutable reads inside this scan. Confirmation checks always
+    // fetch fresh canonical blocks/receipts, including after a reorg.
+    const reads = new Map<string, Promise<unknown>>();
+    const read = <T>(method: string, params: unknown[]): Promise<T> => {
+      const key = JSON.stringify([method, params]);
+      const existing = reads.get(key);
+      if (existing) return existing as Promise<T>;
+      const pending = this.rpc<T>(method, params);
+      if (reads.size < 512) reads.set(key, pending);
+      return pending;
+    };
     const watched = watchedAddresses.flatMap(address => address.assets.map(asset => ({ address, asset })));
     const native = watched.filter(item => item.asset.kind === "native");
     const tokens = watched.filter(item => item.asset.kind === "token" && normalizeEvmAddress(item.asset.contractOrMint ?? ""));
@@ -317,7 +329,11 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
             } catch (error) {
               if (
                 !(error instanceof BlockchainMonitorError) ||
-                !["TIMEOUT", "NETWORK", "PROVIDER"].includes(error.code)
+                !["TIMEOUT", "NETWORK", "PROVIDER"].includes(error.code) ||
+                error.providerFailure?.reason === "quota_exhausted" ||
+                error.providerFailure?.reason === "rate_limited" ||
+                error.providerFailure?.reason === "unauthorized" ||
+                error.providerFailure?.reason === "forbidden"
               ) throw error;
               const cooldownMs = Math.min(5_000, Math.max(50, Math.floor(this.timeoutMs / 3)));
               if (
@@ -362,52 +378,61 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
         }
       }
     }
-    const fromHex = `0x${from.toString(16)}`;
-    const toHex = `0x${to.toString(16)}`;
+    const queryBudget = { remaining: 64 };
     for (const contract of tokenContracts) {
-      for (const address of tokenAddresses) {
-        const item = tokens.find(candidate =>
-          normalizeEvmAddress(candidate.address.address) === address &&
-          normalizeEvmAddress(candidate.asset.contractOrMint ?? "") === contract);
-        if (!item) continue;
-        const logs = await this.rpc<EvmLog[]>("eth_getLogs", [{
-          fromBlock: fromHex, toBlock: toHex, address: contract,
-          topics: [TRANSFER_TOPIC, null, topicAddress(address)],
-        }]);
+      const contractItems = tokens.filter(candidate =>
+        normalizeEvmAddress(candidate.asset.contractOrMint ?? "") === contract);
+      const addresses = tokenAddresses.filter(address => contractItems.some(candidate =>
+        normalizeEvmAddress(candidate.address.address) === address));
+      for (let offset = 0; offset < addresses.length; offset += 50) {
+        const logs = await queryEvmLogs<EvmLog>(
+          filter => this.rpc<EvmLog[]>("eth_getLogs", [filter]),
+          contract, addresses.slice(offset, offset + 50).map(topicAddress), from, to,
+          TRANSFER_TOPIC, queryBudget,
+        );
         for (const log of logs) {
+          if (log.removed === true || !log.blockNumber || !/^0x[0-9a-f]+$/i.test(log.blockNumber)) continue;
+          const height = BigInt(log.blockNumber);
+          if (height < BigInt(from) || height > BigInt(to)) continue;
+          const candidates = contractItems.flatMap(item => {
+            const parsed = parseEvmTransferLog(log, this.networkCode, item.address, item.asset);
+            return parsed ? [parsed] : [];
+          });
+          if (!candidates.length) continue;
           const transactionHash = log.transactionHash;
-           const receipt = transactionHash
-             ? await this.rpc<{ status?: string; blockNumber?: string; blockHash?: string; logs?: EvmLog[] } | null>("eth_getTransactionReceipt", [transactionHash])
+          const receipt = transactionHash
+            ? await read<{ status?: string; blockNumber?: string; blockHash?: string; logs?: EvmLog[] } | null>("eth_getTransactionReceipt", [transactionHash])
             : null;
-           if (
-             receipt?.status !== "0x1" ||
-             !transactionHash ||
-             !log.blockHash ||
-             !log.blockNumber ||
-             !receipt.blockNumber ||
-             !receipt.blockHash ||
-             logIndexInvalid(log.logIndex)
-           ) continue;
-          const parsed = parseEvmTransferLog(log, this.networkCode, item.address, item.asset);
-           if (parsed && receipt.logs?.some(receiptLog => tokenEventMatchesLog(
-             receiptLog,
-             transactionHash,
-             parsed.contractOrMint ?? "",
-             parsed.toAddress,
-             parsed.rawAmount,
-             log.logIndex!,
-           ))) {
-             const fullBlock = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [log.blockNumber, true]);
-             if (
-               !fullBlock?.hash ||
-               !fullBlock.number ||
-               BigInt(fullBlock.number) !== BigInt(log.blockNumber) ||
-               BigInt(receipt.blockNumber) !== BigInt(log.blockNumber) ||
-               !sameHash(log.blockHash, receipt.blockHash) ||
-               !sameHash(receipt.blockHash, fullBlock.hash) ||
+          if (
+            receipt?.status !== "0x1" ||
+            !transactionHash ||
+            !log.blockHash ||
+            !log.blockNumber ||
+            !receipt.blockNumber ||
+            !receipt.blockHash ||
+            logIndexInvalid(log.logIndex)
+          ) continue;
+          for (const parsed of candidates) {
+            if (receipt.logs?.some(receiptLog => tokenEventMatchesLog(
+              receiptLog,
+              transactionHash,
+              parsed.contractOrMint ?? "",
+              parsed.toAddress,
+              parsed.rawAmount,
+              log.logIndex!,
+            ))) {
+              const fullBlock = await read<EvmBlock | null>("eth_getBlockByNumber", [log.blockNumber, false]);
+              if (
+                !fullBlock?.hash ||
+                !fullBlock.number ||
+                BigInt(fullBlock.number) !== BigInt(log.blockNumber) ||
+                BigInt(receipt.blockNumber) !== BigInt(log.blockNumber) ||
+                !sameHash(log.blockHash, receipt.blockHash) ||
+                !sameHash(receipt.blockHash, fullBlock.hash) ||
                 !transactionIsInBlock(fullBlock, transactionHash)
-             ) continue;
-             evidence.push({ ...parsed, blockHash: fullBlock.hash, blockTimestamp: fullBlock.timestamp ? new Date(Number(BigInt(fullBlock.timestamp)) * 1000).toISOString() : undefined });
+              ) continue;
+              evidence.push({ ...parsed, blockHash: fullBlock.hash, blockTimestamp: fullBlock.timestamp ? new Date(Number(BigInt(fullBlock.timestamp)) * 1000).toISOString() : undefined });
+            }
           }
         }
       }
@@ -423,7 +448,7 @@ export class EvmJsonRpcAdapter implements BlockchainMonitorAdapter {
       return { exists: Boolean(receipt), successful: false, canonical: false, confirmations: 0, finalized: false };
     }
     const head = BigInt(await this.rpc<string>("eth_blockNumber", []));
-    const block = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [receipt.blockNumber, true]);
+    const block = await this.rpc<EvmBlock | null>("eth_getBlockByNumber", [receipt.blockNumber, false]);
     const confirmations = head >= BigInt(receipt.blockNumber) ? Number(head - BigInt(receipt.blockNumber) + 1n) : 0;
     const transactionCanonical = transactionIsInBlock(block, evidence.transactionHash);
     const hashCanonical = Boolean(

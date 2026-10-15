@@ -336,3 +336,17 @@ mtime_ms = 1792022196805
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/83c682a0-fd07-41a8-86ac-3b0b074a76a2/34318185-4998-4c77-a9ff-7af7c05c6324"
 storage_version_token = "1792022227362476"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "9ByQQVwrrqY0pEciDsWUt"
+uri = "file://ERC20_BEP20_RPC_STABILIZATION_REPORT.md"
+type = "text"
+title = "ERC20 & BEP20 RPC Stabilization Report"
+description = "Implemented RPC optimizations, 82 passing regressions, real provider diagnostics, and the exact remaining capacity and approval requirements."
+logical_id = "c60cde8e-c443-455c-b5ea-ae2f3531fd08"
+content_hash = "sha256:39fb985b0bf8b88ed9583a2349ae883eea9aca882f1ba4b60e6012d31bcbb608"
+size = 8435
+mtime_ms = 1792026598662
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/c60cde8e-c443-455c-b5ea-ae2f3531fd08/e45f65e9-28d7-462c-8724-2626041d7a27"
+storage_version_token = "1792026622903776"
+content_type = "text/markdown"

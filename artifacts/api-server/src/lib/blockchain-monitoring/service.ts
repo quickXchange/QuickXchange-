@@ -1584,7 +1584,11 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       if (network.chainId && connection.chainId?.toLowerCase() !== network.chainId.toLowerCase()) {
         throw new Error("Configured blockchain network identity did not match provider.");
       }
-       const head = await adapter.getHead();
+       // testConnection already obtained a fresh verified head in this cycle.
+       // Never reuse it across cycles or for subsequent confirmation checks.
+       const head = network.adapterKind === "evm"
+         ? { cursor: connection.head, observedAt: new Date().toISOString() }
+         : await adapter.getHead();
        const recoveryEligible = await ensureVerifiedErc20RecoveryAssetEligibility(
          network,
          leaseToken,

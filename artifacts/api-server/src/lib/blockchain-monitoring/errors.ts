@@ -1,7 +1,7 @@
 export type ProviderFailure = {
   httpStatus?: number;
   rpcCode?: number;
-  reason?: "quota_exhausted" | "rate_limited" | "unauthorized" | "forbidden" | "rpc_rejected";
+  reason?: "quota_exhausted" | "rate_limited" | "unauthorized" | "forbidden" | "range_limited" | "rpc_rejected";
   retryAfterMs?: number;
 };
 
@@ -13,9 +13,13 @@ export function providerFailureDetails(value: unknown, httpStatus?: number, retr
   const rpcCode = error && typeof error === "object" && "code" in error &&
     typeof error.code === "number" && Number.isSafeInteger(error.code) ? error.code : undefined;
   const quota = /month.*(?:capacity|limit|quota|credit)|(?:capacity|limit|quota|credit).*month/i.test(message);
-  const reason = quota ? "quota_exhausted" : httpStatus === 429 || rpcCode === 429
+  const reason = quota ? "quota_exhausted" : httpStatus === 429 || rpcCode === 429 ||
+    /rate limit|too many requests|requests per second|compute units per second/i.test(message)
     ? "rate_limited" : httpStatus === 401 ? "unauthorized" :
-      httpStatus === 403 ? "forbidden" : rpcCode !== undefined ? "rpc_rejected" : undefined;
+      httpStatus === 403 ? "forbidden" :
+        /block range|too many (?:results|addresses)|query returned more|response size|limit exceeded/i.test(message)
+          && rpcCode !== undefined ? "range_limited" :
+        rpcCode !== undefined ? "rpc_rejected" : undefined;
   let retryAfterMs: number | undefined;
   if (reason === "quota_exhausted" || reason === "rate_limited") {
     const seconds = retryAfter?.trim() && /^\d+$/.test(retryAfter.trim()) ? Number(retryAfter) * 1000 : NaN;
