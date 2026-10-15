@@ -11156,7 +11156,9 @@ export const createCryptoDepositProviderSwitchJobBodyOneWhitebitMappingsMax = 50
 export const createCryptoDepositProviderSwitchJobBodyTwoOperationIdMin = 16;
 export const createCryptoDepositProviderSwitchJobBodyTwoOperationIdMax = 80;
 
-
+export const createCryptoDepositProviderSwitchJobBodyTwoMonitoringRpcMonitoringDefault = `auto`;
+export const createCryptoDepositProviderSwitchJobBodyTwoMonitoringNetworkMonitorDefault = `auto`;
+export const createCryptoDepositProviderSwitchJobBodyTwoMonitoringAssetMonitoringDefault = `auto`;
 
 export const CreateCryptoDepositProviderSwitchJobBody = zod.object({
   "networkIds": zod.array(zod.string().regex(createCryptoDepositProviderSwitchJobBodyOneNetworkIdsItemRegExp)).min(1).max(createCryptoDepositProviderSwitchJobBodyOneNetworkIdsMax),
@@ -11169,23 +11171,42 @@ export const CreateCryptoDepositProviderSwitchJobBody = zod.object({
 })).max(createCryptoDepositProviderSwitchJobBodyOneWhitebitMappingsMax).optional()
 }).and(zod.object({
   "operationId": zod.string().min(createCryptoDepositProviderSwitchJobBodyTwoOperationIdMin).max(createCryptoDepositProviderSwitchJobBodyTwoOperationIdMax),
-  "confirmRealAddressCreation": zod.boolean()
+  "confirmRealAddressCreation": zod.boolean(),
+  "monitoring": zod.object({
+  "rpcMonitoring": zod.enum(['auto', 'enable', 'disable', 'keep']).default(createCryptoDepositProviderSwitchJobBodyTwoMonitoringRpcMonitoringDefault),
+  "networkMonitor": zod.enum(['auto', 'enable', 'disable', 'keep']).default(createCryptoDepositProviderSwitchJobBodyTwoMonitoringNetworkMonitorDefault),
+  "assetMonitoring": zod.enum(['auto', 'enable', 'disable', 'keep']).default(createCryptoDepositProviderSwitchJobBodyTwoMonitoringAssetMonitoringDefault)
+}).optional()
 }))
+
+export const createCryptoDepositProviderSwitchJobResponseMonitoringRpcMonitoringDefault = `auto`;
+export const createCryptoDepositProviderSwitchJobResponseMonitoringNetworkMonitorDefault = `auto`;
+export const createCryptoDepositProviderSwitchJobResponseMonitoringAssetMonitoringDefault = `auto`;
 
 export const CreateCryptoDepositProviderSwitchJobResponse = zod.object({
   "id": zod.string(),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']),
   "createdAt": zod.coerce.date(),
+  "monitoring": zod.object({
+  "rpcMonitoring": zod.enum(['auto', 'enable', 'disable', 'keep']).default(createCryptoDepositProviderSwitchJobResponseMonitoringRpcMonitoringDefault),
+  "networkMonitor": zod.enum(['auto', 'enable', 'disable', 'keep']).default(createCryptoDepositProviderSwitchJobResponseMonitoringNetworkMonitorDefault),
+  "assetMonitoring": zod.enum(['auto', 'enable', 'disable', 'keep']).default(createCryptoDepositProviderSwitchJobResponseMonitoringAssetMonitoringDefault)
+}).optional(),
   "routes": zod.array(zod.object({
   "networkId": zod.string(),
   "originalCustomerDepositsEnabled": zod.boolean(),
   "status": zod.enum(['queued', 'running', 'succeeded', 'failed']),
-  "step": zod.enum(['pending', 'disabling', 'assigning', 'verifying', 'restoring', 'checking', 'completed', 'failed']),
+  "step": zod.enum(['pending', 'disabling', 'assigning', 'monitoring', 'verifying', 'restoring', 'checking', 'completed', 'failed']),
   "message": zod.string(),
   "errorCode": zod.string().nullish(),
   "attempts": zod.number().int(),
   "customerDepositsEnabled": zod.boolean(),
-  "savedProvider": zod.string()
+  "savedProvider": zod.string(),
+  "rpcStatus": zod.string().optional(),
+  "networkMonitorEnabled": zod.boolean().nullish(),
+  "assetMonitoringEnabled": zod.boolean().nullish(),
+  "rpcTrackingEnabled": zod.boolean().optional(),
+  "monitoringMessage": zod.string().nullish()
 }))
 })
 
@@ -11194,20 +11215,34 @@ export const GetCryptoDepositProviderSwitchJobParams = zod.object({
   "jobId": zod.coerce.string()
 })
 
+export const getCryptoDepositProviderSwitchJobResponseMonitoringRpcMonitoringDefault = `auto`;
+export const getCryptoDepositProviderSwitchJobResponseMonitoringNetworkMonitorDefault = `auto`;
+export const getCryptoDepositProviderSwitchJobResponseMonitoringAssetMonitoringDefault = `auto`;
+
 export const GetCryptoDepositProviderSwitchJobResponse = zod.object({
   "id": zod.string(),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']),
   "createdAt": zod.coerce.date(),
+  "monitoring": zod.object({
+  "rpcMonitoring": zod.enum(['auto', 'enable', 'disable', 'keep']).default(getCryptoDepositProviderSwitchJobResponseMonitoringRpcMonitoringDefault),
+  "networkMonitor": zod.enum(['auto', 'enable', 'disable', 'keep']).default(getCryptoDepositProviderSwitchJobResponseMonitoringNetworkMonitorDefault),
+  "assetMonitoring": zod.enum(['auto', 'enable', 'disable', 'keep']).default(getCryptoDepositProviderSwitchJobResponseMonitoringAssetMonitoringDefault)
+}).optional(),
   "routes": zod.array(zod.object({
   "networkId": zod.string(),
   "originalCustomerDepositsEnabled": zod.boolean(),
   "status": zod.enum(['queued', 'running', 'succeeded', 'failed']),
-  "step": zod.enum(['pending', 'disabling', 'assigning', 'verifying', 'restoring', 'checking', 'completed', 'failed']),
+  "step": zod.enum(['pending', 'disabling', 'assigning', 'monitoring', 'verifying', 'restoring', 'checking', 'completed', 'failed']),
   "message": zod.string(),
   "errorCode": zod.string().nullish(),
   "attempts": zod.number().int(),
   "customerDepositsEnabled": zod.boolean(),
-  "savedProvider": zod.string()
+  "savedProvider": zod.string(),
+  "rpcStatus": zod.string().optional(),
+  "networkMonitorEnabled": zod.boolean().nullish(),
+  "assetMonitoringEnabled": zod.boolean().nullish(),
+  "rpcTrackingEnabled": zod.boolean().optional(),
+  "monitoringMessage": zod.string().nullish()
 }))
 })
 
@@ -11224,20 +11259,34 @@ export const RetryCryptoDepositProviderSwitchRouteBody = zod.object({
   "confirmRealAddressCreation": zod.boolean()
 })
 
+export const retryCryptoDepositProviderSwitchRouteResponseMonitoringRpcMonitoringDefault = `auto`;
+export const retryCryptoDepositProviderSwitchRouteResponseMonitoringNetworkMonitorDefault = `auto`;
+export const retryCryptoDepositProviderSwitchRouteResponseMonitoringAssetMonitoringDefault = `auto`;
+
 export const RetryCryptoDepositProviderSwitchRouteResponse = zod.object({
   "id": zod.string(),
   "depositProvider": zod.enum(['none', 'manual', 'whitebit']),
   "createdAt": zod.coerce.date(),
+  "monitoring": zod.object({
+  "rpcMonitoring": zod.enum(['auto', 'enable', 'disable', 'keep']).default(retryCryptoDepositProviderSwitchRouteResponseMonitoringRpcMonitoringDefault),
+  "networkMonitor": zod.enum(['auto', 'enable', 'disable', 'keep']).default(retryCryptoDepositProviderSwitchRouteResponseMonitoringNetworkMonitorDefault),
+  "assetMonitoring": zod.enum(['auto', 'enable', 'disable', 'keep']).default(retryCryptoDepositProviderSwitchRouteResponseMonitoringAssetMonitoringDefault)
+}).optional(),
   "routes": zod.array(zod.object({
   "networkId": zod.string(),
   "originalCustomerDepositsEnabled": zod.boolean(),
   "status": zod.enum(['queued', 'running', 'succeeded', 'failed']),
-  "step": zod.enum(['pending', 'disabling', 'assigning', 'verifying', 'restoring', 'checking', 'completed', 'failed']),
+  "step": zod.enum(['pending', 'disabling', 'assigning', 'monitoring', 'verifying', 'restoring', 'checking', 'completed', 'failed']),
   "message": zod.string(),
   "errorCode": zod.string().nullish(),
   "attempts": zod.number().int(),
   "customerDepositsEnabled": zod.boolean(),
-  "savedProvider": zod.string()
+  "savedProvider": zod.string(),
+  "rpcStatus": zod.string().optional(),
+  "networkMonitorEnabled": zod.boolean().nullish(),
+  "assetMonitoringEnabled": zod.boolean().nullish(),
+  "rpcTrackingEnabled": zod.boolean().optional(),
+  "monitoringMessage": zod.string().nullish()
 }))
 })
 

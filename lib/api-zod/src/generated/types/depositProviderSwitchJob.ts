@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DepositProviderMonitoringOptions } from './depositProviderMonitoringOptions';
 import type { DepositProviderSwitchJobDepositProvider } from './depositProviderSwitchJobDepositProvider';
 import type { DepositProviderSwitchRoute } from './depositProviderSwitchRoute';
 
@@ -12,5 +13,6 @@ export interface DepositProviderSwitchJob {
   id: string;
   depositProvider: DepositProviderSwitchJobDepositProvider;
   createdAt: Date;
+  monitoring?: DepositProviderMonitoringOptions;
   routes: DepositProviderSwitchRoute[];
 }

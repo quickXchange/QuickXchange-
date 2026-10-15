@@ -18,7 +18,9 @@ fence and waking promptly when work or Manual/fallback availability appears.
 Never use catalog edits alone to retire or redirect an existing address.
 
 WhiteBIT-only networks, across all supported adapters, with no independent work or effective Manual fallback
-should pause periodic RPC completely, not erase or disable their configuration.
+should pause periodic RPC completely, not erase endpoint/provider/wallet configuration.
+Explicit Owner bulk monitoring controls may change enable flags while preserving
+those settings and honoring independent workload protections.
 Selecting Manual resumes readiness, not customer deposit permission.
 
 **Why:** The Owner requested zero unnecessary polling while retaining reversible
@@ -51,3 +53,19 @@ outbound request, and hosting environments can share or override provider accoun
 network/method/purpose without sensitive material, and distinguish modeled CUs
 from provider account usage. Reconcile invoices with provider-side records rather
 than asserting exact historical attribution from source code alone.
+
+Bulk RPC intent is provider-aware only in Automatic mode. Keep Current genuinely
+preserves the corresponding switch. Explicitly disabling Manual monitoring must
+leave new Customer Deposits OFF, even if the operation originally captured ON.
+A shared network may remain enabled while the selected asset monitor is OFF.
+
+**Why:** The Owner requested reversible, independently controllable monitoring;
+restoring the old deposit flag without working RPC would contradict that intent.
+Network-level obligations from another asset must not be mistaken for a problem
+with a safely disabled selected asset.
+
+**How to apply:** Reuse the worker's immutable-order workload query for guards
+and progress. Preserve watches, confirmation/reorg evidence and missing-watch
+legacy obligations. RPC preparation returns a proof but does not publish it:
+persist it only after the job fence and exact current configuration still match,
+then use the existing readiness authority before restoring deposit permission.

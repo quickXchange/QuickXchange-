@@ -4762,3 +4762,176 @@ test("automated Manual and None assignments preserve wallets and fail closed whe
       .where(eq(database.blockchainMonitorAssetsTable.id, asset.id));
   }
 });
+
+async function testBulkRpcControls() {
+  const suffix = randomUUID();
+  const monitorId = `bulk-rpc-${suffix}`;
+  const endpointRef = `QX_TEST_BULK_RPC_${suffix.replaceAll("-", "_")}`;
+  const endpoint = `https://rpc-${suffix}.invalid`;
+  const wallet = validBitcoinAddress();
+  const [source] = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  // Retain earlier synthetic financial obligations on their original route.
+  // Bitcoin validation and provider mapping normalize this code's case.
+  const original = { ...source, id: `bulk-btc-${suffix}`, networkCode: source.networkCode.toLowerCase() };
+  await database.db.insert(database.cryptoAssetNetworksTable).values(original);
+  const existingLinks = await database.db.select().from(database.blockchainMonitorAssetsTable)
+    .where(eq(database.blockchainMonitorAssetsTable.assetNetworkId, original.id));
+  assert.equal(existingLinks.length, 0, "fixture expects a fresh exact Bitcoin monitor");
+  process.env[endpointRef] = endpoint;
+  let rpcCalls = 0;
+  const delegate = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    if (String(input) === endpoint) {
+      rpcCalls++;
+      const request = JSON.parse(String(init?.body));
+      const result = request.method === "getblockchaininfo" ? { chain: "main", blocks: 100, bestblockhash: "a".repeat(64) }
+        : request.method === "getblockcount" ? 100 : request.method === "getblockhash" ? "a".repeat(64) : null;
+      assert.notEqual(result, null, `Unexpected fixture RPC ${request.method}`);
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }));
+    }
+    return delegate(input, init);
+  };
+  const monitor = database.blockchainMonitorNetworksTable;
+  const assetTable = database.blockchainMonitorAssetsTable;
+  await database.db.insert(monitor).values({
+    id: monitorId, networkName: "Synthetic Bitcoin RPC", networkCode: original.networkCode, adapterKind: "bitcoin", providerKind: "rpc",
+    chainId: "main", endpointSecretRef: endpointRef, enabled: false, pollIntervalSeconds: 30,
+  });
+  const [asset] = await database.db.insert(assetTable).values({
+    monitorNetworkId: monitorId, assetNetworkId: original.id, identityKind: "native",
+    contractOrMint: null, decimals: original.decimals, enabled: false,
+  }).returning();
+  let orderId: string | undefined;
+  try {
+    await mockAssets("BITCOIN", "BTC");
+    // Preserve the RPC interceptor when replacing only WhiteBIT mock behaviour.
+    const whitebitDelegate = globalThis.fetch;
+    globalThis.fetch = async (input, init) => String(input) === endpoint
+      ? (() => {
+        rpcCalls++;
+        const request = JSON.parse(String(init?.body));
+        return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: request.id,
+          result: request.method === "getblockchaininfo" ? { chain: "main", blocks: 100, bestblockhash: "a".repeat(64) }
+            : request.method === "getblockcount" ? 100 : "a".repeat(64) })));
+      })() : whitebitDelegate(input, init);
+    await database.db.update(database.cryptoAssetNetworksTable).set({
+      enabled: true, customerDepositsEnabled: true, depositProvider: "whitebit",
+      sharedDepositAddress: wallet, manualWalletTrackingEnabled: false,
+      requiresMemo: false,
+    }).where(eq(database.cryptoAssetNetworksTable.id, original.id));
+    const headers = { "x-test-operator": ownerClerkUserId, "Content-Type": "application/json" };
+    const post = (path: string, body: unknown) => originalFetch(`${baseUrl}/api/admin/crypto-networks/deposit-provider/${path}`,
+      { method: "POST", headers, body: JSON.stringify(body) });
+    const start = async (provider: string, monitoring: Record<string, string>) => {
+      const reviewResponse = await post("preview", { networkIds: [original.id], depositProvider: provider });
+      assert.equal(reviewResponse.status, 200, await reviewResponse.clone().text());
+      const review = await reviewResponse.json() as { reviewToken: string };
+      const id = randomUUID();
+      const response = await post("jobs", { networkIds: [original.id], depositProvider: provider,
+        reviewToken: review.reviewToken, operationId: id, confirmRealAddressCreation: true, monitoring });
+      assert.equal(response.status, 200, await response.clone().text());
+      return { id, route: (await waitForProviderSwitch(id)).routes[0] };
+    };
+    const manual = await start("manual", { rpcMonitoring: "auto" });
+    assert.equal(manual.route.status, "succeeded", manual.route.message);
+    assert.equal(manual.route.customerDepositsEnabled, true);
+    assert.equal(manual.route.rpcTrackingEnabled, true);
+    assert.equal(manual.route.networkMonitorEnabled, true);
+    assert.equal(manual.route.assetMonitoringEnabled, true);
+    assert.equal(manual.route.rpcStatus, "ACTIVE");
+    assert.ok(rpcCalls >= 3, "actual adapter must verify the mocked RPC");
+    const beforeWhitebit = rpcCalls;
+    const whitebit = await start("whitebit", { rpcMonitoring: "auto" });
+    assert.equal(whitebit.route.status, "succeeded", whitebit.route.message);
+    assert.equal(whitebit.route.customerDepositsEnabled, true);
+    assert.equal(whitebit.route.rpcStatus, "OFF");
+    assert.equal(whitebit.route.networkMonitorEnabled, false);
+    assert.equal(whitebit.route.assetMonitoringEnabled, false);
+    assert.equal(rpcCalls, beforeWhitebit, "WhiteBIT-only assignment must not probe RPC");
+    const kept = await start("whitebit", { rpcMonitoring: "keep", networkMonitor: "keep", assetMonitoring: "keep" });
+    assert.equal(kept.route.status, "succeeded", kept.route.message);
+    assert.equal(kept.route.networkMonitorEnabled, false);
+    assert.equal(kept.route.assetMonitoringEnabled, false);
+    assert.equal(kept.route.rpcTrackingEnabled, false);
+    const enabled = await start("manual", { rpcMonitoring: "enable", networkMonitor: "enable", assetMonitoring: "enable" });
+    assert.equal(enabled.route.status, "succeeded", enabled.route.message);
+    const disabled = await start("manual", { rpcMonitoring: "disable" });
+    assert.equal(disabled.route.status, "succeeded", disabled.route.message);
+    assert.equal(disabled.route.customerDepositsEnabled, false, "explicit disable must never restore Manual deposits");
+    assert.equal(disabled.route.rpcStatus, "OFF");
+    const restored = await start("manual", { rpcMonitoring: "auto" });
+    assert.equal(restored.route.status, "succeeded", restored.route.message);
+    assert.equal(restored.route.customerDepositsEnabled, false, "original OFF remains OFF even after RPC restoration");
+    const [savedMonitor] = await database.db.select().from(monitor).where(eq(monitor.id, monitorId));
+    assert.equal(savedMonitor.endpointSecretRef, endpointRef);
+    assert.equal(savedMonitor.chainId, "main");
+    assert.equal(savedMonitor.adapterKind, "bitcoin");
+    orderId = `rpc-obligation-${suffix}`;
+    await database.db.insert(database.ordersTable).values({
+      id: orderId, status: "awaiting funds", fromAsset: "BTC", fromNetwork: original.networkCode,
+      toAsset: "EUR", toNetwork: "SEPA", amount: "0.001", receiveAmount: "100",
+      customerEmail: "rpc-fixture@example.test", provider: "Manual desk",
+      providerOrderId: "", clientRequestId: randomUUID(),
+      type: "manual", fundingProviderSource: "manual", fundingStatus: "ready_manual",
+      manualSettlementState: "awaiting_funds", sourceSettlementOptionId: `crypto:${original.id}`,
+      fundingDetailsSnapshot: { networkId: original.id, depositProvider: "manual",
+        depositAddress: wallet },
+    });
+    // No active watch yet: the existing eligible legacy-order query must protect it.
+    const gap = await start("whitebit", { rpcMonitoring: "disable" });
+    assert.equal(gap.route.status, "failed");
+    assert.equal(gap.route.errorCode, "RPC_MONITORING_OBLIGATIONS_ACTIVE");
+    assert.equal(gap.route.customerDepositsEnabled, false);
+    assert.equal(gap.route.networkMonitorEnabled, true);
+    assert.equal(gap.route.assetMonitoringEnabled, true);
+    const automatic = await start("whitebit", { rpcMonitoring: "auto" });
+    assert.equal(automatic.route.status, "succeeded", automatic.route.message);
+    assert.equal(automatic.route.networkMonitorEnabled, true);
+    assert.equal(automatic.route.assetMonitoringEnabled, true);
+    assert.equal(automatic.route.rpcStatus, "PRESERVED_FOR_OBLIGATIONS");
+    const [watch] = await database.db.insert(database.blockchainMonitorWatchesTable).values({
+      orderId, monitorNetworkId: monitorId, monitorAssetId: asset.id, assetNetworkId: original.id,
+      receivingAddress: wallet, expectedAmount: "0.001", identityKind: "native",
+      decimals: original.decimals, orderCreatedAt: new Date(), active: true,
+    }).returning();
+    const protectedDisable = await start("whitebit", { rpcMonitoring: "disable" });
+    assert.equal(protectedDisable.route.errorCode, "RPC_MONITORING_OBLIGATIONS_ACTIVE");
+    const [savedWatch] = await database.db.select().from(database.blockchainMonitorWatchesTable)
+      .where(eq(database.blockchainMonitorWatchesTable.id, watch.id));
+    assert.equal(savedWatch.active, true);
+    assert.equal(savedWatch.receivingAddress, wallet);
+    await database.db.update(database.blockchainMonitorWatchesTable).set({ active: false })
+      .where(eq(database.blockchainMonitorWatchesTable.id, watch.id));
+    await database.db.update(database.ordersTable).set({ manualSettlementState: "completed" })
+      .where(eq(database.ordersTable.id, orderId));
+    const [observation] = await database.db.insert(database.blockchainMonitorObservationsTable).values({
+      monitorNetworkId: monitorId, monitorAssetId: asset.id, transactionHash: "b".repeat(64),
+      toAddress: wallet, amount: "0.001", payloadDigest: "c".repeat(64), confirmations: 1,
+    }).returning();
+    const [pending] = await database.db.insert(database.blockchainMonitorMatchesTable).values({
+      watchId: watch.id, observationId: observation.id, orderId, state: "confirming",
+      confirmations: 1, confirmationsRequired: 3,
+    }).returning();
+    const confirming = await start("whitebit", { rpcMonitoring: "disable" });
+    assert.equal(confirming.route.errorCode, "RPC_MONITORING_OBLIGATIONS_ACTIVE",
+      "pending confirmations remain protected even with an inactive watch and completed order");
+    await database.db.update(database.blockchainMonitorMatchesTable).set({ state: "rejected" })
+      .where(eq(database.blockchainMonitorMatchesTable.id, pending.id));
+    assert.equal((await post(`jobs/${protectedDisable.id}/retry`, {
+      networkId: original.id, confirmRealAddressCreation: true,
+    })).status, 200);
+    const retried = (await waitForProviderSwitch(protectedDisable.id)).routes[0];
+    assert.equal(retried.status, "succeeded", retried.message);
+    assert.equal(retried.rpcStatus, "OFF");
+    assert.equal(retried.customerDepositsEnabled, false);
+  } finally {
+    delete process.env[endpointRef];
+    globalThis.fetch = delegate;
+    await database.db.update(database.cryptoAssetNetworksTable).set(original)
+      .where(eq(database.cryptoAssetNetworksTable.id, original.id));
+    // All new records belong to the disposable fixture; no real data is removed.
+  }
+}
+
+test("automated RPC controls switch Manual and WhiteBIT safely, preserve configuration and protect legacy obligations", testBulkRpcControls);

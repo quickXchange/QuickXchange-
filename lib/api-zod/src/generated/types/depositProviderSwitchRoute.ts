@@ -19,4 +19,12 @@ export interface DepositProviderSwitchRoute {
   attempts: number;
   customerDepositsEnabled: boolean;
   savedProvider: string;
+  rpcStatus?: string;
+  /** @nullable */
+  networkMonitorEnabled?: boolean | null;
+  /** @nullable */
+  assetMonitoringEnabled?: boolean | null;
+  rpcTrackingEnabled?: boolean;
+  /** @nullable */
+  monitoringMessage?: string | null;
 }

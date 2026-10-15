@@ -43,6 +43,42 @@ export interface CryptoDepositProviderAssignmentApply {
   whitebitMappings?: WhitebitRouteMappingSelection[];
 }
 
+export type DepositProviderMonitoringOptionsRpcMonitoring = typeof DepositProviderMonitoringOptionsRpcMonitoring[keyof typeof DepositProviderMonitoringOptionsRpcMonitoring];
+
+
+export const DepositProviderMonitoringOptionsRpcMonitoring = {
+  auto: 'auto',
+  enable: 'enable',
+  disable: 'disable',
+  keep: 'keep',
+} as const;
+
+export type DepositProviderMonitoringOptionsNetworkMonitor = typeof DepositProviderMonitoringOptionsNetworkMonitor[keyof typeof DepositProviderMonitoringOptionsNetworkMonitor];
+
+
+export const DepositProviderMonitoringOptionsNetworkMonitor = {
+  auto: 'auto',
+  enable: 'enable',
+  disable: 'disable',
+  keep: 'keep',
+} as const;
+
+export type DepositProviderMonitoringOptionsAssetMonitoring = typeof DepositProviderMonitoringOptionsAssetMonitoring[keyof typeof DepositProviderMonitoringOptionsAssetMonitoring];
+
+
+export const DepositProviderMonitoringOptionsAssetMonitoring = {
+  auto: 'auto',
+  enable: 'enable',
+  disable: 'disable',
+  keep: 'keep',
+} as const;
+
+export interface DepositProviderMonitoringOptions {
+  rpcMonitoring?: DepositProviderMonitoringOptionsRpcMonitoring;
+  networkMonitor?: DepositProviderMonitoringOptionsNetworkMonitor;
+  assetMonitoring?: DepositProviderMonitoringOptionsAssetMonitoring;
+}
+
 export type DepositProviderSwitchInput = CryptoDepositProviderAssignmentApply & {
   /**
      * @minLength 16
@@ -50,6 +86,7 @@ export type DepositProviderSwitchInput = CryptoDepositProviderAssignmentApply & 
      */
   operationId: string;
   confirmRealAddressCreation: boolean;
+  monitoring?: DepositProviderMonitoringOptions;
 };
 
 export interface DepositProviderSwitchRetry {
@@ -75,6 +112,7 @@ export const DepositProviderSwitchRouteStep = {
   pending: 'pending',
   disabling: 'disabling',
   assigning: 'assigning',
+  monitoring: 'monitoring',
   verifying: 'verifying',
   restoring: 'restoring',
   checking: 'checking',
@@ -93,6 +131,14 @@ export interface DepositProviderSwitchRoute {
   attempts: number;
   customerDepositsEnabled: boolean;
   savedProvider: string;
+  rpcStatus?: string;
+  /** @nullable */
+  networkMonitorEnabled?: boolean | null;
+  /** @nullable */
+  assetMonitoringEnabled?: boolean | null;
+  rpcTrackingEnabled?: boolean;
+  /** @nullable */
+  monitoringMessage?: string | null;
 }
 
 export type DepositProviderSwitchJobDepositProvider = typeof DepositProviderSwitchJobDepositProvider[keyof typeof DepositProviderSwitchJobDepositProvider];
@@ -108,6 +154,7 @@ export interface DepositProviderSwitchJob {
   id: string;
   depositProvider: DepositProviderSwitchJobDepositProvider;
   createdAt: string;
+  monitoring?: DepositProviderMonitoringOptions;
   routes: DepositProviderSwitchRoute[];
 }
 

@@ -12,6 +12,7 @@ import {
   db,
   ordersTable,
 } from "@workspace/db";
+import { alias } from "drizzle-orm/pg-core";
 import { randomUUID, createHash } from "node:crypto";
 import { createBlockchainMonitorAdapter, type IncomingEvidence, type MonitorAsset, type ScanCursor, type WatchedAddress } from "./index";
 import { normalizeTronAddress, TRON_MAINNET_CHAIN_ID } from "./tron";
@@ -1500,25 +1501,32 @@ async function refreshConfirming(
   }
 }
 
-export async function runBlockchainMonitoringCycle(): Promise<void> {
-  if (cycleRunning) return;
-  cycleRunning = true;
-  try {
-  await reconcileResolvableRegistrationGaps();
+export async function getMonitoringNetworkWorkloads(
+  executor: Pick<typeof db, "select"> = db,
+  routeId: string | null = null,
+  routeIds?: string[],
+) {
+  const scopeAsset = alias(blockchainMonitorAssetsTable, "monitoring_scope_asset");
+  const scope = routeIds ? sql`monitoring_scope_asset.asset_network_id` : sql`${routeId}`;
   // Keep correlated SQL columns explicitly qualified: Drizzle SELECT-fragment
   // column interpolation can strip table names and bind to the inner table.
-  const networks = await db.select({
+  return executor.select({
     network: blockchainMonitorNetworksTable,
+    assetNetworkId: scopeAsset.assetNetworkId,
     activeWatches: sql<boolean>`exists (
       select 1 from ${blockchainMonitorWatchesTable}
       where blockchain_monitor_watches.monitor_network_id = blockchain_monitor_networks.id
         and blockchain_monitor_watches.active = true
+        and (${scope}::text is null or blockchain_monitor_watches.asset_network_id = ${scope})
     )`,
     pendingEvidence: sql<boolean>`exists (
       select 1 from ${blockchainMonitorMatchesTable}
       join ${blockchainMonitorObservationsTable}
         on blockchain_monitor_observations.id = blockchain_monitor_matches.observation_id
+      join ${blockchainMonitorWatchesTable}
+        on blockchain_monitor_watches.id = blockchain_monitor_matches.watch_id
       where blockchain_monitor_observations.monitor_network_id = blockchain_monitor_networks.id
+        and (${scope}::text is null or blockchain_monitor_watches.asset_network_id = ${scope})
         and (blockchain_monitor_matches.state in ('confirming','matched','needs_review') or
           (blockchain_monitor_matches.state = 'applied'
             and blockchain_monitor_matches.applied_at >= now() - interval '1 hour'))
@@ -1528,6 +1536,8 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       join ${ordersTable} on exchange_orders.id = blockchain_monitor_registration_gaps.order_id
       where blockchain_monitor_registration_gaps.network_code = blockchain_monitor_networks.network_code
         and blockchain_monitor_registration_gaps.resolved_at is null and ${ELIGIBLE}
+        and (${scope}::text is null or coalesce(nullif(exchange_orders.funding_details_snapshot ->> 'networkId', ''),
+          regexp_replace(coalesce(exchange_orders.source_settlement_option_id, ''), '^crypto:', '')) = ${scope})
     ) or exists (
       select 1 from ${ordersTable}
       join ${cryptoAssetNetworksTable}
@@ -1537,6 +1547,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
         )
       where crypto_asset_networks.network_code = blockchain_monitor_networks.network_code
         and ${ELIGIBLE}
+        and (${scope}::text is null or crypto_asset_networks.id = ${scope})
         and not exists (
           select 1 from ${blockchainMonitorWatchesTable}
           where blockchain_monitor_watches.order_id = exchange_orders.id
@@ -1550,6 +1561,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
       join ${cryptoAssetsTable}
         on crypto_assets.id = crypto_asset_networks.asset_id
       where blockchain_monitor_assets.monitor_network_id = blockchain_monitor_networks.id
+        and (${scope}::text is null or blockchain_monitor_assets.asset_network_id = ${scope})
         and blockchain_monitor_assets.enabled = true
         and crypto_assets.enabled = true
         and crypto_assets.lifecycle <> 'deprecated'
@@ -1562,7 +1574,18 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
             and crypto_asset_networks.manual_wallet_tracking_enabled = true)
     )`,
   }).from(blockchainMonitorNetworksTable)
-    .where(and(eq(blockchainMonitorNetworksTable.enabled, true), inArray(blockchainMonitorNetworksTable.providerKind, ["rpc", "indexer"])));
+    .leftJoin(scopeAsset, and(eq(scopeAsset.monitorNetworkId, blockchainMonitorNetworksTable.id),
+      sql`${Boolean(routeIds)}`))
+    .where(and(inArray(blockchainMonitorNetworksTable.providerKind, ["rpc", "indexer"]),
+      routeIds ? inArray(scopeAsset.assetNetworkId, routeIds) : undefined));
+}
+
+export async function runBlockchainMonitoringCycle(): Promise<void> {
+  if (cycleRunning) return;
+  cycleRunning = true;
+  try {
+  await reconcileResolvableRegistrationGaps();
+  const networks = (await getMonitoringNetworkWorkloads()).filter(row => row.network.enabled);
   for (const { network, ...workload } of networks) {
     // Provider policy is independent of adapter: WhiteBIT-only TRON, Bitcoin
     // and Solana routes need the same safe pause gate as EVM routes.

@@ -6,6 +6,11 @@ export const depositProviderSwitchJobsTable = pgTable("deposit_provider_switch_j
   id: text("id").primaryKey(),
   requestDigest: text("request_digest").notNull(),
   depositProvider: text("deposit_provider").notNull(),
+  monitoring: jsonb("monitoring").$type<{
+    rpcMonitoring?: "auto" | "enable" | "disable" | "keep";
+    networkMonitor?: "auto" | "enable" | "disable" | "keep";
+    assetMonitoring?: "auto" | "enable" | "disable" | "keep";
+  } | null>(),
   actorId: text("actor_id").notNull(),
   actorAuthVersion: integer("actor_auth_version").notNull().default(0),
   actorClerkUserId: text("actor_clerk_user_id").notNull(),
@@ -22,6 +27,7 @@ export const depositProviderSwitchRoutesTable = pgTable("deposit_provider_switch
   step: text("step").notNull().default("pending"),
   message: text("message").notNull().default("Waiting to start"),
   errorCode: text("error_code"),
+  monitoringMessage: text("monitoring_message"),
   attempts: integer("attempts").notNull().default(0),
   verificationStartedAt: timestamp("verification_started_at", { withTimezone: true }),
   runToken: text("run_token"),

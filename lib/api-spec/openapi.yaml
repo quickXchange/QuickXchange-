@@ -4886,6 +4886,14 @@ components:
           properties:
             operationId: { type: string, minLength: 16, maxLength: 80 }
             confirmRealAddressCreation: { type: boolean }
+            monitoring:
+              $ref: "#/components/schemas/DepositProviderMonitoringOptions"
+    DepositProviderMonitoringOptions:
+      type: object
+      properties:
+        rpcMonitoring: { type: string, enum: [auto, enable, disable, keep], default: auto }
+        networkMonitor: { type: string, enum: [auto, enable, disable, keep], default: auto }
+        assetMonitoring: { type: string, enum: [auto, enable, disable, keep], default: auto }
     DepositProviderSwitchRetry:
       type: object
       required: [networkId, confirmRealAddressCreation]
@@ -4899,12 +4907,17 @@ components:
         networkId: { type: string }
         originalCustomerDepositsEnabled: { type: boolean }
         status: { type: string, enum: [queued, running, succeeded, failed] }
-        step: { type: string, enum: [pending, disabling, assigning, verifying, restoring, checking, completed, failed] }
+        step: { type: string, enum: [pending, disabling, assigning, monitoring, verifying, restoring, checking, completed, failed] }
         message: { type: string }
         errorCode: { type: [string, "null"] }
         attempts: { type: integer }
         customerDepositsEnabled: { type: boolean }
         savedProvider: { type: string }
+        rpcStatus: { type: string }
+        networkMonitorEnabled: { type: [boolean, "null"] }
+        assetMonitoringEnabled: { type: [boolean, "null"] }
+        rpcTrackingEnabled: { type: boolean }
+        monitoringMessage: { type: [string, "null"] }
     DepositProviderSwitchJob:
       type: object
       required: [id, depositProvider, createdAt, routes]
@@ -4912,6 +4925,8 @@ components:
         id: { type: string }
         depositProvider: { type: string, enum: [none, manual, whitebit] }
         createdAt: { type: string, format: date-time }
+        monitoring:
+          $ref: "#/components/schemas/DepositProviderMonitoringOptions"
         routes:
           type: array
           items: { $ref: "#/components/schemas/DepositProviderSwitchRoute" }

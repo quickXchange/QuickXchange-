@@ -13,6 +13,7 @@ export const DepositProviderSwitchRouteStep = {
   pending: 'pending',
   disabling: 'disabling',
   assigning: 'assigning',
+  monitoring: 'monitoring',
   verifying: 'verifying',
   restoring: 'restoring',
   checking: 'checking',

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CryptoDepositProviderAssignmentApply } from './cryptoDepositProviderAssignmentApply';
+import type { DepositProviderMonitoringOptions } from './depositProviderMonitoringOptions';
 
 export type DepositProviderSwitchInput = CryptoDepositProviderAssignmentApply & {
   /**
@@ -14,4 +15,5 @@ export type DepositProviderSwitchInput = CryptoDepositProviderAssignmentApply & 
      */
   operationId: string;
   confirmRealAddressCreation: boolean;
+  monitoring?: DepositProviderMonitoringOptions;
 };

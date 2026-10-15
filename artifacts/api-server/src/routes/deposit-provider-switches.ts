@@ -12,6 +12,7 @@ import { WhitebitProviderHttpError } from "./whitebit";
 import { requireOwner, getOperatorActorUserId, getOperatorAuthorization, type OperatorAuthorization } from "../lib/operator-auth";
 import { executeDepositProviderSwitch, type SwitchStep } from "../lib/deposit-provider-switch-workflow";
 import { logger } from "../lib/logger";
+import { applyProviderMonitoring, monitoringSnapshots, manualMonitoringIntentionallyDisabled, type MonitoringOptions } from "../lib/deposit-provider-monitoring";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type SwitchActor = { operator: OperatorAuthorization; clerkUserId: string; requestId: string };
@@ -22,7 +23,7 @@ type Route = typeof routes.$inferSelect;
 export interface DepositSwitchActions {
   prepare(input: Input): Promise<{ reviewToken: string; routes: { networkId: string; mapping: Route["mapping"] }[] }>;
   assign(id: string, provider: string, mapping: Route["mapping"], actor: SwitchActor, fence: SwitchFence, invalidateProof: boolean): Promise<Route["mapping"]>;
-  verify(id: string, provider: string, actor: SwitchActor, fence: SwitchFence): Promise<void>;
+  verify(id: string, provider: string, actor: SwitchActor, fence: SwitchFence, monitoring?: MonitoringOptions | null): Promise<void>;
   setEnabled(id: string, enabled: boolean, actor: SwitchActor, fence: SwitchFence,
     expected?: { provider: string; mapping: Route["mapping"] }): Promise<unknown>;
 }
@@ -39,6 +40,7 @@ const uniqueViolation = (error: unknown): boolean => Boolean(error && typeof err
 const messages: Record<SwitchStep, string> = {
   disabling: "Safely disabling new customer deposits",
   assigning: "Saving provider and exact route mapping",
+  monitoring: "Configuring RPC monitoring with obligation and shared-network protection",
   verifying: "Verifying live provider permission and route readiness",
   restoring: "Restoring original Customer Deposits ON state",
   checking: "Checking actual saved provider, mapping and deposit state",
@@ -72,13 +74,18 @@ export function createDepositProviderSwitchRouter(actions: DepositSwitchActions)
     const records = await db.select({ route: routes, network: cryptoAssetNetworksTable })
       .from(routes).leftJoin(cryptoAssetNetworksTable, eq(routes.networkId, cryptoAssetNetworksTable.id))
       .where(eq(routes.jobId, id)).orderBy(routes.networkId);
+    const monitorState = await monitoringSnapshots(records.map(row => row.route.networkId));
     return GetCryptoDepositProviderSwitchJobResponse.parse({
       id: job.id, depositProvider: job.depositProvider, createdAt: job.createdAt,
+      ...(job.monitoring ? { monitoring: job.monitoring } : {}),
       routes: records.map(({ route, network }) => ({
         networkId: route.networkId, originalCustomerDepositsEnabled: route.originalCustomerDepositsEnabled,
         status: route.status, step: route.step, message: route.message, errorCode: route.errorCode,
         attempts: route.attempts, customerDepositsEnabled: network?.customerDepositsEnabled ?? false,
         savedProvider: network?.depositProvider ?? "none",
+        rpcTrackingEnabled: network?.manualWalletTrackingEnabled ?? false,
+        monitoringMessage: route.monitoringMessage,
+        ...(monitorState.get(route.networkId) ?? { rpcStatus: "NOT_CONFIGURED", networkMonitorEnabled: null, assetMonitoringEnabled: null }),
       })),
     });
   }
@@ -144,11 +151,13 @@ export function createDepositProviderSwitchRouter(actions: DepositSwitchActions)
           row.mapping && (network.whitebitAssetCode !== row.mapping.assetCode ||
             network.whitebitNetworkCode !== row.mapping.networkCode) ||
           checkEnabled && network.customerDepositsEnabled !==
-            (row.originalCustomerDepositsEnabled && job.depositProvider !== "none")) {
+            (row.originalCustomerDepositsEnabled && job.depositProvider !== "none" &&
+              !manualMonitoringIntentionallyDisabled(job.depositProvider, job.monitoring))) {
           throw new ApiError("CRYPTO_PROVIDER_SWITCH_CHANGED", "Final saved route settings differ from the authorized assignment.", 409);
         }
       };
-      await executeDepositProviderSwitch(row.originalCustomerDepositsEnabled, job.depositProvider, {
+      await executeDepositProviderSwitch(row.originalCustomerDepositsEnabled &&
+        !manualMonitoringIntentionallyDisabled(job.depositProvider, job.monitoring), job.depositProvider, {
         progress: async step => {
           await actorForJob(job);
           const updated = await db.update(routes).set({ step, message: messages[step],
@@ -168,14 +177,23 @@ export function createDepositProviderSwitchRouter(actions: DepositSwitchActions)
           row.mapping = mapping;
           expected.mapping = mapping;
         },
-        verify: async () => { await assertSaved(); await actions.verify(networkId, job.depositProvider, actor, fence); },
+        ...(job.monitoring ? { configureMonitoring: async () => {
+          const message = await applyProviderMonitoring(networkId, job.depositProvider, job.monitoring, actor, fence);
+          await db.transaction(async tx => {
+            await fence(tx);
+            await tx.update(routes).set({ monitoringMessage: message }).where(own());
+          });
+        } } : {}),
+        verify: async () => { await assertSaved(); await actions.verify(networkId, job.depositProvider, actor, fence, job.monitoring); },
         restore: async () => { await actions.setEnabled(networkId, true, actor, fence, expected); },
         check: async () => { await assertSaved(true); },
       });
       await db.transaction(async tx => {
         await fence(tx);
         await tx.update(routes).set({
-          status: "succeeded", step: "completed", message: job.depositProvider === "none"
+          status: "succeeded", step: "completed", message: manualMonitoringIntentionallyDisabled(job.depositProvider, job.monitoring)
+            ? "Monitoring disabled as requested; Manual Customer Deposits remain OFF"
+            : job.depositProvider === "none"
             ? "Provider removed; Customer Deposits safely OFF"
             : row.originalCustomerDepositsEnabled ? "Verified; original Customer Deposits ON restored" : "Verified; originally OFF remains OFF",
           leaseUntil: null, runToken: null, updatedAt: new Date(),
@@ -256,6 +274,11 @@ export function createDepositProviderSwitchRouter(actions: DepositSwitchActions)
       const input = CreateCryptoDepositProviderSwitchJobBody.parse(req.body);
       if (!input.confirmRealAddressCreation) throw new ApiError("ADDRESS_CREATION_CONFIRMATION_REQUIRED", "Confirm live provider address-permission checks before starting.", 400);
       const requestDigest = createHash("sha256").update(JSON.stringify({
+        ...(input.monitoring ? { monitoring: {
+          rpcMonitoring: input.monitoring.rpcMonitoring ?? "auto",
+          networkMonitor: input.monitoring.networkMonitor ?? "auto",
+          assetMonitoring: input.monitoring.assetMonitoring ?? "auto",
+        } } : {}),
         ids: [...input.networkIds].sort(), provider: input.depositProvider,
         mappings: [...(input.whitebitMappings ?? [])].sort((a, b) => a.networkId.localeCompare(b.networkId)),
       })).digest("hex");
@@ -269,6 +292,12 @@ export function createDepositProviderSwitchRouter(actions: DepositSwitchActions)
         const prepared = await actions.prepare(input);
         await db.transaction(async tx => {
           await tx.execute(sql`select pg_advisory_xact_lock(hashtext('whitebit-provider'))`);
+          const [authorized] = await tx.select().from(operatorsTable)
+            .where(eq(operatorsTable.id, actor.operator.id)).for("share");
+          if (!authorized || authorized.role !== "owner" || authorized.status !== "active" ||
+            authorized.authVersion !== actor.operator.authVersion || authorized.clerkUserId !== actor.clerkUserId) {
+            throw new ApiError("OWNER_AUTHORIZATION_CHANGED", "Owner authorization changed before the assignment was saved.", 403);
+          }
           const [duplicate] = await tx.select().from(jobs).where(eq(jobs.id, input.operationId));
           if (duplicate) {
             if (duplicate.requestDigest !== requestDigest || duplicate.actorId !== actor.operator.id) throw new ApiError("PROVIDER_SWITCH_IDEMPOTENCY_CONFLICT", "Operation ID conflict.", 409);
@@ -285,6 +314,11 @@ export function createDepositProviderSwitchRouter(actions: DepositSwitchActions)
           }
           await tx.insert(jobs).values({
             id: input.operationId, requestDigest, depositProvider: input.depositProvider,
+            monitoring: input.monitoring ? {
+              rpcMonitoring: input.monitoring.rpcMonitoring ?? "auto",
+              networkMonitor: input.monitoring.networkMonitor ?? "auto",
+              assetMonitoring: input.monitoring.assetMonitoring ?? "auto",
+            } : null,
             actorId: actor.operator.id, actorAuthVersion: actor.operator.authVersion, actorClerkUserId: actor.clerkUserId,
           });
           const routeValues = networks.map(network => ({
@@ -296,6 +330,13 @@ export function createDepositProviderSwitchRouter(actions: DepositSwitchActions)
           const inserted = await tx.insert(routes).values(routeValues).onConflictDoNothing()
             .returning({ networkId: routes.networkId });
           const insertedIds = new Set(inserted.map(row => row.networkId));
+          // Enhanced jobs quiesce every accepted route together. This permits
+          // a shared Network Monitor to be safely disabled without another
+          // selected-but-queued route accepting a new Manual obligation.
+          // Original intent was captured above; busy routes are untouched.
+          if (input.monitoring && insertedIds.size) await tx.update(cryptoAssetNetworksTable)
+            .set({ customerDepositsEnabled: false })
+            .where(inArray(cryptoAssetNetworksTable.id, [...insertedIds]));
           for (const value of routeValues.filter(row => !insertedIds.has(row.networkId))) {
             // Never disable a route owned by another live operation. Report
             // the conflict per route while the remaining selection proceeds.

@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { assertMonitorShutdownSafe } from "../lib/deposit-provider-monitoring";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   blockchainMonitorMatchesTable,
@@ -277,8 +278,12 @@ router.post("/admin/blockchain-monitoring/assets/upsert", async (req, res, next)
     const normalizedContract = network.adapterKind === "tron" && input.contractOrMint ? normalizeTronAddress(input.contractOrMint) : input.contractOrMint;
     if (input.identityKind === "token" && !normalizedContract) { res.status(422).json({ error: "INVALID_CONTRACT_OR_MINT", message: "The token contract or mint is invalid for the configured network." }); return; }
     const values = { ...input, contractOrMint: normalizedContract };
-    const [row] = await db.insert(blockchainMonitorAssetsTable).values(values)
-      .onConflictDoUpdate({ target: [blockchainMonitorAssetsTable.monitorNetworkId, blockchainMonitorAssetsTable.assetNetworkId], set: values }).returning();
+    const [row] = await db.transaction(async tx => {
+      await tx.select().from(blockchainMonitorNetworksTable).where(eq(blockchainMonitorNetworksTable.id, input.monitorNetworkId)).for("update");
+      if (input.enabled === false) await assertMonitorShutdownSafe(tx, input.monitorNetworkId, input.assetNetworkId);
+      return tx.insert(blockchainMonitorAssetsTable).values(values)
+        .onConflictDoUpdate({ target: [blockchainMonitorAssetsTable.monitorNetworkId, blockchainMonitorAssetsTable.assetNetworkId], set: values }).returning();
+    });
     res.json(row);
   } catch (error) { next(error); }
 });
@@ -307,7 +312,11 @@ router.patch("/admin/blockchain-monitoring/networks/:id", async (req, res, next)
     if (input.finalityPolicy === "finalized" && input.adapterKind === "evm") {
       res.status(422).json({ error: "UNSUPPORTED_FINALITY_POLICY", message: "EVM finalized monitoring is not enabled until the provider exposes a verified finalized proof." }); return;
     }
-    const [row] = await db.update(blockchainMonitorNetworksTable).set(input).where(eq(blockchainMonitorNetworksTable.id, req.params.id)).returning();
+    const row = await db.transaction(async tx => {
+      await tx.select().from(blockchainMonitorNetworksTable).where(eq(blockchainMonitorNetworksTable.id, req.params.id)).for("update");
+      if (input.enabled === false) await assertMonitorShutdownSafe(tx, req.params.id);
+      return (await tx.update(blockchainMonitorNetworksTable).set(input).where(eq(blockchainMonitorNetworksTable.id, req.params.id)).returning())[0];
+    });
     if (!row) { res.status(404).json({ error: "MONITOR_NETWORK_NOT_FOUND", message: "Monitoring network not found." }); return; }
     res.json(sanitized(row));
   } catch (error) { next(error); }

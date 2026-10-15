@@ -1,4 +1,5 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
+import { manualMonitoringIntentionallyDisabled, savePreparedMonitoringProof } from "../lib/deposit-provider-monitoring";
 import {
   isManualWalletTrackingEnabledForOrder,
   registerManualBlockchainWatch,
@@ -5587,7 +5588,8 @@ router.use(createDepositProviderSwitchRouter({
     }
     return mapping;
   },
-  verify: async (id, provider, _actor, fence) => {
+  verify: async (id, provider, _actor, fence, monitoring) => {
+    if (manualMonitoringIntentionallyDisabled(provider, monitoring)) return;
     if (provider === "whitebit") {
       if ((await whitebitSwapStatus()).explicitDisabled) {
         throw new ApiError("WHITEBIT_DISABLED", "WhiteBIT is disabled in API Integrations. Enable it before verification.", 409);
@@ -5596,12 +5598,17 @@ router.use(createDepositProviderSwitchRouter({
       await verifyAndSaveWhitebitAddressPermission({ networkId: id, confirmRealAddressCreation: true }, fence);
     }
     const [{ asset, network }] = await loadDepositProviderAssignmentPairs(db, [id], false);
+    if (provider === "manual" && monitoring && !network.manualWalletTrackingEnabled) {
+      throw new ApiError("RPC_MONITORING_REQUIRED",
+        "Manual/RPC requires enabled RPC tracking and verified Network/Asset Monitoring. Customer Deposits remain OFF. Select Enable or Automatic monitoring before enabling deposits.", 409);
+    }
     if (provider === "manual" && network.manualWalletTrackingEnabled) {
       const readiness = (await prepareManualMonitoringReadiness([{
         routeId: id, address: network.sharedDepositAddress, memo: network.sharedDepositMemo,
       }])).get(id);
       if (!readiness?.ready) throw new ApiError("CRYPTO_DEPOSIT_MONITORING_REQUIRED",
         readiness?.message || "Manual/RPC is not ready for this exact saved wallet route.", 409);
+      await savePreparedMonitoringProof(id, readiness, fence);
     }
     const [context, capabilities, whitebitStatus, readyManualRoutes] = await Promise.all([
       createCustomerDepositEligibilityContext(),

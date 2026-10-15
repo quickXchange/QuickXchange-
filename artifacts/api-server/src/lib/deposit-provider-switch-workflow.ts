@@ -1,10 +1,11 @@
 /** Provider-neutral sequencing. All financial/readiness authority stays in the
  * existing provider actions supplied by the caller. */
-export type SwitchStep = "disabling" | "assigning" | "verifying" | "restoring" | "checking";
+export type SwitchStep = "disabling" | "assigning" | "monitoring" | "verifying" | "restoring" | "checking";
 export interface SwitchWorkflowActions {
   progress(step: SwitchStep): Promise<void>;
   disable(): Promise<void>;
   assign(): Promise<void>;
+  configureMonitoring?(): Promise<void>;
   verify(): Promise<void>;
   restore(): Promise<void>;
   check(): Promise<void>;
@@ -19,6 +20,10 @@ export async function executeDepositProviderSwitch(
   await actions.disable();
   await actions.progress("assigning");
   await actions.assign();
+  if (actions.configureMonitoring) {
+    await actions.progress("monitoring");
+    await actions.configureMonitoring();
+  }
   if (provider !== "none") {
     await actions.progress("verifying");
     await actions.verify();

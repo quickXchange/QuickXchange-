@@ -12,6 +12,9 @@ import {
   getGetExchangeConfigQueryKey,
   getGetWhitebitVerificationRoutesQueryKey,
   getGetWhitebitProviderStatusQueryKey,
+  getListBlockchainMonitoringNetworksQueryKey,
+  getListBlockchainMonitoringAssetsQueryKey,
+  getListBlockchainMonitoringSetupRoutesQueryKey,
   useGetWhitebitVerificationRoutes,
   useGetWhitebitProviderStatus,
 } from '@workspace/api-client-react';
@@ -20,13 +23,18 @@ import type {
   CryptoNetwork,
   CryptoDepositProviderAssignmentPreview,
   DepositProviderSwitchJob,
+  DepositProviderMonitoringOptions,
 } from '@workspace/api-client-react';
 
 type Provider = string;
 const providerLabel = (id: string) => id === 'whitebit' ? 'WhiteBIT' : id === 'manual' ? 'Manual Wallet' : id === 'none' ? 'None' : id;
 const storageKey = (userId: string) => `bulk-deposit-switch:${userId}`;
 const isActive = (job: DepositProviderSwitchJob | null) => !!job && job.routes.some(r => r.status === 'queued' || r.status === 'running');
-type PendingRequest = { networkIds: string[]; depositProvider: 'none' | 'manual' | 'whitebit'; reviewToken: string; whitebitMappings?: { networkId: string; assetCode: string; networkCode: string }[]; operationId: string; confirmRealAddressCreation: true };
+type PendingRequest = { networkIds: string[]; depositProvider: 'none' | 'manual' | 'whitebit'; reviewToken: string; whitebitMappings?: { networkId: string; assetCode: string; networkCode: string }[]; operationId: string; confirmRealAddressCreation: true; monitoring?: DepositProviderMonitoringOptions };
+type Rpc = 'auto' | 'enable' | 'disable' | 'keep';
+type Tri = 'auto' | 'enable' | 'disable' | 'keep';
+const triLabel = (v: string) => v === 'auto' ? 'Follow RPC Monitoring' : v === 'enable' ? 'Enable' : v === 'disable' ? 'Disable' : 'Keep Current';
+const yn = (v: boolean | null | undefined) => v === true ? 'Enabled' : v === false ? 'Disabled' : 'Unknown';
 type Stored = { operationId: string; request?: PendingRequest };
 const readStored = (userId: string): Stored | null => {
   const raw = localStorage.getItem(storageKey(userId));
@@ -58,6 +66,9 @@ export function BulkDepositProviderDialog({
   const [job, setJob] = useState<DepositProviderSwitchJob | null>(null);
   const [operationId, setOperationId] = useState<string | null>(null);
   const [resuming, setResuming] = useState(true);
+  const [rpcMonitoring, setRpcMonitoring] = useState<Rpc>('auto');
+  const [networkMonitor, setNetworkMonitor] = useState<Tri>('auto');
+  const [assetMonitoring, setAssetMonitoring] = useState<Tri>('auto');
   const [consent, setConsent] = useState(false);
   const [starting, setStarting] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -201,6 +212,9 @@ export function BulkDepositProviderDialog({
       client.invalidateQueries({ queryKey: getGetExchangeConfigQueryKey() }),
       client.invalidateQueries({ queryKey: getGetWhitebitVerificationRoutesQueryKey() }),
       client.invalidateQueries({ queryKey: getGetWhitebitProviderStatusQueryKey() }),
+      client.invalidateQueries({ queryKey: getListBlockchainMonitoringNetworksQueryKey() }),
+      client.invalidateQueries({ queryKey: getListBlockchainMonitoringAssetsQueryKey() }),
+      client.invalidateQueries({ queryKey: getListBlockchainMonitoringSetupRoutesQueryKey() }),
     ]);
     const ok = job.routes.filter(r => r.status === 'succeeded').length;
     if (ok > 0) onSuccessRef.current(ok);
@@ -283,6 +297,7 @@ export function BulkDepositProviderDialog({
       reviewToken: review.reviewToken,
       operationId: op,
       confirmRealAddressCreation: true,
+      monitoring: { rpcMonitoring, networkMonitor, assetMonitoring },
       ...(provider === 'whitebit' && selectedWhitebitMappings.length
         ? { whitebitMappings: selectedWhitebitMappings.filter(mapping => review.routes.some(route => route.networkId === mapping.networkId)) }
         : {}),
@@ -323,6 +338,27 @@ export function BulkDepositProviderDialog({
               </select>
             </label>
             {!isOwner && !permissions.isLoading && <div role="alert" className="rounded-lg border border-amber-500/40 p-3 text-sm text-amber-500" data-testid="bulk-deposit-owner-only">Only the Owner can run an automated Deposit Provider switch.</div>}
+            {!job && !resuming && (
+              <fieldset className="space-y-3 rounded-xl border border-border p-3 text-sm" data-testid="bulk-monitoring-controls" disabled={apply.isPending}>
+                <legend className="field-label px-1">Monitoring (separate from Customer Deposits)</legend>
+                <label className="block"><span className="field-label">RPC Monitoring (custody provider tracking)</span>
+                  <select data-testid="bulk-rpc-monitoring-control" value={rpcMonitoring} onChange={event => { setRpcMonitoring(event.target.value as Rpc); setReview(null); }}>
+                    <option value="auto">Automatic ({providerLabel(provider)})</option>
+                    <option value="enable">Enable RPC Monitoring</option>
+                    <option value="disable">Disable RPC Monitoring</option>
+                    <option value="keep">Keep Current Settings</option>
+                  </select></label>
+                <label className="block"><span className="field-label">Network Monitor (shared per network)</span>
+                  <select data-testid="bulk-network-monitor-control" value={networkMonitor} onChange={event => { setNetworkMonitor(event.target.value as Tri); setReview(null); }}>
+                    {(['auto', 'enable', 'disable', 'keep'] as Tri[]).map(v => <option key={v} value={v}>{triLabel(v)}</option>)}
+                  </select></label>
+                <label className="block"><span className="field-label">Asset Monitoring (per asset)</span>
+                  <select data-testid="bulk-asset-monitor-control" value={assetMonitoring} onChange={event => { setAssetMonitoring(event.target.value as Tri); setReview(null); }}>
+                    {(['auto', 'enable', 'disable', 'keep'] as Tri[]).map(v => <option key={v} value={v}>{triLabel(v)}</option>)}
+                  </select></label>
+                <p className="field-hint break-words">Automatic: Manual Wallet enables tracking, network and asset monitoring, then live readiness is checked. WhiteBIT or None safely turns off unneeded polling without touching endpoints, providers, contracts or wallets, and keeps shared monitors that other obligations still need. Explicit Network/Asset choices override automatic defaults but never safety: a disable that conflicts with active obligations fails that route with Customer Deposits OFF. Manual cannot become ready while its required monitoring is disabled. Keep Current leaves a setting unchanged.</p>
+              </fieldset>
+            )}
             {error && <div role="alert" className="rounded-lg border border-red-500/40 p-3 text-sm text-red-500">{error}</div>}
             {resuming && !job && <p className="text-sm flex items-center gap-2"><Loader2 size={15} className="animate-spin" /> Resuming previous switch…</p>}
             {!job && !resuming && loadingCatalog && <p className="text-sm flex items-center gap-2"><Loader2 size={15} className="animate-spin" /> Checking routes…</p>}
@@ -419,6 +455,10 @@ export function BulkDepositProviderDialog({
                   )}
                   <p className="text-xs text-muted-foreground">{route.reason} Customer Deposits: {route.customerDepositsAfter ? 'remain enabled' : 'disabled'}.</p>
                 </div>)}
+                <div className="rounded-lg border border-border p-3 text-xs space-y-1 break-words" data-testid="bulk-monitoring-review">
+                  <p><strong>Monitoring plan:</strong> RPC: {rpcMonitoring === 'auto' ? `Automatic (${providerLabel(provider)})` : rpcMonitoring === 'keep' ? 'Keep Current Settings' : `${triLabel(rpcMonitoring)} RPC Monitoring`} · Network Monitor: {triLabel(networkMonitor)} · Asset Monitoring: {triLabel(assetMonitoring)}.</p>
+                  <p>Final state per route is reported by the server after the switch; enabled does not mean connected.</p>
+                </div>
                 <div className="rounded-lg border border-border p-3 text-xs space-y-2" data-testid="bulk-deposit-switch-explainer">
                   <p>The server will turn Customer Deposits off on each route, assign {providerLabel(provider)}, verify the saved provider, and restore Customer Deposits only on routes that were originally ON. Unsupported or failing routes fail individually; the rest proceed.</p>
                   {provider === 'none' && <p className="font-semibold">Choosing None removes the deposit provider and leaves every selected route OFF.</p>}
@@ -474,8 +514,17 @@ function JobPanel({ job, networks, assets, retrying, onRetry }: {
                 {route.status === 'running' && <Loader2 size={13} className="mr-1 inline animate-spin" />}{route.status} · {route.step}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">{route.message}{route.errorCode ? ` (${route.errorCode})` : ''}</p>
+            <p className="text-xs text-muted-foreground break-words">{route.message}{route.errorCode ? ` (${route.errorCode})` : ''}</p>
             <p className="text-xs">Customer Deposits: originally {route.originalCustomerDepositsEnabled ? 'ON' : 'OFF'}, now {route.customerDepositsEnabled ? 'ON' : 'OFF'} · Saved provider: {providerLabel(route.savedProvider)} · Attempts: {route.attempts}</p>
+            <dl className="mt-1 grid gap-x-3 gap-y-0.5 text-xs sm:grid-cols-2 break-words" data-testid={`bulk-monitoring-result-${route.networkId}`}>
+              <div data-testid={`bulk-result-provider-${route.networkId}`}>Final provider: {providerLabel(route.savedProvider)}</div>
+              <div data-testid={`bulk-result-rpc-status-${route.networkId}`}>RPC status: {route.rpcStatus ?? 'Not reported'}</div>
+              <div data-testid={`bulk-result-network-monitor-${route.networkId}`}>Network Monitor: {yn(route.networkMonitorEnabled)}</div>
+              <div data-testid={`bulk-result-asset-monitoring-${route.networkId}`}>Asset Monitoring: {yn(route.assetMonitoringEnabled)}</div>
+              <div data-testid={`bulk-result-rpc-tracking-${route.networkId}`}>RPC tracking: {route.rpcTrackingEnabled === undefined ? 'Not reported' : route.rpcTrackingEnabled ? 'Enabled' : 'Disabled'}</div>
+              <div data-testid={`bulk-result-deposits-${route.networkId}`}>Customer Deposits: {route.customerDepositsEnabled ? 'ON' : 'OFF'}</div>
+              {route.monitoringMessage && <div className="sm:col-span-2" data-testid={`bulk-result-monitoring-message-${route.networkId}`}>{route.monitoringMessage}</div>}
+            </dl>
             {route.status === 'failed' && (
               <button type="button" className="button button-secondary mt-2" data-testid={`button-retry-route-${route.networkId}`} disabled={retrying !== null} onClick={() => onRetry(route.networkId)}>
                 {retrying === route.networkId ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />} Retry route
