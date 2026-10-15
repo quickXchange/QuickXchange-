@@ -254,3 +254,4 @@ export const insertOrderSchema = createInsertSchema(ordersTable);
 export const insertCustomerSchema = createInsertSchema(customersTable);
 export type Order = typeof ordersTable.$inferSelect;
 export type Customer = typeof customersTable.$inferSelect;
+export * from "./manual-wallet-registrations";

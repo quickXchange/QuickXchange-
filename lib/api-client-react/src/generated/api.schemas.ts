@@ -4003,6 +4003,17 @@ export interface CryptoNetworkInput {
   sharedDepositMemo?: string | null;
 }
 
+export interface ManualWalletRegistration {
+  status: string;
+  ready: boolean;
+  address: string;
+  message: string;
+  targetId?: string | null;
+  monitorNetworkId?: string | null;
+  monitorAssetId?: string | null;
+  sharedRouteCount?: number;
+}
+
 export type CryptoNetworkMonitoringReadinessCode = typeof CryptoNetworkMonitoringReadinessCode[keyof typeof CryptoNetworkMonitoringReadinessCode];
 
 
@@ -4035,6 +4046,7 @@ export type CryptoNetworkMonitoringReadiness = {
 };
 
 export type CryptoNetwork = CryptoNetworkInput & {
+  manualWalletRegistration?: ManualWalletRegistration;
   depositProvider: string;
   manualWalletTrackingEnabled: boolean;
   manualFallbackEnabled: boolean;
@@ -4354,6 +4366,7 @@ export interface CryptoNetworkReceivingWalletInput {
   manualFallbackEnabled?: boolean;
   customerDepositsEnabled?: boolean;
   preserveDepositProviders?: boolean;
+  registerManualMonitoring?: boolean;
   networkEnabled?: boolean;
   enabled?: boolean;
 }

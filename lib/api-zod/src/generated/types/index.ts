@@ -360,6 +360,7 @@ export * from './manualSwapFeeQuoteSnapshot';
 export * from './manualSwapFeeQuoteSnapshotExchangeFee';
 export * from './manualSwapFeeQuoteSnapshotSelectedAddonsItem';
 export * from './manualSwapFeeQuoteSnapshotSelectedAddonsItemFeeType';
+export * from './manualWalletRegistration';
 export * from './markOrderPaidInput';
 export * from './newsletterAnnouncement';
 export * from './newsletterAnnouncementInput';

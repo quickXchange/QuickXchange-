@@ -7561,6 +7561,7 @@ components:
         manualFallbackEnabled: { type: boolean, description: Opt in to using this route's saved Manual Wallet if WhiteBIT funding is unavailable. The saved address is retained when disabled. }
         customerDepositsEnabled: { type: boolean }
         preserveDepositProviders: { type: boolean, default: false }
+        registerManualMonitoring: { type: boolean, default: false }
         networkEnabled: { type: boolean }
         enabled: { type: boolean }
     CryptoNetworkCustomerDepositsUpdate:
@@ -7569,12 +7570,26 @@ components:
       required: [enabled]
       properties:
         enabled: { type: boolean }
+    ManualWalletRegistration:
+      type: object
+      required: [status, ready, address, message]
+      properties:
+        status: { type: string }
+        ready: { type: boolean }
+        address: { type: string }
+        message: { type: string }
+        targetId: { type: string, nullable: true }
+        monitorNetworkId: { type: string, nullable: true }
+        monitorAssetId: { type: string, nullable: true }
+        sharedRouteCount: { type: integer }
     CryptoNetwork:
       allOf:
         - $ref: "#/components/schemas/CryptoNetworkInput"
         - type: object
           required: [depositProvider, manualWalletTrackingEnabled, manualFallbackEnabled, createdAt, updatedAt]
           properties:
+            manualWalletRegistration:
+              $ref: "#/components/schemas/ManualWalletRegistration"
             depositProvider: { type: string, default: manual }
             manualWalletTrackingEnabled: { type: boolean, default: true }
             manualFallbackEnabled: { type: boolean, default: false }

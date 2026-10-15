@@ -8,8 +8,10 @@
 import type { CryptoNetworkInput } from './cryptoNetworkInput';
 import type { CryptoNetworkMonitoringReadiness } from './cryptoNetworkMonitoringReadiness';
 import type { CryptoNetworkWidgetReadiness } from './cryptoNetworkWidgetReadiness';
+import type { ManualWalletRegistration } from './manualWalletRegistration';
 
 export type CryptoNetwork = CryptoNetworkInput & {
+  manualWalletRegistration?: ManualWalletRegistration;
   depositProvider: string;
   manualWalletTrackingEnabled: boolean;
   manualFallbackEnabled: boolean;

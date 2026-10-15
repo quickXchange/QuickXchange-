@@ -45,6 +45,7 @@ export interface CryptoNetworkReceivingWalletInput {
   manualFallbackEnabled?: boolean;
   customerDepositsEnabled?: boolean;
   preserveDepositProviders?: boolean;
+  registerManualMonitoring?: boolean;
   networkEnabled?: boolean;
   enabled?: boolean;
 }

@@ -1,5 +1,6 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
-import { manualMonitoringIntentionallyDisabled, savePreparedMonitoringProof } from "../lib/deposit-provider-monitoring";
+import { manualMonitoringIntentionallyDisabled, persistPreparedMonitoringProof, savePreparedMonitoringProof } from "../lib/deposit-provider-monitoring";
+import { previewRegisteredManualWallets, saveRegisteredManualWallets, syncManualWalletRegistration, withManualWalletRegistration } from "../lib/manual-wallet-registration";
 import {
   isManualWalletTrackingEnabledForOrder,
   registerManualBlockchainWatch,
@@ -5586,6 +5587,11 @@ router.use(createDepositProviderSwitchRouter({
         await invalidateWhitebitDepositRouteProofsForRoutes(tx, [id]);
       });
     }
+    await db.transaction(async tx => {
+      await fence(tx);
+      const [saved] = await tx.select().from(cryptoAssetNetworksTable).where(eq(cryptoAssetNetworksTable.id, id)).for("update");
+      await syncManualWalletRegistration(tx, saved);
+    });
     return mapping;
   },
   verify: async (id, provider, _actor, fence, monitoring) => {
@@ -6559,6 +6565,18 @@ router.put("/admin/crypto-assets/:id/receiving-wallet", requireOwner, async (req
 router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, async (req, res, next) => {
   try {
     const input = PreviewCryptoNetworkReceivingWalletBody.parse(req.body);
+    if (input.registerManualMonitoring) {
+      if (!input.preserveDepositProviders || input.depositProvider !== undefined || input.whitebitAssetCode !== undefined ||
+        input.whitebitNetworkCode !== undefined || input.clearWalletAddress || input.networkEnabled !== undefined ||
+        input.manualWalletTrackingEnabled !== undefined || input.manualFallbackEnabled !== undefined)
+        throw new ApiError("VALIDATION_ERROR", "Registered wallet previews preserve provider and fallback settings.", 400);
+      res.json((await previewRegisteredManualWallets({
+        ...input, memo: Object.prototype.hasOwnProperty.call(req.body, "memo") ? input.memo : undefined,
+      })).map(row => ({
+        ...outputCryptoNetwork(row), manualWalletRegistration: row.manualWalletRegistration,
+      })));
+      return;
+    }
     if (input.clearWalletAddress && (input.networkIds.length !== 1 || input.walletAddress.trim())) {
       throw new ApiError("VALIDATION_ERROR", "Removing a saved address requires one exact route and an empty address field.", 400);
     }
@@ -6723,6 +6741,21 @@ router.post("/admin/crypto-networks/receiving-wallet/preview", requireOwner, asy
 router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, res, next) => {
   try {
     const input = SaveCryptoNetworkReceivingWalletBody.parse(req.body);
+    if (input.registerManualMonitoring) {
+      if (!input.preserveDepositProviders || input.depositProvider !== undefined || input.whitebitAssetCode !== undefined ||
+        input.whitebitNetworkCode !== undefined || input.clearWalletAddress || input.networkEnabled !== undefined ||
+        input.manualWalletTrackingEnabled !== undefined || input.manualFallbackEnabled !== undefined)
+        throw new ApiError("VALIDATION_ERROR", "Registered wallet saves preserve provider, mapping and fallback settings. Use Assign Deposit Provider for provider changes.", 400);
+      const clerkUserId = getOperatorActorUserId(req);
+      if (!clerkUserId) throw new ApiError("UNAUTHORIZED", "Owner authentication required.", 401);
+      const actor = { operator: res.locals.operator as OperatorAuthorization, clerkUserId, requestId: String(req.id) };
+      const saved = await saveRegisteredManualWallets({
+        ...input, memo: Object.prototype.hasOwnProperty.call(req.body, "memo") ? input.memo : undefined,
+      }, actor,
+        (id, enabled, fence, proof) => withStableDepositState(() => setNetworkCustomerDeposits(id, { enabled }, actor, fence, undefined, proof)));
+      res.json(await withManualWalletRegistration(saved.map(row => outputCryptoNetwork(row))));
+      return;
+    }
     if (input.clearWalletAddress && (input.networkIds.length !== 1 || input.walletAddress.trim())) {
       throw new ApiError("VALIDATION_ERROR", "Removing a saved address requires one exact route and an empty address field.", 400);
     }
@@ -7072,6 +7105,7 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
              manualFallbackEnabled: input.manualFallbackEnabled ??
                network.manualFallbackEnabled,
         }).where(eq(cryptoAssetNetworksTable.id, network.id));
+        await syncManualWalletRegistration(tx, nextNetwork);
       }
       const updated = await tx.select().from(cryptoAssetNetworksTable)
         .where(inArray(cryptoAssetNetworksTable.id, input.networkIds));
@@ -7121,11 +7155,11 @@ router.put("/admin/crypto-networks/receiving-wallet", requireOwner, async (req, 
       listReadyManualMonitoringRoutes(),
     ]);
     const savedAssetsById = new Map(savedAssets.map(asset => [asset.id, asset]));
-    res.json(rows.map(row => outputCryptoNetwork(row, manualReadiness.get(row.id),
+    res.json(await withManualWalletRegistration(rows.map(row => outputCryptoNetwork(row, manualReadiness.get(row.id),
       savedAssetsById.has(row.assetId)
         ? widgetDepositReadiness(savedAssetsById.get(row.assetId)!, row, refreshedContext,
             capabilities, whitebitStatus, readyManualRoutes)
-        : { ready: false, reason: "Parent asset missing" })));
+        : { ready: false, reason: "Parent asset missing" }))));
   } catch (error) {
     next(error);
   }
@@ -7151,11 +7185,11 @@ router.get("/admin/crypto-networks", requireOperator, async (_req, res, next) =>
       whitebitSwapStatus(),
       listReadyManualMonitoringRoutes(),
     ]);
-    res.json(rows.map(row => outputCryptoNetwork(row, undefined,
+    res.json(await withManualWalletRegistration(rows.map(row => outputCryptoNetwork(row, undefined,
       assetsById.has(row.assetId)
         ? widgetDepositReadiness(assetsById.get(row.assetId)!, row, context, capabilities,
             whitebitStatus, readyManualRoutes)
-        : { ready: false, reason: "Parent asset missing" })));
+        : { ready: false, reason: "Parent asset missing" }))));
   } catch (e) { next(e); }
 });
 router.get("/admin/deposit-providers", requireOperator, async (_req, res, next) => {
@@ -7168,6 +7202,7 @@ router.get("/admin/deposit-providers", requireOperator, async (_req, res, next) 
 async function setNetworkCustomerDeposits(
   id: string, body: unknown, audit: DepositSwitchActor, fence?: DepositSwitchFence,
   expected?: { provider: string; mapping: { assetCode: string; networkCode: string } | null },
+  preparedManualReadiness?: ManualMonitoringReadiness,
 ) {
     const input = UpdateCryptoNetworkCustomerDepositsBody.parse(body);
     const actor = audit.operator;
@@ -7185,7 +7220,7 @@ async function setNetworkCustomerDeposits(
     const readiness = input.enabled &&
       current.depositProvider === "manual" &&
       current.manualWalletTrackingEnabled
-      ? (await prepareManualMonitoringReadiness([{
+      ? preparedManualReadiness ?? (await prepareManualMonitoringReadiness([{
           routeId: current.id,
           address: current.sharedDepositAddress,
           memo: current.sharedDepositMemo,
@@ -7263,6 +7298,9 @@ async function setNetworkCustomerDeposits(
           readiness?.message || "Blockchain Monitoring must be ready for this exact Manual Wallet route.",
           409,
         );
+      }
+      if (input.enabled && locked.depositProvider === "manual" && preparedManualReadiness) {
+        await persistPreparedMonitoringProof(tx, locked.id, preparedManualReadiness);
       }
       const [row] = await tx.update(cryptoAssetNetworksTable)
         .set({ customerDepositsEnabled: input.enabled })

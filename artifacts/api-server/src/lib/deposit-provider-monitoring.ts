@@ -6,7 +6,7 @@ import {
 import { ApiError } from "./api-error";
 import { getMonitoringNetworkWorkloads } from "./blockchain-monitoring/service";
 import { adapterConfig } from "./blockchain-monitoring/service";
-import { manualMonitoringProofFingerprint, type ManualMonitoringReadiness } from "./manual-monitoring-readiness";
+import { manualMonitoringProofFingerprint, manualMonitoringNetworkConfigDigest, type ManualMonitoringReadiness } from "./manual-monitoring-readiness";
 import { listReadyManualMonitoringRoutes } from "./manual-crypto";
 import type { SwitchActor, SwitchFence } from "../routes/deposit-provider-switches";
 
@@ -155,10 +155,15 @@ export async function monitoringSnapshots(routeIds: string[]) {
 export async function savePreparedMonitoringProof(
   id: string, readiness: ManualMonitoringReadiness, fence: SwitchFence,
 ) {
-  if (!readiness.ready || !readiness.proofFingerprint || !readiness.monitorAssetId || !readiness.monitorNetworkId)
-    throw new ApiError("RPC_MONITORING_PROOF_MISSING", "Live RPC verification did not return an exact-route proof.", 409);
   await db.transaction(async tx => {
     await fence(tx);
+    await persistPreparedMonitoringProof(tx, id, readiness);
+  });
+}
+
+export async function persistPreparedMonitoringProof(tx: Tx, id: string, readiness: ManualMonitoringReadiness) {
+  if (!readiness.ready || !readiness.proofFingerprint || !readiness.monitorAssetId || !readiness.monitorNetworkId)
+    throw new ApiError("RPC_MONITORING_PROOF_MISSING", "Live RPC verification did not return an exact-route proof.", 409);
     const [route] = await tx.select().from(routes).where(eq(routes.id, id)).for("update");
     const [network] = await tx.select().from(networks).where(eq(networks.id, readiness.monitorNetworkId!)).for("update");
     const [asset] = await tx.select().from(assets).where(eq(assets.id, readiness.monitorAssetId!)).for("update");
@@ -166,11 +171,19 @@ export async function savePreparedMonitoringProof(
       asset.assetNetworkId !== id || asset.monitorNetworkId !== network.id)
       throw new ApiError("RPC_MONITORING_CONFIG_CHANGED", "Monitoring settings changed during live verification. Retry with the current configuration.", 409);
     const config = adapterConfig(network);
+    const age = Date.now() - (network.healthCheckedAt?.getTime() ?? 0);
+    const proofAge = Date.now() - (network.healthProofCapturedAt?.getTime() ?? 0);
+    if (network.healthStatus !== "connected" || age < 0 || age > Math.max(120_000, network.pollIntervalSeconds * 3_000) ||
+      proofAge < 0 || proofAge > Math.max(120_000, network.pollIntervalSeconds * 3_000) ||
+      network.healthProofFingerprint !== manualMonitoringNetworkConfigDigest({ network, endpoint: config?.endpoint, apiKey: config?.apiKey }))
+      throw new ApiError("RPC_MONITORING_PROOF_EXPIRED", "RPC health proof expired or configuration changed. Retry live verification.", 409);
     if (manualMonitoringProofFingerprint({
       network, asset, route, endpoint: config?.endpoint, apiKey: config?.apiKey,
       capturedAt: network.healthCheckedAt ?? new Date(0), head: network.lastHead ?? "",
     }) !== readiness.proofFingerprint)
       throw new ApiError("RPC_MONITORING_CONFIG_CHANGED", "Exact RPC route identity changed during verification.", 409);
-    await tx.update(assets).set({ readinessProofFingerprint: readiness.proofFingerprint }).where(eq(assets.id, asset.id));
-  });
+    await tx.update(assets).set({
+      readinessProofFingerprint: readiness.proofFingerprint,
+      readinessProofCapturedAt: network.healthProofCapturedAt ?? network.healthCheckedAt,
+    }).where(eq(assets.id, asset.id));
 }

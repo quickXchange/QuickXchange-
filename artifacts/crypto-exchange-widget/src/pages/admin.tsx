@@ -7255,6 +7255,11 @@ function AdminCurrencies() {
             <span className="catalog-name-cell">
               <strong>{name}</strong>
               {isMeth && <small>{item.family || 'Generic'} · {item.executionMode || 'Standard'}</small>}
+              {isNet && item.manualWalletRegistration && <small data-testid={`network-wallet-registration-${item.id}`} style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', maxWidth: '16rem' }}>
+                Manual: {item.manualWalletRegistration.address || 'Not set'}<br />
+                RPC: {item.manualWalletRegistration.status}
+                {(item.manualWalletRegistration.sharedRouteCount ?? 0) > 1 ? ` · ${item.manualWalletRegistration.sharedRouteCount} shared routes` : ''}
+              </small>}
               {isAst && (
                 <span className="catalog-network-chips">
                   {assetNetworks.map((network: CryptoNetwork) => {
@@ -9501,6 +9506,7 @@ function BulkNetworkWalletDialog({
     walletAddress: walletAddress.trim(),
     memo: memo.trim() || null,
     preserveDepositProviders: true,
+    registerManualMonitoring: true,
     enabled: enableCustomerDeposits,
   };
 
@@ -9581,6 +9587,12 @@ function BulkNetworkWalletDialog({
                 {savedNetworks.map(saved => (
                   <div key={saved.id} className="rounded-lg border p-3 text-sm">
                     <strong>{saved.networkName} ({saved.networkCode})</strong>
+                    {saved.manualWalletRegistration && <div data-testid={`wallet-registration-${saved.id}`}>
+                      <div className="break-all">Manual address: {saved.manualWalletRegistration.address}</div>
+                      <div>RPC registration: {saved.manualWalletRegistration.status}
+                        {(saved.manualWalletRegistration.sharedRouteCount ?? 0) > 1 ? ` · Shared by ${saved.manualWalletRegistration.sharedRouteCount} asset routes` : ''}</div>
+                      <div>{saved.manualWalletRegistration.message}</div>
+                    </div>}
                     <div>{saved.customerDepositsEnabled ? 'Customer Deposits enabled.' : `${saved.monitoringReadiness?.code || 'UNCHANGED'} — ${saved.monitoringReadiness?.message || 'Customer Deposits remain disabled.'}`}</div>
                   </div>
                 ))}
@@ -9610,11 +9622,13 @@ function BulkNetworkWalletDialog({
             />
             <span className="field-label !mb-0 text-sm font-bold">Enable Customer Deposits</span>
           </label>
-          <p className="field-hint">A blank address preserves each selected route’s existing address. Provider assignments, Network Monitor, and Asset Monitoring are preserved.</p>
+          <p className="field-hint">A blank address preserves existing addresses. Manual/RPC activates and verifies its exact monitoring configuration. WhiteBIT keeps the Manual registration on standby without extra polling. Existing order addresses and watches are never replaced.</p>
           {previewNetworks && (
             <section className="space-y-3" aria-label="Confirmation summary">
               <InlineNotice kind={blockedCount ? 'warning' : 'success'}>
-                {enableCustomerDeposits
+                {previewNetworks.some(row => row.manualWalletRegistration)
+                  ? 'Wallet registrations are reviewed below. Manual deposits are enabled only after live RPC verification succeeds; missing configuration remains blocked.'
+                  : enableCustomerDeposits
                   ? `READY routes → Customer Deposits will be enabled: ${readyCount}. BLOCKED routes → will remain disabled: ${blockedCount}.`
                   : `Customer Deposits will be disabled for all ${previewNetworks.length} selected routes.`}
               </InlineNotice>
@@ -9623,7 +9637,13 @@ function BulkNetworkWalletDialog({
                 return (
                   <div key={preview.id} className="rounded-lg border p-3 text-sm">
                     <strong>{preview.networkName} ({preview.networkCode})</strong>
-                    <div>{enableCustomerDeposits
+                    {preview.manualWalletRegistration && <div>
+                      <div className="break-all">Manual address: {preview.manualWalletRegistration.address}</div>
+                      <div>RPC registration: {preview.manualWalletRegistration.status} — {preview.manualWalletRegistration.message}</div>
+                    </div>}
+                    <div>{preview.manualWalletRegistration
+                      ? enableCustomerDeposits ? 'Customer Deposits: enable only after verification.' : 'Customer Deposits: remain OFF.'
+                      : enableCustomerDeposits
                       ? ready
                         ? 'READY — Customer Deposits will be enabled.'
                         : `${preview.monitoringReadiness?.code || 'BLOCKED'} — ${preview.monitoringReadiness?.message || 'Readiness could not be verified.'}`

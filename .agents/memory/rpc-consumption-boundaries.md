@@ -69,3 +69,23 @@ and progress. Preserve watches, confirmation/reorg evidence and missing-watch
 legacy obligations. RPC preparation returns a proof but does not publish it:
 persist it only after the job fence and exact current configuration still match,
 then use the existing readiness authority before restoring deposit permission.
+
+Configuration wallet registration must remain separate from immutable financial
+order watches. Compatible tokens may share a canonical network/address/memo
+target, but never merge their order ownership or rewrite frozen order addresses.
+
+**Why:** The Owner requested shared wallet registration and reversible WhiteBIT
+standby while preserving historical deposit obligations. A catalog wallet is
+not itself an order or proof of a customer payment.
+
+**How to apply:** Deduplicate configuration targets, retain old targets on
+address changes, and let the existing order engine register financial watches.
+Standby registration alone must not trigger RPC polling.
+
+Persist the proof capture timestamp together with its readiness fingerprint.
+
+**Why:** A configuration can appear verified while the first actual financial
+watch rejects a fingerprint that has no trusted capture time.
+
+**How to apply:** Fence both values against exact current identity and fresh
+network health. Reuse a batch probe rather than reprobing each token at enable.

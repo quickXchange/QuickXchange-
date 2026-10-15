@@ -4841,6 +4841,48 @@ async function testBulkRpcControls() {
     assert.equal(manual.route.assetMonitoringEnabled, true);
     assert.equal(manual.route.rpcStatus, "ACTIVE");
     assert.ok(rpcCalls >= 3, "actual adapter must verify the mocked RPC");
+    const walletOrderId = `wallet-history-${suffix}`;
+    await database.db.insert(database.ordersTable).values({
+      id: walletOrderId, type: "manual", status: "awaiting funds", provider: "Manual desk", providerOrderId: "",
+      fromAsset: "BTC", fromNetwork: original.networkCode, toAsset: "EUR", amount: "0.001", receiveAmount: "100",
+      customerEmail: "wallet-history@example.test", fundingProviderSource: "manual", fundingStatus: "ready_manual",
+      manualSettlementState: "awaiting_funds", sourceSettlementOptionId: `crypto:${original.id}`,
+      fundingDetailsSnapshot: { networkId: original.id, address: wallet, assetCode: "BTC", depositProvider: "manual",
+        customerDepositsEnabled: true, manualWalletTrackingEnabled: true },
+    });
+    const registered = await registerManualBlockchainWatch(walletOrderId, { freshCursor: true });
+    let historyWatches = await database.db.select().from(database.blockchainMonitorWatchesTable)
+      .where(eq(database.blockchainMonitorWatchesTable.orderId, walletOrderId));
+    assert.equal(historyWatches.length, 1, JSON.stringify(registered));
+    const nextWallet = validBitcoinAddress();
+    const beforePreviewCalls = rpcCalls;
+    const walletInput = { networkIds: [original.id], walletAddress: nextWallet, memo: null,
+      preserveDepositProviders: true, registerManualMonitoring: true, enabled: true };
+    const walletPreview = await walletOwnerRequest("/api/admin/crypto-networks/receiving-wallet/preview", walletInput, "POST");
+    assert.equal(walletPreview.status, 200, await walletPreview.clone().text());
+    assert.equal((await walletPreview.json())[0].manualWalletRegistration.status, "PLANNED");
+    assert.equal(rpcCalls, beforePreviewCalls, "review is read-only and performs no RPC calls");
+    const walletSaved = await walletOwnerRequest("/api/admin/crypto-networks/receiving-wallet", walletInput);
+    assert.equal(walletSaved.status, 200, await walletSaved.clone().text());
+    const savedWallet = (await walletSaved.json())[0];
+    assert.equal(savedWallet.sharedDepositAddress, nextWallet);
+    assert.equal(savedWallet.manualWalletRegistration.status, "READY");
+    assert.equal(savedWallet.customerDepositsEnabled, true);
+    historyWatches = await database.db.select().from(database.blockchainMonitorWatchesTable)
+      .where(eq(database.blockchainMonitorWatchesTable.orderId, walletOrderId));
+    assert.equal(historyWatches.length, 1, "changing wallet configuration must not duplicate an order watch");
+    assert.equal(historyWatches[0].receivingAddress, wallet, "old order address must stay frozen");
+    assert.equal(historyWatches[0].active, true);
+    const retryWallet = await walletOwnerRequest("/api/admin/crypto-networks/receiving-wallet", walletInput);
+    assert.equal(retryWallet.status, 200);
+    assert.equal((await retryWallet.json())[0].manualWalletRegistration.targetId, savedWallet.manualWalletRegistration.targetId);
+    const targets = await database.db.select().from(database.manualWalletTargetsTable)
+      .where(eq(database.manualWalletTargetsTable.monitorNetworkId, monitorId));
+    assert.equal(targets.length, 2, "one current target plus retained original address, never duplicates");
+    await database.db.update(database.blockchainMonitorWatchesTable).set({ active: false })
+      .where(eq(database.blockchainMonitorWatchesTable.id, historyWatches[0].id));
+    await database.db.update(database.ordersTable).set({ manualSettlementState: "completed" })
+      .where(eq(database.ordersTable.id, walletOrderId));
     const beforeWhitebit = rpcCalls;
     const whitebit = await start("whitebit", { rpcMonitoring: "auto" });
     assert.equal(whitebit.route.status, "succeeded", whitebit.route.message);
@@ -4935,3 +4977,143 @@ async function testBulkRpcControls() {
 }
 
 test("automated RPC controls switch Manual and WhiteBIT safely, preserve configuration and protect legacy obligations", testBulkRpcControls);
+
+async function walletOwnerRequest(path: string, body?: unknown, method = "PUT") {
+  return originalFetch(`${baseUrl}${path}`, { method,
+    headers: { "x-test-operator": ownerClerkUserId, "Content-Type": "application/json" },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+}
+
+test("registered BEP20 wallets share one target across tokens, preserve standby and fail closed on invalid configuration", async () => {
+  const { canonicalManualAddress } = await import("../src/lib/manual-wallet-registration");
+  assert.equal(canonicalManualAddress("tron", "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb"),
+    canonicalManualAddress("tron", `41${"0".repeat(40)}`), "TRON aliases must share a canonical target");
+  const suffix = randomUUID();
+  const [template] = await database.db.select().from(database.cryptoAssetNetworksTable)
+    .where(eq(database.cryptoAssetNetworksTable.id, "btc-bitcoin"));
+  const monitorId = `shared-bep-${suffix}`;
+  const endpointRef = `QX_TEST_SHARED_RPC_${suffix.replaceAll("-", "_")}`;
+  const endpoint = `https://shared-${suffix}.invalid`;
+  const wallet = `0x${"a".repeat(40)}`;
+  const delegate = globalThis.fetch;
+  let rpcCalls = 0;
+  let standby = true;
+  let chainChecks = 0;
+  process.env[endpointRef] = endpoint;
+  globalThis.fetch = async (input, init) => {
+    if (String(input) === endpoint) {
+      rpcCalls++;
+      if (standby) throw new Error("Standby must never probe RPC");
+      const rpc = JSON.parse(String(init?.body));
+      if (rpc.method === "eth_chainId") chainChecks++;
+      const result = rpc.method === "eth_chainId" ? "0x38" : rpc.method === "eth_blockNumber" ? "0x64" :
+        rpc.method === "eth_getLogs" ? [] : rpc.method === "eth_getTransactionReceipt" ? { status: "0x1" } :
+        { number: "0x64", hash: `0x${"3".repeat(64)}`, timestamp: `0x${Math.floor(Date.now() / 1000).toString(16)}`,
+          transactions: [`0x${"4".repeat(64)}`] };
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result }));
+    }
+    return delegate(input, init);
+  };
+  try {
+    await database.db.insert(database.blockchainMonitorNetworksTable).values({
+      id: monitorId, networkName: "Synthetic shared BEP20", networkCode: "bep20", adapterKind: "evm",
+      providerKind: "rpc", chainId: "0x38", endpointSecretRef: endpointRef, enabled: false,
+    });
+    const ids: string[] = [];
+    for (const [index, code] of ["BNB", "USDT", "USDC"].entries()) {
+      let [asset] = await database.db.select().from(database.cryptoAssetsTable).where(eq(database.cryptoAssetsTable.code, code));
+      if (!asset) [asset] = await database.db.insert(database.cryptoAssetsTable).values({
+        id: `test-${code.toLowerCase()}-${suffix}`, code, name: code, decimals: 18, enabled: true,
+      }).returning();
+      const id = `shared-${code.toLowerCase()}-${suffix}`;
+      ids.push(id);
+      await database.db.insert(database.cryptoAssetNetworksTable).values({
+        ...template, id, assetId: asset.id, networkCode: "bep20", networkName: "BNB Smart Chain", networkFamily: "evm",
+        decimals: 18, depositProvider: "whitebit", enabled: true, customerDepositsEnabled: false,
+        manualFallbackEnabled: false, manualWalletTrackingEnabled: false, sharedDepositAddress: "", sharedDepositMemo: null,
+      });
+      await database.db.insert(database.blockchainMonitorAssetsTable).values({
+        monitorNetworkId: monitorId, assetNetworkId: id, identityKind: index ? "token" : "native",
+        contractOrMint: index ? `0x${String(index).repeat(40)}` : null, decimals: 18, enabled: false,
+      });
+    }
+    const body = { networkIds: ids, walletAddress: wallet, memo: null, enabled: false,
+      preserveDepositProviders: true, registerManualMonitoring: true };
+    const saved = await walletOwnerRequest("/api/admin/crypto-networks/receiving-wallet", body);
+    assert.equal(saved.status, 200, await saved.clone().text());
+    const rows = await saved.json();
+    assert.equal(new Set(rows.map((row: any) => row.manualWalletRegistration.targetId)).size, 1);
+    for (const row of rows) {
+      assert.equal(row.sharedDepositAddress, wallet);
+      assert.equal(row.depositProvider, "whitebit");
+      assert.equal(row.manualWalletRegistration.status, "STANDBY");
+      assert.equal(row.manualWalletRegistration.ready, false);
+      assert.equal(row.manualWalletRegistration.sharedRouteCount, 3);
+    }
+    const again = await walletOwnerRequest("/api/admin/crypto-networks/receiving-wallet", body);
+    assert.equal(again.status, 200);
+    assert.equal((await again.json())[0].manualWalletRegistration.targetId, rows[0].manualWalletRegistration.targetId);
+    const targets = await database.db.select().from(database.manualWalletTargetsTable)
+      .where(eq(database.manualWalletTargetsTable.monitorNetworkId, monitorId));
+    assert.equal(targets.length, 1, "same-chain token configurations must not duplicate wallet targets");
+    assert.equal(rpcCalls, 0, "WhiteBIT standby must add no RPC polling");
+    standby = false;
+    const review = await walletOwnerRequest("/api/admin/crypto-networks/deposit-provider/preview",
+      { networkIds: ids, depositProvider: "manual" }, "POST");
+    assert.equal(review.status, 200, await review.clone().text());
+    const operationId = randomUUID();
+    const assign = await walletOwnerRequest("/api/admin/crypto-networks/deposit-provider/jobs",
+      { networkIds: ids, depositProvider: "manual", reviewToken: (await review.json()).reviewToken,
+        operationId, confirmRealAddressCreation: true, monitoring: { rpcMonitoring: "auto" } }, "POST");
+    assert.equal(assign.status, 200, await assign.clone().text());
+    const activated = await waitForProviderSwitch(operationId);
+    for (const row of activated.routes) {
+      assert.equal(row.status, "succeeded", row.message);
+      assert.equal(row.assetMonitoringEnabled, true);
+      assert.equal(row.networkMonitorEnabled, true);
+      assert.equal(row.customerDepositsEnabled, false, "an originally OFF route must remain OFF");
+    }
+    assert.ok(rpcCalls > 0, "switching back to Manual must perform live adapter verification");
+    const currentRoutes = await database.db.select().from(database.cryptoAssetNetworksTable)
+      .where(inArray(database.cryptoAssetNetworksTable.id, ids));
+    assert.ok(currentRoutes.every(row => row.depositProvider === "manual"), "verify persisted provider, not requested intent");
+    const checksBeforeUpdate = chainChecks;
+    const nextWallet = `0x${"b".repeat(40)}`;
+    const moved = await walletOwnerRequest("/api/admin/crypto-networks/receiving-wallet", { ...body, walletAddress: nextWallet });
+    assert.equal(moved.status, 200, await moved.clone().text());
+    const movedRows = await moved.json();
+    assert.equal(new Set(movedRows.map((row: any) => row.manualWalletRegistration.targetId)).size, 1);
+    assert.notEqual(movedRows[0].manualWalletRegistration.targetId, targets[0].id);
+    assert.ok(movedRows.every((row: any) => row.manualWalletRegistration.status === "READY"));
+    assert.equal(chainChecks - checksBeforeUpdate, 1, "a batch shares one chain verification across all tokens");
+    const movedTargets = await database.db.select().from(database.manualWalletTargetsTable)
+      .where(eq(database.manualWalletTargetsTable.monitorNetworkId, monitorId));
+    assert.equal(movedTargets.length, 2, "the original target is retained rather than deleted");
+    const invalid = await walletOwnerRequest("/api/admin/crypto-networks/receiving-wallet", { ...body, networkIds: [ids[0], "usdt-trc20"] });
+    assert.equal(invalid.status, 422, "an EVM address cannot be applied across an incompatible TRON route");
+    await database.db.update(database.cryptoAssetNetworksTable).set({ requiresMemo: true })
+      .where(eq(database.cryptoAssetNetworksTable.id, ids[0]));
+    const missingMemo = await walletOwnerRequest("/api/admin/crypto-networks/receiving-wallet", { ...body, networkIds: [ids[0]] });
+    assert.equal(missingMemo.status, 422, "memo/tag requirements must not be silently ignored");
+    await database.db.update(database.cryptoAssetNetworksTable).set({ requiresMemo: false })
+      .where(eq(database.cryptoAssetNetworksTable.id, ids[0]));
+    const [token] = await database.db.select().from(database.blockchainMonitorAssetsTable)
+      .where(eq(database.blockchainMonitorAssetsTable.assetNetworkId, ids[1]));
+    await database.db.update(database.blockchainMonitorAssetsTable).set({ decimals: 6 })
+      .where(eq(database.blockchainMonitorAssetsTable.id, token.id));
+    const missing = await walletOwnerRequest("/api/admin/crypto-networks/receiving-wallet", { ...body, networkIds: [ids[1]] });
+    assert.equal(missing.status, 200);
+    const blocked = (await missing.json())[0];
+    assert.equal(blocked.sharedDepositAddress, wallet, "valid Manual configuration is retained despite an invalid RPC token identity");
+    assert.equal(blocked.manualWalletRegistration.status, "BLOCKED");
+    assert.match(blocked.manualWalletRegistration.message, /identity|decimals/i);
+    const loaded = await walletOwnerRequest("/api/admin/crypto-networks", undefined, "GET");
+    assert.equal(loaded.status, 200);
+    const reloaded = (await loaded.json()).find((row: any) => row.id === ids[0]);
+    assert.equal(reloaded.manualWalletRegistration.targetId, movedRows[0].manualWalletRegistration.targetId);
+  } finally {
+    globalThis.fetch = delegate;
+    delete process.env[endpointRef];
+  }
+});
