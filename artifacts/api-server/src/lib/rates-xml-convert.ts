@@ -5,7 +5,7 @@ import { readPublishedXmlQuotes, savePublishedXmlQuote, removePublishedXmlQuotes
 import type { XmlMethod } from "./rates-xml-methods";
 import type { GetAdminRatesXmlPreviewResponse } from "@workspace/api-zod";
 import { getQuickexPublicCapabilityConfig } from "./provider-capabilities";
-import { CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS, xmlDiscoveryDeadline } from "./rates-xml-refresh";
+import { CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS, xmlDiscoveryDeadline, xmlDiscoverySingleFlight } from "./rates-xml-refresh";
 
 type Diagnostic = typeof GetAdminRatesXmlPreviewResponse._output.diagnostics[number];
 const method = (pair: PartnerPair, side: "instrumentFrom" | "instrumentTo"): XmlMethod => {
@@ -28,11 +28,12 @@ const diagnostic = (row: ConvertXmlSaved, retained: boolean): Diagnostic => ({
     ? "Last successful Quickex partner JSON XML rate; background refresh in progress or temporarily unavailable."
     : "Live Quickex partner JSON rate, limits, reserve and network fee.",
 });
+const discoverExecutableConfig = xmlDiscoverySingleFlight(getQuickexPublicCapabilityConfig);
 const refresh = new ConvertXmlRefresh({
   executableRoutes: async () => {
-    const config = await xmlDiscoveryDeadline(
-      getQuickexPublicCapabilityConfig(), CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS,
-    );
+    // Only HTTP callers have a short response deadline. The background worker
+    // must finish discovering the executable catalog before fetching live rates.
+    const config = await discoverExecutableConfig();
     return config.signedOrders ? config.pairs : [];
   },
   client: getQuickexXmlPublicClient,
@@ -59,7 +60,7 @@ export async function readConvertXmlPublication(waitMs = 250) {
   // Preserve historical publications, but require the same directed executable
   // catalog as customer Convert and a non-expired provider rate for public XML.
   const config = await xmlDiscoveryDeadline(
-    getQuickexPublicCapabilityConfig(), CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS,
+    discoverExecutableConfig(), CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS,
   );
   const publishable = new Set(freshExecutableXmlRows(snapshot,
     config.signedOrders ? config.pairs : []).map(row => row.key));

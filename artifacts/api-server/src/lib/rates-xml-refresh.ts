@@ -6,6 +6,20 @@ export type XmlQuoteTask<T> = { key: string; run: () => Promise<T> };
 // successful quotes were available. This bounds discovery, not rate freshness.
 export const CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS = 3_000;
 
+/** Share work, not cached permissions; an HTTP timeout must not cancel background discovery. */
+export function xmlDiscoverySingleFlight<T>(work: () => Promise<T>) {
+  let flight: Promise<T> | undefined;
+  return () => {
+    if (!flight) {
+      const next = Promise.resolve().then(work);
+      flight = next;
+      const clear = () => { if (flight === next) flight = undefined; };
+      void next.then(clear, clear);
+    }
+    return flight;
+  };
+}
+
 export async function xmlDiscoveryDeadline<T>(work: Promise<T>, waitMs: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {

@@ -74,3 +74,9 @@ Retained publication data is diagnostic/recovery data, not permission to publish
 **Why:** The user explicitly requires fresh, executable XML directions and preservation of cached data without advertising stale rates as live.
 
 **How to apply:** Keep historical snapshots through temporary outages, but exclude expired or non-executable entries from public output. Check freshness per entry, not merely batch completion or a response-wide warning. If no fresh directions remain, report temporary unavailability rather than label an empty or stale feed fresh.
+
+Apply short executable-catalog discovery deadlines only to HTTP response waits, not to the background XML refresh. Share in-flight discovery without caching completed route permissions.
+
+**Why:** A three-second background deadline repeatedly prevented publication while the live affiliate catalogue and quotes were reachable. Timed-out callers also started duplicate discovery work.
+
+**How to apply:** Let background discovery finish under the existing provider/database timeouts; HTTP callers may time out while that same flight continues. Clear the flight after success or failure, and retain the per-item freshness and current executable-route checks.
