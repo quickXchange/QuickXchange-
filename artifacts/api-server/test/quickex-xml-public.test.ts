@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { XMLParser } from "fast-xml-parser";
 import { parsePartnerJson, parsePartnerPair, partnerPairKey, partnerRateParams, partnerRateToXml, partnerRequestQuery,
+  partnerXmlCode, partnerQuoteTimestamp,
   fetchPartnerPairs, type PartnerXmlClient, type PartnerPair } from "../src/lib/quickex-xml-public";
 import { serializeRatesXml } from "../src/lib/rates-xml-format";
 import { ConvertXmlRefresh, freshExecutableXmlRows, type ConvertXmlSaved } from "../src/lib/rates-xml-convert-refresh";
@@ -12,14 +13,17 @@ const pair = parsePartnerPair({
   isActive: true, minAmount: "0.001", maxAmount: "5",
 });
 const rate = { quotesWithoutNetworkFee: { sellQuote: { baseValue: "0.001", quoteValue: "109.532123456789123456789" } },
-  finalNetworkFeeAmount: "1.500000000000000001" };
+  finalNetworkFeeAmount: "1.500000000000000001", generalMinAmount: "0.001", generalMaxAmount: "5", updatedAt: 0 };
 const client = (read: PartnerXmlClient["read"]): PartnerXmlClient =>
   ({ identity: "partner", referrerId: "same-partner", authenticated: true, read });
 const fixture = (read: PartnerXmlClient["read"], saved: ConvertXmlSaved[] = []) => {
   let clock = 0;
   const stored = new Map(saved.map(row => [row.key, row]));
   const refresh = new ConvertXmlRefresh({
-    client: async () => client(read), codeAllowed: code => !!code,
+    client: async () => client(async (path, params) => {
+      const value = await read(path, params);
+      return value === rate ? { ...rate, updatedAt: clock } : value;
+    }), codeAllowed: code => !!code,
     load: async () => [...stored.values()],
     save: async (_scope, row) => { stored.set(row.key, row); },
     remove: async (_scope, keys) => { if (keys) keys.forEach(key => stored.delete(key)); else stored.clear(); },
@@ -77,7 +81,7 @@ test("a successful slow batch retains expired rates but never identifies them as
         await new Promise(resolve => setTimeout(resolve, 1));
         clock += 300_001;
       }
-      return rate;
+      return { ...rate, updatedAt: clock };
     }),
     codeAllowed: code => !!code, load: async () => [], save: async () => {},
     remove: async () => {}, now: () => clock,
@@ -136,6 +140,76 @@ test("zero network fee remains explicit and missing reserve/rate/fee is never in
   assert.throws(() => partnerRateToXml({ ...pair, instrumentTo: { ...pair.instrumentTo, reservesAmount: undefined } }, rate));
   assert.throws(() => partnerRateToXml(pair, { ...rate, finalNetworkFeeAmount: undefined }));
   assert.throws(() => partnerRateToXml(pair, { quotesWithoutNetworkFee: { sellQuote: { baseValue: 1, quoteValue: 0 } }, finalNetworkFeeAmount: 0 }));
+});
+test("V2 uses the provider XML code first and its uppercase slug only when the code is empty", () => {
+  assert.equal(partnerXmlCode(pair.instrumentTo), "USDTTRC20");
+  const fallback = { ...pair, instrumentTo: { ...pair.instrumentTo, bestChangeCurrencyName: "", slug: "usdttrc20" } };
+  assert.equal(partnerRateToXml(fallback, rate).to, "USDTTRC20");
+  assert.throws(() => partnerRateToXml({
+    ...fallback, instrumentTo: { ...fallback.instrumentTo, slug: "" },
+  }, rate), /identity/);
+});
+test("live V2 quote limits override zero or empty catalogue hints without reducing precision", () => {
+  for (const hint of ["0", ""]) {
+    const row = parsePartnerPair({ ...pair, minAmount: hint, maxAmount: hint });
+    const item = partnerRateToXml(row, {
+      ...rate, generalMinAmount: "0.000123456789123456789", generalMaxAmount: "23.456789123456789123",
+    });
+    assert.equal(item.minamount, "0.000123456789123456789");
+    assert.equal(item.maxamount, "23.456789123456789123");
+    assert.equal("claimedDepositAmount" in partnerRateParams(row), false);
+  }
+  for (const limits of [
+    { generalMinAmount: undefined }, { generalMaxAmount: undefined },
+    { generalMinAmount: "-1" }, { generalMinAmount: "6" }, { generalMaxAmount: "0" },
+  ]) assert.throws(() => partnerRateToXml(pair, { ...rate, ...limits }));
+});
+test("provider milliseconds define freshness; stale, future and missing timestamps fail transiently", () => {
+  assert.equal(partnerQuoteTimestamp({ updatedAt: "1000" }, 2000, 300000), 1000);
+  for (const value of [undefined, null, "", "not-a-time", -1, 2001, 0.5, Infinity]) {
+    assert.throws(() => partnerQuoteTimestamp({ updatedAt: value }, 2000, 300000),
+      error => (error as { status?: number }).status === 503);
+  }
+  assert.throws(() => partnerQuoteTimestamp({ updatedAt: 0 }, 300000, 300000));
+});
+test("documented slug fallback passes the existing background pipeline without creating orders", async () => {
+  const fallback = { ...pair, instrumentTo: { ...pair.instrumentTo, bestChangeCurrencyName: "", slug: "1inch-erc20" } };
+  const paths: string[] = [];
+  const { refresh } = fixture(async path => {
+    paths.push(path);
+    return path === "/pairs/all" ? { total: "1", pairs: [fallback] } : rate;
+  });
+  const result = await refresh.snapshot(1000);
+  assert.equal(result.freshRows.length, 1);
+  assert.equal(result.freshRows[0].item.to, "1INCH-ERC20");
+  assert.deepEqual(paths, ["/pairs/all", "/rates/public/one"]);
+});
+test("provider timestamp is persisted without granting a fresh five minutes on receipt", async () => {
+  let now = 100000, unavailable = false;
+  const refresh = new ConvertXmlRefresh({
+    client: async () => client(async path => {
+      if (unavailable) throw failure(503);
+      return path === "/pairs/all" ? { total: 1, pairs: [pair] } : { ...rate, updatedAt: 50000 };
+    }),
+    load: async () => [], save: async () => {}, remove: async () => {},
+    codeAllowed: code => !!code, now: () => now, sleep: async () => {},
+  });
+  const initial = await refresh.snapshot(1000);
+  assert.equal(initial.freshRows[0].quotedAt, 50000);
+  now = 350000; unavailable = true;
+  const expired = await refresh.snapshot(1000);
+  assert.equal(expired.rows.length, 1, "retain last success for recovery");
+  assert.equal(expired.freshRows.length, 0, "receipt time must not extend provider validity");
+});
+test("HTTP 200 carrying an expired provider timestamp cannot replace a retained publication", async () => {
+  const { refresh, stored, advance } = fixture(async path => path === "/pairs/all"
+    ? { total: 1, pairs: [pair] } : { ...rate, updatedAt: 0 }, [saved()]);
+  advance();
+  const result = await refresh.snapshot(1000);
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.freshRows.length, 0);
+  assert.equal(stored.size, 1);
+  assert.equal(result.rows[0].quotedAt, 0);
 });
 test("full catalogue pagination advances by actual page size without popular-pair caps", async () => {
   const offsets: string[] = [];
@@ -223,10 +297,10 @@ test("updated limits/reserves cannot reuse an old rate when the new quote is una
   }, [saved()]);
   assert.equal((await refresh.snapshot(1000)).rows.length, 0);
 });
-test("duplicate published tickers and missing codes never export ambiguous/invented directions", async () => {
+test("duplicate published tickers and missing code plus slug never export ambiguous/invented directions", async () => {
   const second: PartnerPair = { ...pair, instrumentFrom: { ...pair.instrumentFrom, networkTitle: "OTHER" } };
   const { refresh } = fixture(async () => ({
-    total: 3, pairs: [pair, second, { ...pair, instrumentTo: { ...pair.instrumentTo, bestChangeCurrencyName: "" } }],
+    total: 3, pairs: [pair, second, { ...pair, instrumentTo: { ...pair.instrumentTo, bestChangeCurrencyName: "", slug: "" } }],
   }));
   const snapshot = await refresh.snapshot(1000);
   assert.equal(snapshot.rows.length, 0); assert.equal(snapshot.skipped, 3);
@@ -244,6 +318,7 @@ test("temporary publication-store load failure can recover on the next request",
     client: async () => client(async path => path === "/pairs/all" ? { total: 1, pairs: [pair] } : rate),
     load: async () => { if (++loads === 1) throw new Error("Temporary store outage"); return []; },
     save: async () => {}, remove: async () => {}, codeAllowed: code => !!code,
+    now: () => 0,
   });
   await assert.rejects(refresh.snapshot(1000), /store outage/);
   assert.equal((await refresh.snapshot(1000)).rows.length, 1);
@@ -262,12 +337,13 @@ test("credential/affiliate identity rotation fences old in-flight quotes and cac
     },
     load: async () => [], save: async scope => { scopes.push(scope); },
     remove: async () => {}, codeAllowed: code => !!code,
+    now: () => 0,
   });
   await refresh.snapshot(5);
   identity = "new";
   assert.equal((await refresh.snapshot(1000)).rows[0].item.out, "2");
   release(rate); await new Promise(resolve => setTimeout(resolve, 1));
-  assert.deepEqual(scopes, ["quickex-partner-xml-v1:new"]);
+  assert.deepEqual(scopes, ["quickex-partner-xml-v2:new"]);
 });
 test("429/5xx receive bounded retries and the same partner context remains in use", async () => {
   let rates = 0;

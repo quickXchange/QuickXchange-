@@ -3,6 +3,24 @@ name: Automatic rates XML boundaries
 description: User-confirmed replacement scope, authoritative specification and financial boundaries.
 ---
 
+For Convert XML, Quickex's official V2 documentation permits an uppercase instrument slug when `bestChangeCurrencyName` is empty. Prefer the explicit provider code, reject ambiguous or invalid identifiers, and do not apply this fallback to Swap's approved currency-code whitelist.
+
+**Why:** The API can legitimately omit aggregator names on active affiliate pairs. Missing names alone do not prove a blocked route; the provider explicitly documents the slug fallback.
+
+**How to apply:** Use the same provider-code resolution for eligibility, collision checks, output and persisted method metadata. A slug fallback is a generic provider feed identifier, not a guarantee that a particular external aggregator recognizes it.
+
+Convert XML limits come from the live quote's `generalMinAmount` and `generalMaxAmount`. Catalogue bounds are only request hints and may be zero or empty. Publication freshness starts at the provider's Unix-millisecond `updatedAt`, not at HTTP receipt.
+
+**Why:** Live testing confirmed a valid affiliate pair whose catalogue bounds were both zero while its quote returned executable limits. Resetting freshness on receipt could also advertise an old upstream rate as current.
+
+**How to apply:** Reject absent or inconsistent live limits. Treat missing, expired or future provider timestamps as temporary failures; retain prior successful data for recovery without renewing its validity. Do not modify customer quotes, affiliate attribution or order calculations to construct XML.
+
+Publication-contract changes must isolate older snapshots until fresh provider proof satisfies the new rules.
+
+**Why:** Earlier Convert snapshots had catalogue bounds and receipt-time freshness, so loading them under the corrected rules would still advertise unverified legacy data.
+
+**How to apply:** Version the XML publication cache scope without deleting historical cache or financial records. A cold refresh is safer than labeling an incompatible snapshot fresh.
+
 Provider throughput, not the size of its catalog, bounds how many directions can
 be kept fresh. Prioritize existing near-expiry publications; leave cold
 directions pending rather than lengthening validity to claim full coverage.

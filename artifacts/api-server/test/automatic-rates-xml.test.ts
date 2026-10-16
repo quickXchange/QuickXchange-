@@ -214,6 +214,7 @@ test("Convert publishes partner JSON values rather than customer tickets or loca
   const item = partnerRateToXml(pair, {
     quotesWithoutNetworkFee: { sellQuote: { baseValue: "1", quoteValue: "62123.123456789" } },
     finalNetworkFeeAmount: "1.5",
+    generalMinAmount: "0.0001", generalMaxAmount: "20",
   });
   assert.equal(item.out, "62123.123456789");
   assert.equal(item.param, "floating, language"); assert.equal(item.amount, "250000");

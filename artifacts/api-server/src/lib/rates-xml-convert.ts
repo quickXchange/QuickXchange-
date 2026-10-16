@@ -1,5 +1,5 @@
 import { getQuickexXmlPublicClient } from "./quickex";
-import { partnerPairKey, type PartnerPair } from "./quickex-xml-public";
+import { partnerPairKey, partnerXmlCode, type PartnerPair } from "./quickex-xml-public";
 import { ConvertXmlRefresh, freshExecutableXmlRows, type ConvertXmlSaved } from "./rates-xml-convert-refresh";
 import { readPublishedXmlQuotes, savePublishedXmlQuote, removePublishedXmlQuotes } from "./rates-xml-publication";
 import type { XmlMethod } from "./rates-xml-methods";
@@ -14,7 +14,7 @@ const method = (pair: PartnerPair, side: "instrumentFrom" | "instrumentTo"): Xml
     optionId: `quickex-xml:${instrument.currencyTitle}:${instrument.networkTitle}`,
     name: `${instrument.currencyTitle} · ${instrument.networkTitle}`,
     assetCode: instrument.currencyTitle, network: instrument.networkTitle,
-    kind: "provider", enabled: true, code: instrument.bestChangeCurrencyName,
+    kind: "provider", enabled: true, code: partnerXmlCode(instrument),
     // Source reserve is bookkeeping metadata only, never an advertised substitute.
     reserve: instrument.reservesAmount ?? "0",
   };
@@ -37,8 +37,8 @@ const refresh = new ConvertXmlRefresh({
     return config.signedOrders ? config.pairs : [];
   },
   client: getQuickexXmlPublicClient,
-  // The affiliate API supplies authoritative BestChange identities; no local Admin mapping is needed.
-  codeAllowed: code => /^[A-Z][A-Z0-9_-]{0,63}$/.test(code),
+  // Provider XML code or its documented uppercase slug; no local Admin mapping.
+  codeAllowed: code => /^[A-Z0-9][A-Z0-9_-]{0,63}$/.test(code),
   load: async scope => (await readPublishedXmlQuotes(scope))
     .filter(row => row.quote.providerPair && row.quote.item.providerJson)
     .map(row => ({

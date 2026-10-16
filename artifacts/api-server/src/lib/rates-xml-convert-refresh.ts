@@ -1,6 +1,6 @@
 import type { RatesXmlItem } from "./rates-xml-format";
 import { automaticXmlCryptoCode } from "./rates-xml-crypto-codes";
-import { fetchPartnerPairs, partnerPairKey, partnerRateParams, partnerRateToXml,
+import { fetchPartnerPairs, partnerPairKey, partnerRateParams, partnerRateToXml, partnerXmlCode, partnerQuoteTimestamp,
   type PartnerPair, type PartnerXmlClient } from "./quickex-xml-public";
 
 export type ConvertXmlSaved = { key: string; pair: PartnerPair; item: RatesXmlItem; quotedAt: number };
@@ -104,7 +104,7 @@ export class ConvertXmlRefresh {
       const groups = new Map<string, PartnerPair[]>();
       this.skipped = 0;
       for (const pair of all) {
-        const from = pair.instrumentFrom.bestChangeCurrencyName, to = pair.instrumentTo.bestChangeCurrencyName;
+        const from = partnerXmlCode(pair.instrumentFrom), to = partnerXmlCode(pair.instrumentTo);
         if (!pair.isActive || from === to || !this.deps.codeAllowed(from) || !this.deps.codeAllowed(to) ||
             (allowed && !allowed.has(directedKey(pair.instrumentFrom.currencyTitle, pair.instrumentFrom.networkTitle,
               pair.instrumentTo.currencyTitle, pair.instrumentTo.networkTitle))) ||
@@ -150,8 +150,9 @@ export class ConvertXmlRefresh {
             const json = await this.read(client, "/rates/public/one", partnerRateParams(pair),
               () => current() && !rateLimited && this.now() < deadline);
             const item = partnerRateToXml(pair, json);
+            const quotedAt = partnerQuoteTimestamp(json, this.now(), REFRESH_INTERVAL_MS);
             if (!current()) return;
-            const row = { key, pair, item, quotedAt: this.now() };
+            const row = { key, pair, item, quotedAt };
             await this.deps.save(scope, row);
             if (current()) { this.rows.set(key, row); this.retryAt.delete(key); this.verified.add(key); }
           } catch (e) {
@@ -188,7 +189,9 @@ export class ConvertXmlRefresh {
   }
   async snapshot(waitMs = 250): Promise<ConvertXmlSnapshot> {
     const client = await this.deps.client();
-    const scope = `quickex-partner-xml-v1:${client.identity}`;
+    // Earlier snapshots used catalogue limits and receipt-time freshness.
+    // Retain them in storage, but require new provider proof before publication.
+    const scope = `quickex-partner-xml-v2:${client.identity}`;
     if (this.identity !== client.identity) {
       this.identity = client.identity; this.generation++;
       this.rows.clear(); this.flight = undefined; this.nextRefresh = 0;

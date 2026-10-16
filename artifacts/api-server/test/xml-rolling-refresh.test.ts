@@ -9,7 +9,8 @@ const pair = parsePartnerPair({
   instrumentTo: { currencyTitle: "USDT", networkTitle: "TRX", bestChangeCurrencyName: "USDTTRC20", reservesAmount: "1" },
   isActive: true, minAmount: "0.001", maxAmount: "5",
 });
-const rate = { quotesWithoutNetworkFee: { sellQuote: { baseValue: "1", quoteValue: "10" } }, finalNetworkFeeAmount: "0" };
+const rate = { quotesWithoutNetworkFee: { sellQuote: { baseValue: "1", quoteValue: "10" } },
+  finalNetworkFeeAmount: "0", generalMinAmount: "0.001", generalMaxAmount: "5" };
 
 test("large XML catalogs yield bounded batches and refresh existing rows before expiry", async () => {
   let clock = 0, catalogs = 0, quotes = 0;
@@ -20,7 +21,7 @@ test("large XML catalogs yield bounded batches and refresh existing rows before 
     client: async () => ({ identity: "rolling", referrerId: "test", authenticated: true,
       read: async path => {
         if (path === "/pairs/all") { catalogs++; return { total: pairs.length, pairs }; }
-        quotes++; return rate;
+         quotes++; return { ...rate, updatedAt: clock };
       } }),
     codeAllowed: () => true, load: async () => [], save: async () => {}, remove: async () => {},
     now: () => clock, sleep: async () => {},
@@ -62,7 +63,7 @@ test("a batch completing after freshness expiry never renews its early rows' clo
         if (params.instrumentFromCurrencyTitle === "ETH") {
           await new Promise(resolve => setTimeout(resolve, 5)); clock = 300_001;
         }
-        return rate;
+        return { ...rate, updatedAt: clock };
       } }),
     codeAllowed: () => true, load: async () => [], save: async () => {}, remove: async () => {},
     now: () => clock, sleep: async () => {},

@@ -15,6 +15,8 @@ export type PartnerXmlClient = {
   read(path: "/pairs/all" | "/rates/public/one", params: Record<string, string>): Promise<unknown>;
 };
 export class PartnerXmlDataError extends Error { readonly status = 422; }
+/** An unusable provider timestamp is a transient feed failure, not a removed route. */
+export class PartnerXmlQuoteUnavailableError extends Error { readonly status = 503; }
 /** Node 24 supplies each primitive's original JSON token. XML must not lose provider precision. */
 export function parsePartnerJson(raw: string): unknown {
   return JSON.parse(raw, (_key, value, context?: { source?: string }) => {
@@ -53,14 +55,27 @@ function instrument(v: unknown): PartnerInstrument {
     ...(row.reservesAmount != null ? { reservesAmount: decimal(row.reservesAmount) } : {}),
   };
 }
+/** Quickex V2 documents uppercase slug as the fallback when its XML code is empty. */
+export function partnerXmlCode(instrument: PartnerInstrument): string {
+  return instrument.bestChangeCurrencyName.trim() || instrument.slug.trim().toUpperCase();
+}
+/** Provider time, not successful HTTP receipt, determines a rate's remaining validity. */
+export function partnerQuoteTimestamp(value: unknown, now: number, maxAgeMs: number): number {
+  const raw = object(value).updatedAt;
+  const timestamp = typeof raw === "number" || (typeof raw === "string" && /^\d+$/.test(raw))
+    ? Number(raw) : NaN;
+  if (!Number.isSafeInteger(timestamp) || timestamp < 0 || timestamp > now || now - timestamp >= maxAgeMs)
+    throw new PartnerXmlQuoteUnavailableError("Missing, future-dated or expired Quickex XML quote timestamp.");
+  return timestamp;
+}
 export function parsePartnerPair(v: unknown): PartnerPair {
   const row = object(v);
   if (typeof row.isActive !== "boolean") throw new PartnerXmlDataError("Missing Quickex affiliate pair activation state.");
   const pair = {
     instrumentFrom: instrument(row.instrumentFrom), instrumentTo: instrument(row.instrumentTo),
     isActive: row.isActive,
-    minAmount: row.isActive ? decimal(row.minAmount) : "0",
-    maxAmount: row.isActive ? decimal(row.maxAmount) : "0",
+    minAmount: row.isActive && row.minAmount !== "" ? decimal(row.minAmount) : "0",
+    maxAmount: row.isActive && row.maxAmount !== "" ? decimal(row.maxAmount) : "0",
   };
   if (compareDecimal(pair.maxAmount, "0") > 0 && compareDecimal(pair.maxAmount, pair.minAmount) < 0)
     throw new PartnerXmlDataError("Invalid Quickex XML source limits.");
@@ -85,12 +100,15 @@ export function partnerRateToXml(pair: PartnerPair, value: unknown): RatesXmlIte
   if (!pair.isActive) throw new PartnerXmlDataError("Quickex affiliate pair is inactive.");
   const rate = object(value);
   const quote = object(object(rate.quotesWithoutNetworkFee).sellQuote);
+  const minamount = decimal(rate.generalMinAmount), maxamount = decimal(rate.generalMaxAmount, true);
+  if (compareDecimal(minamount, "0") < 0 || compareDecimal(maxamount, minamount) < 0)
+    throw new PartnerXmlDataError("Invalid Quickex XML live quote limits.");
   return {
-    from: text(pair.instrumentFrom.bestChangeCurrencyName),
-    to: text(pair.instrumentTo.bestChangeCurrencyName),
+    from: text(partnerXmlCode(pair.instrumentFrom)),
+    to: text(partnerXmlCode(pair.instrumentTo)),
     in: decimal(quote.baseValue, true), out: decimal(quote.quoteValue, true),
     amount: decimal(pair.instrumentTo.reservesAmount),
-    minamount: pair.minAmount, maxamount: pair.maxAmount,
+    minamount, maxamount,
     fixedFee: decimal(rate.finalNetworkFeeAmount),
     symbol: pair.instrumentFrom.currencyTitle, param: "floating, language", providerJson: true,
   };
