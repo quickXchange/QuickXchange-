@@ -448,3 +448,31 @@ mtime_ms = 1792094681412
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/049baf00-927f-42bf-83ab-dd4d21c6eb94/c072cc26-9c24-4f1b-abc4-de6f7ce896e0"
 storage_version_token = "1792094687584631"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "RLnbc51IMmaDpq8_ug3C8"
+uri = "file://.local/generated-artifacts/vynox-layer-package/QuickXchange-VYNOX-LAYER-Migration-Package.zip"
+type = "unspecified"
+title = "QuickXchange → VYNOX LAYER Migration Package"
+description = "Complete 10.6 MB source export: 2,117 files covering Website/Admin, Mini App, backend integrations, database migrations, tests, 264 cataloged visual assets, configuration templates and migration documentation. Integrity/build/migration checks passed; three legacy integration-fixture failures are documented."
+logical_id = "04725494-b325-440c-9378-af31dee25bf4"
+content_hash = "sha256:9adc384897f2715d7d59d2c36d592167a4b49acce4651917df0edcddf83588d8"
+size = 10616281
+mtime_ms = 1792187882170
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/04725494-b325-440c-9378-af31dee25bf4/265eb8d0-dec7-4505-83c0-da9d7b429f91"
+storage_version_token = "1792187910431481"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "53dnTyJUHtfOQVEnSDyEf"
+uri = "file://.local/generated-artifacts/vynox-layer-package/quickxchange-vynox-layer/FILE_INVENTORY.json"
+type = "unspecified"
+title = "Migration Package — Complete File Inventory"
+description = "Machine-readable paths, sizes and SHA-256 checksums. Also included inside the ZIP."
+logical_id = "e41e8a27-75f1-4cc0-85fc-714fe5518efc"
+content_hash = "sha256:9595f94bf9719e1718d52995cfce4fa6b40d355e645b37c8f97bdddf90a836d1"
+size = 399931
+mtime_ms = 1792187879704
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/e41e8a27-75f1-4cc0-85fc-714fe5518efc/ae41b0e3-e3f1-4c25-a306-d997e85725aa"
+storage_version_token = "1792187911161815"
+content_type = "application/octet-stream"

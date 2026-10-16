@@ -15,8 +15,20 @@ Reusable source snapshots need a fresh-build check and an audit beyond environme
 
 **How to apply:** Prepare and validate a separate source copy without changing the running app or database. Keep required reviewed public artwork and general provider/monitoring logic. Omit customer-specific recovery data, retain migration ordering, and explain that preserving existing Git history does not purge earlier commits.
 
-The reusable integrations are intended for QXLayer white-label customers, each with independent credentials, branding and permissions.
+The user reuses QuickXchange integrations in QXLayer and VYNOX LAYER for white-label customers, each with independent credentials, branding and permissions.
 
 **Why:** The user specified this reuse context for the QuickXchange source synchronization.
 
 **How to apply:** Preserve existing working integration code and configuration boundaries. Do not describe a source export as implementing tenant isolation; customer credentials, configuration and permissions must remain independent in the consuming platform.
+
+Recovery source and historical SQL can contain public token contract identities alongside private receiving wallets. Never classify every address in those files as private.
+
+**Why:** Blanket address anonymization can replace a legitimate stablecoin contract and silently break the reusable monitoring configuration.
+
+**How to apply:** Classify public chain/token identities separately, preserve their exact bytes, and validate them against the original canonical definitions after sanitizing private recovery inputs.
+
+Fresh-install export checks need a clean database and synthetic SDK-format authentication fixtures, not the original application's credentials.
+
+**Why:** Existing migrations can assume old operational monitor/catalog rows, and Clerk middleware can reject even unsigned test requests when its key configuration is entirely absent.
+
+**How to apply:** Preserve schema and canonical identities while guarding old-install-only data assertions in the copy. Generate non-working reserved-domain authentication fixtures for isolated tests; never reuse live credentials.
