@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { VerifiedTransaction } from '@/components/verified-transaction';
 import { adminOrderInformationLabels, viewOrderInformationRows, viewOrderStep2Rows } from '@/components/view-order-fields';
+import { orderPayoutCopyText } from '@/components/order-payout-copy';
 import {
   SiAlipay, SiCashapp, SiMastercard, SiPaypal, SiPix, SiRevolut,
   SiVenmo, SiVisa, SiWise, SiZelle, SiTelegram
@@ -347,6 +348,13 @@ function AdminResponsiveStyles() {
       position: relative;
       isolation: isolate;
       color-scheme: dark;
+      color: #f5f8ff;
+      --background: 224 52% 6%;
+      --foreground: 220 100% 98%;
+      --card: 225 43% 10%;
+      --muted: 224 35% 17%;
+      --muted-foreground: 219 28% 72%;
+      --border: 224 30% 30%;
       background:
         radial-gradient(circle at 78% 8%, rgba(122, 44, 255, 0.13), transparent 30%),
         radial-gradient(circle at 12% 48%, rgba(19, 221, 244, 0.055), transparent 34%),
@@ -369,13 +377,75 @@ function AdminResponsiveStyles() {
     }
 
     .quickx-view-order .text-muted-foreground {
-      color: rgba(218, 228, 255, 0.52);
+      color: #a4b3cb;
     }
 
-    .quickx-view-order select {
+    .quickx-view-order :is(input, textarea, select) {
       color: #f5f8ff;
       background: rgba(7, 11, 22, 0.92);
-      border-color: rgba(36, 72, 255, 0.34);
+      border-color: #596783;
+    }
+
+    .quickx-view-order :is(input, textarea)::placeholder {
+      color: #a4b3cb;
+      opacity: 1;
+    }
+
+    .quickx-view-order :is(input, textarea, select, button):focus-visible,
+    .quickx-order-assignee-menu [role="menuitem"]:focus-visible {
+      outline: 2px solid #087bff;
+      outline-offset: 2px;
+    }
+
+    .quickx-order-assignee-menu {
+      color: #172033;
+      background: #fff;
+      border-color: #9aaac3;
+      max-width: calc(100vw - 24px);
+      overflow-wrap: anywhere;
+    }
+
+    .quickx-order-assignee-menu [data-highlighted] {
+      background: #eaf0ff;
+      color: #172033;
+    }
+
+    .dark .quickx-order-assignee-menu {
+      color: #f5f8ff;
+      background: #10182b;
+      border-color: #596783;
+    }
+
+    .dark .quickx-order-assignee-menu [data-highlighted] {
+      color: #fff;
+      background: #263550;
+    }
+
+    .quickx-view-order [class~="text-white/55"],
+    .quickx-view-order .quickx-progress-label[class~="text-white/30"] {
+      color: #a4b3cb;
+    }
+
+    .quickx-view-order .quickx-order-card > div:has(> .quickx-field-label) {
+      gap: 12px;
+    }
+
+    .quickx-view-order .quickx-field-label {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .quickx-view-order .quickx-field-label + div {
+      min-width: 0;
+      max-width: 65%;
+    }
+
+    .quickx-view-order .quickx-field-label + div > span {
+      min-width: 0;
+    }
+
+    .quickx-view-order .quickx-field-label + div > button {
+      flex-shrink: 0;
     }
 
     .quickx-view-order .quickx-order-header,
@@ -485,12 +555,12 @@ function AdminResponsiveStyles() {
       box-shadow: 0 0 14px currentColor;
     }
 
-    .quickx-view-order [data-testid="button-copy-order-info"] {
-      color: #dcecff;
-      border: 1px solid transparent;
+    .admin-shell.admin-redesign .quickx-view-order [data-testid="button-copy-order-info"] {
+      color: #dcecff !important;
+      border: 1px solid transparent !important;
       background:
         linear-gradient(rgba(11, 17, 33, 0.97), rgba(11, 17, 33, 0.97)) padding-box,
-        linear-gradient(110deg, rgba(19, 221, 244, 0.62), rgba(8, 123, 255, 0.58), rgba(36, 72, 255, 0.62), rgba(122, 44, 255, 0.58)) border-box;
+        linear-gradient(110deg, rgba(19, 221, 244, 0.62), rgba(8, 123, 255, 0.58), rgba(36, 72, 255, 0.62), rgba(122, 44, 255, 0.58)) border-box !important;
       box-shadow: inset 0 0 15px rgba(8, 123, 255, 0.065), 0 0 9px rgba(19, 221, 244, 0.1), 0 0 18px rgba(122, 44, 255, 0.07);
       transition: box-shadow 160ms ease, filter 160ms ease;
     }
@@ -501,10 +571,10 @@ function AdminResponsiveStyles() {
       filter: brightness(1.06);
     }
 
-    .quickx-view-order [data-testid="button-close-footer"] {
-      color: white;
-      border: 0;
-      background: linear-gradient(110deg, #13DDF4 0%, #087BFF 36%, #2448FF 66%, #7A2CFF 100%);
+    .admin-shell.admin-redesign .quickx-view-order [data-testid="button-close-footer"] {
+      color: white !important;
+      border: 0 !important;
+      background: linear-gradient(110deg, #08778b 0%, #0963cb 36%, #2448FF 66%, #7A2CFF 100%) !important;
       box-shadow: 0 0 20px rgba(36, 72, 255, 0.22);
     }
 
@@ -513,8 +583,19 @@ function AdminResponsiveStyles() {
       box-shadow: 0 0 25px rgba(122, 44, 255, 0.28);
     }
 
+    html .admin-shell.admin-redesign .quickx-view-order .quickx-order-footer button svg {
+      color: inherit !important;
+    }
+
     html:not(.dark) .quickx-view-order {
       color-scheme: light;
+      color: #172033;
+      --background: 0 0% 100%;
+      --foreground: 222 38% 15%;
+      --card: 220 100% 99%;
+      --muted: 220 50% 95%;
+      --muted-foreground: 215 18% 39%;
+      --border: 218 24% 68%;
       background:
         radial-gradient(circle at 78% 8%, rgba(122, 44, 255, 0.055), transparent 30%),
         radial-gradient(circle at 12% 48%, rgba(19, 221, 244, 0.045), transparent 34%),
@@ -536,16 +617,16 @@ function AdminResponsiveStyles() {
     html:not(.dark) .quickx-view-order .text-muted-foreground,
     html:not(.dark) .quickx-view-order .text-slate-400,
     html:not(.dark) .quickx-view-order .text-slate-500,
-    html:not(.dark) .quickx-view-order .text-white\/45,
-    html:not(.dark) .quickx-view-order .text-white\/50,
-    html:not(.dark) .quickx-view-order .text-white\/55,
-    html:not(.dark) .quickx-view-order .text-white\/70 {
+    html:not(.dark) .quickx-view-order [class~="text-white/45"],
+    html:not(.dark) .quickx-view-order [class~="text-white/50"],
+    html:not(.dark) .quickx-view-order [class~="text-white/55"],
+    html:not(.dark) .quickx-view-order [class~="text-white/70"] {
       color: #526176 !important;
       opacity: 1;
     }
 
-    html:not(.dark) .quickx-view-order .text-white\/30,
-    html:not(.dark) .quickx-view-order .text-white\/35 {
+    html:not(.dark) .quickx-view-order [class~="text-white/30"],
+    html:not(.dark) .quickx-view-order [class~="text-white/35"] {
       color: #68768a !important;
       opacity: 1;
     }
@@ -629,9 +710,9 @@ function AdminResponsiveStyles() {
     }
 
     html:not(.dark) .quickx-view-order .quickx-exchange-card time,
-    html:not(.dark) .quickx-view-order .quickx-send-card .text-white\/45,
-    html:not(.dark) .quickx-view-order .quickx-receive-card .text-white\/45,
-    html:not(.dark) .quickx-view-order .quickx-rate-card .text-white\/35 {
+    html:not(.dark) .quickx-view-order .quickx-send-card [class~="text-white/45"],
+    html:not(.dark) .quickx-view-order .quickx-receive-card [class~="text-white/45"],
+    html:not(.dark) .quickx-view-order .quickx-rate-card [class~="text-white/35"] {
       color: #475569 !important;
       opacity: 1 !important;
     }
@@ -654,10 +735,14 @@ function AdminResponsiveStyles() {
       color: #172033;
     }
 
-    html:not(.dark) .quickx-view-order select {
+    html:not(.dark) .quickx-view-order :is(input, textarea, select) {
       color: #172033;
       background: #ffffff;
-      border-color: rgba(36, 72, 255, 0.2);
+      border-color: #8899b2;
+    }
+
+    html:not(.dark) .quickx-view-order :is(input, textarea)::placeholder {
+      color: #526176;
     }
 
     html:not(.dark) .quickx-view-order .quickx-order-header,
@@ -705,11 +790,11 @@ function AdminResponsiveStyles() {
       box-shadow: inset 0 0 15px rgba(122, 44, 255, 0.025), 0 5px 14px rgba(15, 23, 42, 0.04);
     }
 
-    html:not(.dark) .quickx-view-order [data-testid="button-copy-order-info"] {
-      color: #22304a;
+    html:not(.dark) .admin-shell.admin-redesign .quickx-view-order [data-testid="button-copy-order-info"] {
+      color: #22304a !important;
       background:
         linear-gradient(#ffffff, #ffffff) padding-box,
-        linear-gradient(110deg, rgba(19, 180, 210, 0.48), rgba(8, 123, 255, 0.46), rgba(36, 72, 255, 0.48), rgba(122, 44, 255, 0.44)) border-box;
+        linear-gradient(110deg, rgba(19, 180, 210, 0.48), rgba(8, 123, 255, 0.46), rgba(36, 72, 255, 0.48), rgba(122, 44, 255, 0.44)) border-box !important;
       box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
     }
 
@@ -5575,31 +5660,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     notifyAdminAction('success', 'Order information copied.');
   };
   const copyOrderInfo = async () => {
-    const normalizedPaymentRows = step2Rows.map(({ label, value }) => ({
-      label: label.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(),
-      value,
-    }));
-    const paymentValue = (patterns: RegExp[], excluded: RegExp = /$^/) =>
-      normalizedPaymentRows.find(row => patterns.some(pattern => pattern.test(row.label)) && !excluded.test(row.label))?.value;
-    const bankName = paymentValue([/\bbank name\b/, /\bpayment method\b/, /\bpayout method\b/])
-      || (targetOption?.kind === 'fiat-payment-method' ? targetOption.title : null)
-      || order.payoutMethod
-      || 'Not available';
-    const bankDetail = paymentValue(
-      [/\biban\b/, /\bbank detail\b/, /\baccount number\b/, /\bbank account\b/, /^account$/],
-      /\b(?:crypto|wallet|network|address|memo|transaction|tx)\b/,
-    ) || 'Not available';
-    const paymentDescription = paymentValue(
-      [/\bpayment description\b/, /\bpayment reference\b/, /\btransfer reference\b/, /^reference$/, /^description$/],
-      /\b(?:provider|order|transaction|tx|crypto|wallet|network)\b/,
-    ) || 'Not available';
-    const text = [
-      `Name: ${order.customerName || 'Not available'}`,
-      `Bank Name: ${bankName}`,
-      `Bank Detail: ${bankDetail}`,
-      `Payment Description: ${paymentDescription}`,
-      `Amount: ${number(order.receiveAmount)} ${order.toAsset}`,
-    ].join('\n');
+    const text = orderPayoutCopyText(order);
     try {
       await navigator.clipboard.writeText(text);
       setCopyInfoCopied(true);
@@ -5644,7 +5705,7 @@ function OrderDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                       {activeOperators.find(op => op.id === assigneeId)?.email || 'Unassigned'} <ChevronDown size={14} />
                     </DropdownMenuPrimitive.Trigger>
                     <DropdownMenuPrimitive.Portal>
-                      <DropdownMenuPrimitive.Content className="z-[100] min-w-[160px] p-1 bg-card border border-border rounded-lg shadow-md" align="start">
+                      <DropdownMenuPrimitive.Content className="quickx-order-assignee-menu z-[100] min-w-[160px] p-1 bg-card border border-border rounded-lg shadow-md" align="start">
                         <DropdownMenuPrimitive.Item className="flex items-center w-full p-2 text-sm font-medium rounded-md hover:bg-muted cursor-pointer outline-none" onClick={() => saveAssignment('')}>
                           Unassigned {!assigneeId && <Check size={14} className="ml-auto" />}
                         </DropdownMenuPrimitive.Item>

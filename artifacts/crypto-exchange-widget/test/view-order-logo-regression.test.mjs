@@ -52,7 +52,8 @@ test('shared and drawer logo rendering stays circular, centered, contain-fit, an
   assert.match(paymentStyles, /\.payment-logo-frame\s*\{[^}]*border-radius:\s*50%/s);
   assert.match(paymentStyles, /\.payment-logo-frame > \.payment-logo-image\s*\{[^}]*object-fit:\s*contain/s);
   assert.doesNotMatch(shared, /\.payment-method-logo-stack\s*>\s*\.payment-method-logo\.logo-avatar/);
-  assert.match(shared, /\.crypto-network-badge\s*>\s*\.network-logo-badge\s*\{[^}]*width:\s*14px[^}]*height:\s*14px/s);
+  // Network artwork now uses the shared cross-surface NetworkBadge primitive.
+  assert.match(shared, /\.crypto-network-badge\s*>\s*\.qx-network-badge[\s\S]*?--qx-network-badge-size:\s*16px/);
   assert.match(adminStyles, /\.quickx-view-order \.quickx-exchange-card :is\(\.admin-crypto-logo, \.admin-payment-logo-stack\)\s*\{[^}]*width:\s*40px[^}]*aspect-ratio:\s*1\s*\/\s*1/s);
   assert.match(adminStyles, /@media \(max-width:\s*640px\)\s*\{[\s\S]*?\.quickx-view-order \.quickx-exchange-card[\s\S]*?width:\s*36px/s);
 });
