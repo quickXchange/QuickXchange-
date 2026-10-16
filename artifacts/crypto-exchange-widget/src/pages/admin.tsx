@@ -28,7 +28,7 @@ import {
 import { VerifiedTransaction } from '@/components/verified-transaction';
 import { adminOrderInformationLabels, viewOrderInformationRows, viewOrderStep2Rows } from '@/components/view-order-fields';
 import { orderPayoutCopyText } from '@/components/order-payout-copy';
-import { pricingRuleMatchesSide, visiblePricingSelection, type PricingRuleSideFilter } from '@/components/pricing-rule-filter';
+import { pricingRuleHasConfiguredSide, pricingRuleMatchesSide, visiblePricingSelection, type PricingRuleSideFilter } from '@/components/pricing-rule-filter';
 import {
   SiAlipay, SiCashapp, SiMastercard, SiPaypal, SiPix, SiRevolut,
   SiVenmo, SiVisa, SiWise, SiZelle, SiTelegram
@@ -9134,7 +9134,21 @@ function AdminManualPricing() {
   const [drawer, setDrawer] = useState<ManualDeskPricingRule | 'new' | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
-  const [sideFilter, setSideFilter] = useState<PricingRuleSideFilter>('all');
+  const [sideFilter, setSideFilter] = useState<PricingRuleSideFilter>(() => {
+    try {
+      const saved = window.sessionStorage.getItem('qx-admin-pricing-side-filter');
+      return saved === 'send' || saved === 'receive' ? saved : 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem('qx-admin-pricing-side-filter', sideFilter);
+    } catch {
+      // Storage restrictions must not prevent using the directory.
+    }
+  }, [sideFilter]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
@@ -9146,7 +9160,7 @@ function AdminManualPricing() {
   const settlementOptions = config.data?.manualSettlementOptions || [];
   const pricingRules = rules.data?.items || [];
   const diagnostics = rules.data?.diagnostics;
-  const filtered = pricingRules.filter(rule => pricingRuleMatchesSide(rule, sideFilter) && (status === 'all' || String(rule.enabled) === status) && (!search.trim() || `${rule.name} ${pricingSelectorLabel(rule, settlementOptions)}`.toLowerCase().includes(search.trim().toLowerCase())));
+  const filtered = pricingRules.filter(rule => pricingRuleMatchesSide(rule, sideFilter, settlementOptions) && (status === 'all' || String(rule.enabled) === status) && (!search.trim() || `${rule.name} ${pricingSelectorLabel(rule, settlementOptions)}`.toLowerCase().includes(search.trim().toLowerCase())));
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visibleRules = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -9256,9 +9270,9 @@ function AdminManualPricing() {
     const targetAssetName = rule.targetCryptoAssetId
       ? settlementOptions.find(option => option.assetId === rule.targetCryptoAssetId)?.assetCode || rule.targetCryptoAssetId
       : rule.targetAsset;
-    const sourceName = pricingRuleMatchesSide(rule, 'send')
+    const sourceName = pricingRuleHasConfiguredSide(rule, 'send')
       ? source?.title || source?.networkTitle || source?.assetCode || sourceAssetName || 'ANY' : 'ANY';
-    const targetName = pricingRuleMatchesSide(rule, 'receive')
+    const targetName = pricingRuleHasConfiguredSide(rule, 'receive')
       ? target?.title || target?.networkTitle || target?.assetCode || targetAssetName || 'ANY' : 'ANY';
     return `${sourceName} → ${targetName}`;
   };

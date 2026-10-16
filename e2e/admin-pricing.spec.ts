@@ -108,13 +108,14 @@ for (const width of [1440, 390]) {
     await selectAll.check();
     await expect(count).toHaveText('5 matching · 5 selected');
     await filter.selectOption('receive');
-    await expect(count).toHaveText('3 matching · 0 selected');
+    await expect(count).toHaveText('2 matching · 0 selected');
     await expect(page.getByTestId('pricing-rule-side-send')).toHaveCount(0);
+    await expect(page.getByTestId('pricing-rule-side-both')).toHaveCount(0);
     await expect(page.getByTestId('pricing-rule-side-any')).toHaveCount(0);
     await page.getByTestId('select-filter-pricing-status').selectOption('true');
-    await expect(count).toHaveText('2 matching · 0 selected');
+    await expect(count).toHaveText('1 matching · 0 selected');
     await selectAll.check();
-    await expect(count).toHaveText('2 matching · 2 selected');
+    await expect(count).toHaveText('1 matching · 1 selected');
     await page.getByTestId('button-bulk-edit').click();
     await page.getByTestId('apply-markup').check();
     await page.getByTestId('input-bulk-markup').fill('2.50');
@@ -128,12 +129,12 @@ for (const width of [1440, 390]) {
     await page.getByTestId('input-bulk-fixed-fee').fill('0.123456');
     await page.getByTestId('button-save-bulk-pricing').click();
     await expect.poll(() => state.bulkRequests.length).toBe(1);
-    expect(state.bulkRequests[0].items.map((item: any) => item.id)).toEqual(['side-receive', 'side-both']);
+    expect(state.bulkRequests[0].items.map((item: any) => item.id)).toEqual(['side-receive']);
     expect(state.bulkRequests[0].patch).toEqual({ adjustmentDirection: 'MARKUP', markupBasisPoints: 250, fixedFee: '0.123456' });
-    for (const id of ['side-send', 'side-any', 'side-disabled']) {
+    for (const id of ['side-send', 'side-both', 'side-any', 'side-disabled']) {
       expect(state.currentRules().find((rule: any) => rule.id === id)).toEqual(fixture.find(rule => rule.id === id));
     }
-    await expect(count).toHaveText('2 matching · 0 selected');
+    await expect(count).toHaveText('1 matching · 0 selected');
     await page.getByTestId('select-filter-pricing-status').selectOption('all');
     await filter.selectOption('send');
     await expect(count).toHaveText('2 matching · 0 selected');
@@ -153,6 +154,81 @@ for (const width of [1440, 390]) {
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
     await page.screenshot({ path: `test-results/pricing-direction-filter-${width}.png` });
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`exact EUR send/receive roles remain exclusive through bulk edit and reload at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const base = { ...amountRules[0], sourceSettlementOptionId: null, targetSettlementOptionId: null,
+      sourceCryptoAssetId: null, targetCryptoAssetId: null, sourceAsset: null, targetAsset: null,
+      sourceNetwork: null, targetNetwork: null, paymentMethod: null, payoutMethod: null,
+      amountBasedPricingEnabled: false, amountBasedPricingTiers: [], missingSettlementOptionIds: [] };
+    const fiat = (method: string) => `fiat:00000000-0000-4000-8000-000000000002:${method}`;
+    const receives = ['wise', 'ing', 'sepa-instant'].map(method => ({
+      ...base, id: `receive-eur-${method}`, name: `Source-looking name ${method}`,
+      targetSettlementOptionId: fiat(method), targetAsset: 'EUR', targetNetwork: 'SEPA',
+    }));
+    const sends = [['ing', 'usdt'], ['sepa-instant', 'usdt'], ['commerzbank', 'usdc']].map(([method, asset]) => ({
+      ...base, id: `send-eur-${method}`, name: `Receive EUR-looking name ${method}`,
+      sourceSettlementOptionId: fiat(method), sourceAsset: 'EUR', sourceNetwork: 'SEPA', targetCryptoAssetId: asset,
+    }));
+    const fixture = [...receives, ...sends,
+      { ...base, id: 'wildcard-send-asset', name: 'Asset → Any', sourceCryptoAssetId: 'usdt' },
+      { ...base, id: 'wildcard-receive-asset', name: 'Any → Asset', targetCryptoAssetId: 'usdc' },
+      { ...base, id: 'wildcard-both', name: 'Unrestricted Any → Any' },
+      { ...base, id: 'fully-specified-fiat', name: 'USD Volet → EUR SEPA Instant', sourceSettlementOptionId: 'fiat:usd:volet', targetSettlementOptionId: fiat('sepa-instant') },
+      { ...base, id: 'crypto-to-receive-method', name: 'USDT → EUR Wise', sourceCryptoAssetId: 'usdt', targetSettlementOptionId: fiat('wise') },
+    ];
+    const receiveIds = [...receives.map(rule => rule.id), 'wildcard-receive-asset', 'crypto-to-receive-method'];
+    const sendIds = [...sends.map(rule => rule.id), 'wildcard-send-asset', 'fully-specified-fiat'];
+    const state = await mockAmountPricing(page, fixture);
+    await page.goto('/admin/pricing');
+    const filter = page.getByTestId('select-filter-pricing-direction');
+    const count = page.getByTestId('pricing-filter-count');
+    await expect(count).toHaveText('11 matching · 0 selected');
+    await filter.selectOption('receive');
+    await expect(count).toHaveText('5 matching · 0 selected');
+    for (const id of sendIds) await expect(page.getByTestId(`pricing-rule-${id}`)).toHaveCount(0);
+    await expect(page.getByTestId('pricing-rule-wildcard-both')).toHaveCount(0);
+    await page.getByTestId('checkbox-select-visible-pricing').check();
+    await expect(count).toHaveText('5 matching · 5 selected');
+    await page.reload();
+    await expect(filter).toHaveValue('receive');
+    await expect(count).toHaveText('5 matching · 0 selected');
+    expect(state.bulkRequests).toEqual([]);
+    await page.getByTestId('checkbox-select-visible-pricing').check();
+    await page.getByTestId('button-bulk-edit').click();
+    await page.getByTestId('apply-markup').check();
+    await page.getByTestId('input-bulk-markup').fill('2.50');
+    await page.getByTestId('apply-fixed-fee').check();
+    await page.getByTestId('input-bulk-fixed-fee').fill('0.123456');
+    await page.getByTestId('button-save-bulk-pricing').click();
+    await expect.poll(() => state.bulkRequests.length).toBe(1);
+    expect(state.bulkRequests[0].items.map((item: any) => item.id).sort()).toEqual([...receiveIds].sort());
+    for (const id of sendIds) {
+      expect(state.currentRules().find((rule: any) => rule.id === id)).toEqual(fixture.find(rule => rule.id === id));
+    }
+    const receiveAfter = structuredClone(state.currentRules().filter((rule: any) => receiveIds.includes(rule.id)));
+    await filter.selectOption('send');
+    await expect(count).toHaveText('5 matching · 0 selected');
+    for (const id of receiveIds) await expect(page.getByTestId(`pricing-rule-${id}`)).toHaveCount(0);
+    await page.getByTestId('checkbox-select-visible-pricing').check();
+    await page.getByTestId('button-bulk-edit').click();
+    await page.getByTestId('apply-markup').check();
+    await page.getByTestId('input-bulk-markup').fill('1.75');
+    await page.getByTestId('button-save-bulk-pricing').click();
+    await expect.poll(() => state.bulkRequests.length).toBe(2);
+    expect(state.bulkRequests[1].items.map((item: any) => item.id).sort()).toEqual([...sendIds].sort());
+    expect(state.currentRules().filter((rule: any) => receiveIds.includes(rule.id))).toEqual(receiveAfter);
+    expect(state.currentRules().find((rule: any) => rule.id === 'wildcard-both')).toEqual(fixture.find(rule => rule.id === 'wildcard-both'));
+    await page.reload();
+    await expect(filter).toHaveValue('send');
+    await expect(count).toHaveText('5 matching · 0 selected');
+    await filter.selectOption('receive');
+    await expect(count).toHaveText('5 matching · 0 selected');
+    await filter.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `test-results/pricing-exclusive-direction-${width}.png` });
   });
 }
 

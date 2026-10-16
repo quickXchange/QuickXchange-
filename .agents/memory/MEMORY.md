@@ -41,7 +41,7 @@
 - [Amount-independent route rates](amount-independent-route-rates.md) — pre-amount Swap rates apply percentage markup but exclude fixed fees, which remain amount-dependent quote fees.
 - [Legacy range fee inheritance](legacy-range-fee-inheritance.md) — missing per-range fixed fees retain the rule's base fee; explicit zero replaces it without changing gaps.
 - [Manual pricing editor modes](manual-pricing-editor-modes.md) — Adding Range and Edit Path are exclusive editing views, not destructive alternatives to saved pricing data.
-- [Pricing directory side filters](pricing-directory-side-filters.md) — two-sided routes belong to both filters; unrestricted Any → Any belongs only to All Rules.
+- [Pricing directory side filters](pricing-directory-side-filters.md) — exclusive payment-method role groups; keep filter membership separate from actual route geometry.
 - [Coinbase ticker coverage](coinbase-ticker-coverage.md) — discover supported USD products from Coinbase’s live catalog and render unsupported assets without fallback prices.
 - [Customer suspension boundaries](customer-suspension-boundaries.md) — guard every authenticated side-effect path, including routes that intentionally support anonymous users.
 - [Clerk email verification proof](clerk-email-verification-proof.md) — never replace mailbox proof with an administrative verified flag when backend initiation is unavailable.
