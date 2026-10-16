@@ -37,6 +37,26 @@ test('blank and wildcard selectors do not imply a concrete side', () => {
   }
 });
 
+test('an immutable receive option suppresses stale send labels on its Any side', () => {
+  const rule = { targetSettlementOptionId: 'fiat:eur:sepa', sourceAsset: 'EUR', sourceNetwork: 'SEPA', paymentMethod: 'old-bank' };
+  assert.equal(pricingRuleMatchesSide(rule, 'receive'), true);
+  assert.equal(pricingRuleMatchesSide(rule, 'send'), false);
+});
+
+test('an immutable send option suppresses stale receive labels on its Any side', () => {
+  const rule = { sourceSettlementOptionId: 'fiat:eur:old-bank', targetAsset: 'EUR', targetNetwork: 'SEPA', payoutMethod: 'old-bank' };
+  assert.equal(pricingRuleMatchesSide(rule, 'send'), true);
+  assert.equal(pricingRuleMatchesSide(rule, 'receive'), false);
+});
+
+test('explicit opposite asset IDs and legacy all-networks assets remain genuine two-sided rules', () => {
+  for (const extra of [{ targetCryptoAssetId: 'usdc' }, { targetAsset: 'USDC', targetNetwork: '__ALL_NETWORKS__' }]) {
+    const rule = { sourceSettlementOptionId: 'fiat:eur:old-bank', ...extra };
+    assert.equal(pricingRuleMatchesSide(rule, 'send'), true);
+    assert.equal(pricingRuleMatchesSide(rule, 'receive'), true);
+  }
+});
+
 test('action-boundary selection discards filtered-out, removed, and duplicate IDs', () => {
   const catalog = [
     { id: 'send', sourceAsset: 'BTC' },

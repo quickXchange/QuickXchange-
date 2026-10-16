@@ -1012,7 +1012,7 @@ export async function bulkUpdateManualPricingRules(
         }
         // A stored, now-unavailable option is not a reason to reject a field-only edit.
         // Route edits and enable/disable retain their existing availability gate.
-        if (settlementOptionIds && (action !== "edit" || routeChanged) &&
+        if (action !== "delete" && settlementOptionIds && (action !== "edit" || routeChanged) &&
             [row.sourceSettlementOptionId, row.targetSettlementOptionId]
           .some((id) => id !== null && !settlementOptionIds.has(id.toUpperCase()))) {
           skipped.push({
@@ -1035,10 +1035,26 @@ export async function bulkUpdateManualPricingRules(
       }
       if (action === "delete") {
         if (eligible.length > 0) {
-          await tx.delete(manualDeskPricingRulesTable)
-            .where(inArray(manualDeskPricingRulesTable.id, eligible.map(({ row }) => row.id)));
+          // Missing catalog references must not prevent deliberate orphan cleanup.
+          // Keep the version fence in the DELETE itself, not only the earlier read.
+          const deleted = await tx.delete(manualDeskPricingRulesTable)
+            .where(or(...eligible.map(({ row, item }) => and(
+              eq(manualDeskPricingRulesTable.id, row.id),
+              eq(manualDeskPricingRulesTable.version, item.version),
+            ))))
+            .returning({ id: manualDeskPricingRulesTable.id });
+          const deletedIds = new Set(deleted.map(row => row.id));
+          updatedIds.push(...eligible.filter(({ row }) => deletedIds.has(row.id)).map(({ row }) => row.id));
+          for (const { row } of eligible) {
+            if (!deletedIds.has(row.id)) {
+              skipped.push({
+                id: row.id,
+                code: "MANUAL_PRICING_RULE_VERSION_CONFLICT",
+                reason: "The pricing rule changed or was removed while deletion was being applied. Refresh and try again.",
+              });
+            }
+          }
         }
-        updatedIds.push(...eligible.map(({ row }) => row.id));
       } else {
         const finalRows = new Map(rows.map((row) => [row.id, row]));
         const pendingWrites: Array<{
@@ -1219,6 +1235,13 @@ export async function bulkUpdateManualPricingRules(
       return { rows: refreshed, updatedIds, skipped };
     });
   } catch (error) {
+    if (action === "delete") {
+      const failure = error as { code?: string; cause?: { code?: string } };
+      if ((failure.cause?.code ?? failure.code) === "23503") {
+        throw new ApiError("MANUAL_PRICING_RULE_DELETE_BLOCKED",
+          "No selected pricing rules were deleted because a database record still references one of them. Refresh the rules and retry individually.", 409);
+      }
+    }
     if ((error as { code?: string }).code === "23505") {
       throw new ApiError("MANUAL_PRICING_RULE_CONFLICT", "An equivalent pricing rule already exists.", 409);
     }

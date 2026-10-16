@@ -57,14 +57,18 @@ async function mockAmountPricing(page: Page, initialRules: any[] = amountRules) 
   await page.route('**/api/admin/manual-desk-pricing-rules/bulk', async route => {
     const input = route.request().postDataJSON();
     bulkRequests.push(input);
-    rules = rules.map(rule => input.items.some((item: { id: string }) => item.id === rule.id)
+    const updatedIds = input.items.filter((item: any) => rules.some(rule => rule.id === item.id && rule.version === item.version)).map((item: any) => item.id);
+    const skipped = input.items.filter((item: any) => !updatedIds.includes(item.id)).map((item: any) => ({
+      id: item.id, code: 'MANUAL_PRICING_RULE_VERSION_CONFLICT', reason: 'The pricing rule changed after it was opened.',
+    }));
+    rules = input.action === 'delete' ? rules.filter(rule => !updatedIds.includes(rule.id)) : rules.map(rule => input.items.some((item: { id: string }) => item.id === rule.id)
       ? { ...rule, ...input.patch, version: rule.version + 1 }
       : rule);
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
-      items: rules, action: 'edit',
-      affectedIds: input.items.map((item: { id: string }) => item.id),
-      updatedIds: input.items.map((item: { id: string }) => item.id),
-      skipped: [],
+      items: rules, action: input.action,
+      affectedIds: updatedIds,
+      updatedIds,
+      skipped,
       diagnostics: { hasEnabledAnyToAnyFallback: false, orphanRules: [], uncoveredRoutes: [] },
     }) });
   });
@@ -151,6 +155,132 @@ for (const width of [1440, 390]) {
     await page.screenshot({ path: `test-results/pricing-direction-filter-${width}.png` });
   });
 }
+
+const orphanProductionCopies = [
+  { id: 'fc82875c-a45a-4688-ace0-ae025c127467', method: 'bnp-paribas', asset: 'usdc' },
+  { id: '328d41fe-e477-4570-9a9c-55eb8528d6f1', method: 'bbva', asset: 'usdc' },
+  { id: '1a43a48f-35fe-45b8-8212-b6b75c72484f', method: 'bnp-paribas', asset: 'usdt' },
+].map(({ id, method, asset }) => {
+  const optionId = `fiat:00000000-0000-4000-8000-000000000002:${method}`;
+  return { ...amountRules[0], id, name: 'Coin to Eur', version: 5, sourceAsset: 'EUR', targetAsset: null,
+    sourceNetwork: 'SEPA', targetNetwork: null, sourceSettlementOptionId: optionId,
+    targetSettlementOptionId: null, sourceCryptoAssetId: null, targetCryptoAssetId: asset,
+    markupBasisPoints: 120, fixedFee: null, exactRate: '0.95', minAmount: '500', maxAmount: '20000',
+    amountBasedPricingEnabled: false, amountBasedPricingTiers: [], priority: 0,
+    missingSettlementOptionIds: [optionId],
+  };
+});
+
+for (const width of [1440, 390]) {
+  test(`orphan bulk deletion removes only reviewed copies and persists after reload at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const fixture = [...orphanProductionCopies, { ...amountRules[1], id: 'unchanged-pricing-control' }];
+    const state = await mockAmountPricing(page, fixture);
+    await page.goto('/admin/pricing');
+    const first = orphanProductionCopies[0].id;
+    const second = orphanProductionCopies[1].id;
+    const retained = orphanProductionCopies[2].id;
+    for (const id of [first, second, retained]) {
+      await expect(page.getByTestId(`pricing-orphan-${id}`)).toContainText('Missing option');
+    }
+    await page.getByTestId(`checkbox-pricing-${first}`).check();
+    await page.getByTestId(`checkbox-pricing-${second}`).check();
+    await page.getByTestId('button-bulk-delete').click();
+    const review = page.getByTestId('bulk-delete-rule-review');
+    await expect(review).toContainText(first);
+    await expect(review).toContainText(second);
+    await expect(review).not.toContainText(retained);
+    await page.getByTestId('button-cancel-bulk-delete').click();
+    expect(state.bulkRequests).toEqual([]);
+    await page.getByTestId('button-bulk-delete').click();
+    await page.getByTestId('button-confirm-bulk-delete').click();
+    await expect.poll(() => state.bulkRequests.length).toBe(1);
+    expect(state.bulkRequests[0]).toEqual({ action: 'delete', items: [{ id: first, version: 5 }, { id: second, version: 5 }] });
+    await expect(page.getByTestId('pricing-filter-count')).toHaveText('2 matching · 0 selected');
+    await expect(page.getByTestId(`pricing-rule-${first}`)).toHaveCount(0);
+    await expect(page.getByTestId(`pricing-rule-${second}`)).toHaveCount(0);
+    expect(state.currentRules()).toEqual(fixture.filter(rule => ![first, second].includes(rule.id)));
+    await page.reload();
+    await expect(page.getByTestId(`pricing-rule-${first}`)).toHaveCount(0);
+    await expect(page.getByTestId(`pricing-rule-${second}`)).toHaveCount(0);
+    await expect(page.getByTestId(`pricing-rule-${retained}`)).toBeVisible();
+    await expect(page.getByTestId('pricing-rule-unchanged-pricing-control')).toBeVisible();
+    await page.getByTestId('input-filter-pricing').fill('Coin to Eur');
+    await expect(page.getByTestId('pricing-filter-count')).toHaveText('1 matching · 0 selected');
+    await page.getByTestId('checkbox-select-visible-pricing').check();
+    await expect(page.getByTestId('pricing-filter-count')).toHaveText('1 matching · 1 selected');
+    await page.getByTestId('select-filter-pricing-direction').selectOption('send');
+    await expect(page.getByTestId('pricing-filter-count')).toHaveText('1 matching · 0 selected');
+    expect(state.bulkRequests).toHaveLength(1);
+  });
+}
+
+test('pricing side filters ignore stale opposite-side legacy fields without changing stored rules', async ({ page }) => {
+  const base = { ...amountRules[0], amountBasedPricingEnabled: false, amountBasedPricingTiers: [] };
+  const fixture = [
+    { ...base, id: 'canonical-send', sourceSettlementOptionId: 'usd-bank', targetSettlementOptionId: null, targetAsset: 'EUR', targetNetwork: 'SEPA' },
+    { ...base, id: 'canonical-receive', sourceSettlementOptionId: null, targetSettlementOptionId: 'eur-bank', sourceAsset: 'USD', sourceNetwork: 'Bank transfer' },
+  ];
+  const state = await mockAmountPricing(page, fixture);
+  await page.goto('/admin/pricing');
+  await page.getByTestId('select-filter-pricing-direction').selectOption('send');
+  await expect(page.getByTestId('pricing-rule-canonical-send')).toBeVisible();
+  await expect(page.getByTestId('pricing-rule-canonical-receive')).toHaveCount(0);
+  await page.getByTestId('checkbox-select-visible-pricing').check();
+  await expect(page.getByTestId('pricing-filter-count')).toHaveText('1 matching · 1 selected');
+  await page.getByTestId('select-filter-pricing-direction').selectOption('receive');
+  await expect(page.getByTestId('pricing-rule-canonical-send')).toHaveCount(0);
+  await expect(page.getByTestId('pricing-rule-canonical-receive')).toBeVisible();
+  await expect(page.getByTestId('pricing-filter-count')).toHaveText('1 matching · 0 selected');
+  expect(state.currentRules()).toEqual(fixture);
+  expect(state.bulkRequests).toEqual([]);
+});
+
+test('bulk deletion keeps failed rules selected with a persistent explicit reason', async ({ page }) => {
+  const state = await mockAmountPricing(page, orphanProductionCopies.slice(0, 2));
+  const [removed, failed] = orphanProductionCopies;
+  await page.route('**/api/admin/manual-desk-pricing-rules/bulk', route => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify({
+      action: 'delete', items: [failed], updatedIds: [removed.id], affectedIds: [removed.id],
+      skipped: [{ id: failed.id, code: 'MANUAL_PRICING_RULE_VERSION_CONFLICT', reason: 'The pricing rule changed after it was opened.', currentVersion: 6 }],
+      diagnostics: { hasEnabledAnyToAnyFallback: false, orphanRules: [], uncoveredRoutes: [] },
+    }),
+  }));
+  // Keep refetch consistent with the simulated backend result.
+  await page.goto('/admin/pricing');
+  await page.getByTestId('checkbox-select-visible-pricing').check();
+  await page.getByTestId('button-bulk-delete').click();
+  await page.route('**/api/admin/manual-desk-pricing-rules', route => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify({ items: [failed],
+      diagnostics: { hasEnabledAnyToAnyFallback: false, orphanRules: [], uncoveredRoutes: [] } }),
+  }));
+  await page.getByTestId('button-confirm-bulk-delete').click();
+  const modal = page.getByTestId('modal-bulk-delete');
+  await expect(modal).toBeVisible();
+  await expect(modal).toContainText(failed.id);
+  await expect(modal).toContainText('MANUAL_PRICING_RULE_VERSION_CONFLICT');
+  await expect(modal).toContainText('changed after it was opened');
+  await expect(page.getByTestId('pricing-filter-count')).toHaveText('1 matching · 1 selected');
+  expect(state.bulkRequests).toEqual([]); // Failure fixture, never a real write.
+});
+
+test('a database-blocked bulk delete leaves selection and actionable error visible', async ({ page }) => {
+  await mockAmountPricing(page, orphanProductionCopies.slice(0, 2));
+  await page.route('**/api/admin/manual-desk-pricing-rules/bulk', route => route.fulfill({
+    status: 409, contentType: 'application/json', body: JSON.stringify({
+      error: 'No selected pricing rules were deleted because a database record still references one of them.',
+      code: 'MANUAL_PRICING_RULE_DELETE_BLOCKED',
+      retryable: false,
+      outcomeUnknown: false,
+    }),
+  }));
+  await page.goto('/admin/pricing');
+  await page.getByTestId('checkbox-select-visible-pricing').check();
+  await page.getByTestId('button-bulk-delete').click();
+  await page.getByTestId('button-confirm-bulk-delete').click();
+  await expect(page.getByTestId('modal-bulk-delete')).toContainText('still references one of them');
+  await expect(page.getByTestId('pricing-filter-count')).toHaveText('2 matching · 2 selected');
+});
 
 async function addRange(page: Page, prefix: 'single' | 'bulk', min: string, max: string | null, percent: string, direction = 'MARKUP', fixedFee = '0') {
   if (prefix === 'single') {
@@ -601,7 +731,7 @@ test('Select All bulk fee editing submits every filtered rule and reports partia
   expect(bulkInput.patch).not.toHaveProperty('sourceSettlementOptionId');
   expect(bulkInput.patch).not.toHaveProperty('targetSettlementOptionId');
   await expect(page.getByText('19 rules updated successfully. 1 rule skipped.')).toBeVisible();
-  await expect(page.getByText(/Bulk rule 20: Legacy pricing rules cannot be changed\./)).toBeVisible();
+  await expect(page.getByText(/Bulk rule 20 \[.*\] \(MANUAL_PRICING_RULE_READ_ONLY\): Legacy pricing rules cannot be changed\./)).toBeVisible();
   await expect.poll(() => listRequests).toBeGreaterThan(1);
 });
 

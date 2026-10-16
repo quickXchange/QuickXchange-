@@ -9104,9 +9104,15 @@ function BulkDeleteModal({ rules, onClose, onConfirm, pending, error }: { rules:
       <div className="admin-modal-body p-6">
         {error && <InlineNotice kind="error">{error}</InlineNotice>}
         <p className="mb-6 text-muted-foreground">This action cannot be undone.</p>
+        <ul className="mb-6 max-h-48 overflow-y-auto space-y-2" data-testid="bulk-delete-rule-review">
+          {rules.map(rule => <li key={rule.id} className="text-sm">
+            <strong>{rule.name}</strong>
+            <code className="block break-all text-xs text-muted-foreground">{rule.id}</code>
+          </li>)}
+        </ul>
         <div className="admin-modal-actions flex justify-end gap-3">
             <button type="button" className="button button-secondary" onClick={onClose} disabled={pending} aria-label="Cancel bulk delete" data-testid="button-cancel-bulk-delete">Cancel</button>
-           <button type="button" className="button button-danger flex items-center gap-2" onClick={onConfirm} disabled={pending} data-testid="button-confirm-bulk-delete">
+           <button type="button" className="button button-danger flex items-center gap-2" onClick={onConfirm} disabled={pending || rules.length === 0} data-testid="button-confirm-bulk-delete">
              {pending ? <Loader2 className="animate-spin" size={15}/> : <Trash2 size={15}/>}
              Delete
            </button>
@@ -9175,16 +9181,18 @@ function AdminManualPricing() {
       diagnostics: data.diagnostics
     });
     queryClient.invalidateQueries({ queryKey: getListManualDeskPricingRulesQueryKey() });
-    setSelectedRuleIds([]);
+    const failedIds = data.skipped.map(item => item.id).filter(id => data.items.some(rule => rule.id === id));
+    setSelectedRuleIds(actionName === 'delete' ? failedIds : []);
     setBulkEditDrawerOpen(false);
-    setBulkDeleteModalOpen(false);
+    setBulkDeleteModalOpen(actionName === 'delete' && failedIds.length > 0);
     const updatedCount = data.updatedIds.length;
     const skippedCount = data.skipped.length;
     const skippedDetails = data.skipped
-      .map(item => `${selectedRuleNames.get(item.id) || item.id}: ${item.reason}`)
+      .map(item => `${selectedRuleNames.get(item.id) || 'Rule'} [${item.id}] (${item.code}): ${item.reason}`)
       .join('; ');
+    setError(actionName === 'delete' && skippedCount ? skippedDetails : '');
     notifyAdminAction(skippedCount ? 'error' : 'success',
-      `${updatedCount} rule${updatedCount === 1 ? '' : 's'} updated successfully.` +
+      `${updatedCount} rule${updatedCount === 1 ? '' : 's'} ${actionName === 'delete' ? 'deleted' : 'updated'} successfully.` +
       (skippedCount ? ' ' : '') +
       (skippedCount ?
       `${skippedCount} rule${skippedCount === 1 ? '' : 's'} skipped.` +
@@ -9217,6 +9225,7 @@ function AdminManualPricing() {
   };
 
   const handleBulkDelete = () => {
+    if (bulkAction.isPending || selectedRules.length === 0) return;
     setError('');
     bulkAction.mutate({
       data: {
@@ -9226,7 +9235,9 @@ function AdminManualPricing() {
     }, {
       onSuccess: (data) => handleBulkActionSuccess(data, 'delete'),
       onError: (err) => {
-        notifyAdminAction('error', apiErrorText(err, `Could not delete rules.`));
+        const message = apiErrorText(err, 'Could not delete rules. No deletion was confirmed; refresh and try again.');
+        setError(message);
+        notifyAdminAction('error', message);
       }
     });
   };
@@ -9239,8 +9250,16 @@ function AdminManualPricing() {
   const compactRuleLabel = (rule: ManualDeskPricingRule) => {
     const source = settlementOptions.find(option => sameSettlementOptionId(option.id, rule.sourceSettlementOptionId || ''));
     const target = settlementOptions.find(option => sameSettlementOptionId(option.id, rule.targetSettlementOptionId || ''));
-    const sourceName = source?.title || source?.networkTitle || source?.assetCode || rule.sourceAsset || 'ANY';
-    const targetName = target?.title || target?.networkTitle || target?.assetCode || rule.targetAsset || 'ANY';
+    const sourceAssetName = rule.sourceCryptoAssetId
+      ? settlementOptions.find(option => option.assetId === rule.sourceCryptoAssetId)?.assetCode || rule.sourceCryptoAssetId
+      : rule.sourceAsset;
+    const targetAssetName = rule.targetCryptoAssetId
+      ? settlementOptions.find(option => option.assetId === rule.targetCryptoAssetId)?.assetCode || rule.targetCryptoAssetId
+      : rule.targetAsset;
+    const sourceName = pricingRuleMatchesSide(rule, 'send')
+      ? source?.title || source?.networkTitle || source?.assetCode || sourceAssetName || 'ANY' : 'ANY';
+    const targetName = pricingRuleMatchesSide(rule, 'receive')
+      ? target?.title || target?.networkTitle || target?.assetCode || targetAssetName || 'ANY' : 'ANY';
     return `${sourceName} → ${targetName}`;
   };
   const formatFixedFee = (value: string | null | undefined, assetCode?: string | null) => {
@@ -9348,7 +9367,7 @@ function AdminManualPricing() {
              <div className="bulk-actions-divider" />
              <button type="button" onClick={() => setBulkEditDrawerOpen(true)} disabled={bulkAction.isPending} data-testid="button-bulk-edit" aria-label="Bulk edit"><Pencil size={14} /> Edit</button>
              <div className="bulk-actions-divider" />
-             <button type="button" onClick={() => setBulkDeleteModalOpen(true)} disabled={bulkAction.isPending} data-testid="button-bulk-delete" className="bulk-actions-delete" aria-label="Bulk delete"><Trash2 size={14} /> Delete</button>
+             <button type="button" onClick={() => { setError(''); setBulkDeleteModalOpen(true); }} disabled={bulkAction.isPending} data-testid="button-bulk-delete" className="bulk-actions-delete" aria-label="Bulk delete"><Trash2 size={14} /> Delete</button>
            </div>
          </div>
         {rules.isLoading ? <LoadingBlock rows={5} /> : rules.isError ? <ErrorState message={t('adminPricing.load_pricing_rules_error')} retry={() => rules.refetch()} /> : !filtered.length ? <div className="table-empty"><TrendingUp size={20} /><strong>{t('adminPricing.no_matching_pricing_rules')}</strong><span>{t('adminPricing.adjust_filters_or_add_a_full_replacement')}</span></div> : <>
@@ -9416,7 +9435,7 @@ function AdminManualPricing() {
     </div>
     {drawer && <PricingRuleDrawer rule={drawer === 'new' ? undefined : drawer} rules={pricingRules} onClose={() => setDrawer(null)} />}
     {bulkEditDrawerOpen && selectedRules.length > 0 && <BulkPricingRuleDrawer key={selectedRules.map(rule => `${rule.id}:${rule.version}`).join('|')} rules={selectedRules} allOptions={settlementOptions} onClose={() => setBulkEditDrawerOpen(false)} onSuccess={handleBulkActionSuccess} />}
-    {bulkDeleteModalOpen && <BulkDeleteModal rules={selectedRules} onClose={() => setBulkDeleteModalOpen(false)} onConfirm={handleBulkDelete} pending={bulkAction.isPending} error={error} />}
+    {bulkDeleteModalOpen && selectedRules.length > 0 && <BulkDeleteModal rules={selectedRules} onClose={() => setBulkDeleteModalOpen(false)} onConfirm={handleBulkDelete} pending={bulkAction.isPending} error={error} />}
   </AdminShell>;
 }
 

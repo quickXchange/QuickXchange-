@@ -9,6 +9,12 @@ Bulk pricing edits are atomic across the selected rules: reject the whole edit w
 
 **How to apply:** Hold the pricing advisory lock, validate and compare versions for the entire edit selection before writing, update only explicitly requested columns, and use guarded transactional writes whose affected-row result is checked. Pure commission edits validate only those scalar inputs, even for legacy read-only routes, without checking stored option availability or normalizing stored selectors. Field-only edits bypass stored option availability; route edits and enable/disable retain the existing gate. Only selector/priority changes run ambiguity checks. On an offending persisted rule, include its saved human-readable Source → Target route and ID. Other bulk actions may still return updated IDs and structured skips.
 
+Explicit deletion must not require the referenced settlement options to remain available, even for orphaned or legacy read-only rules. Retain permissions and optimistic version checks; never delete or reorient orphan rules automatically.
+
+**Why:** Deleting a bank from the catalog must not make its obsolete pricing rules impossible to remove. Execution-readiness validation protects activation, not deliberate cleanup. A partial result must not look like a completed deletion.
+
+**How to apply:** Report only actually deleted IDs, keep skipped rules selected with persistent reasons and IDs, and label deletion counts as deleted rather than updated. Database reference failures roll back the transaction and need a clear conflict response.
+
 Bulk creation is different from editing selected rows: expand the requested one-to-many route set first, then atomically upsert by exact source option, target option, and priority. An existing exact route is updated with the submitted settings rather than duplicated.
 
 **Why:** Retrying a batch or selecting an already configured payment method must not create parallel rules for the same route, and partial creation would leave operators with an incomplete matrix.
