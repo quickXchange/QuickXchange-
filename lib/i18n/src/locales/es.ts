@@ -1564,6 +1564,11 @@ const es = {
     "save_network": "Guardar red"
   },
   adminPricing: {
+    "filter_by_direction": "Filtrar por lado del cliente",
+    "all_rules": "Todas las reglas",
+    "you_send": "Tú envías",
+    "you_receive": "Tú recibes",
+    "matching_selected": "{{matching}} coincidentes · {{selected}} seleccionadas",
     "load_pricing_rules_error":"No se pudieron cargar las reglas de precios.","select_rule_named":"Seleccionar {{name}}","delete_rule_named":"Eliminar {{name}}",
     "could_not_save_this_pricing_rule": "No se pudo guardar esta regla de precios.",
     "view_only": "VER SÓLO",

@@ -988,6 +988,11 @@ const fr = {
     "save_network": "Enregistrer le réseau"
   },
   adminPricing: {
+    "filter_by_direction": "Filtrer par côté client",
+    "all_rules": "Toutes les règles",
+    "you_send": "Vous envoyez",
+    "you_receive": "Vous recevez",
+    "matching_selected": "{{matching}} correspondantes · {{selected}} sélectionnées",
     "load_pricing_rules_error":"Impossible de charger les règles de tarification.","select_rule_named":"Sélectionner {{name}}","delete_rule_named":"Supprimer {{name}}",
     "could_not_save_this_pricing_rule": "Impossible d'enregistrer cette règle de tarification.",
     "view_only": "VUE UNIQUEMENT",

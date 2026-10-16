@@ -988,6 +988,11 @@ const ru = {
     "save_network": "Сохранить сеть",
   },
   adminPricing: {
+    "filter_by_direction": "Фильтр по стороне клиента",
+    "all_rules": "Все правила",
+    "you_send": "Вы отправляете",
+    "you_receive": "Вы получаете",
+    "matching_selected": "Найдено: {{matching}} · Выбрано: {{selected}}",
     "load_pricing_rules_error":"Не удалось загрузить правила ценообразования.","select_rule_named":"Выбрать {{name}}","delete_rule_named":"Удалить {{name}}",
     "could_not_save_this_pricing_rule": "Не удалось Не Сохранить Это ценообразования правило",
     "view_only": "Просмотреть только",

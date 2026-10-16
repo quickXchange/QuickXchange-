@@ -403,6 +403,11 @@ const ko = {
     "deposit_warning":"입금 경고","red_warning_text_if_necessary":"필요한 경우 빨간색 경고 문구","save_network":"네트워크 저장"
   },
   adminPricing: {
+    "filter_by_direction": "고객 거래 방향 필터",
+    "all_rules": "모든 규칙",
+    "you_send": "보내는 금액",
+    "you_receive": "받는 금액",
+    "matching_selected": "일치 {{matching}}개 · 선택 {{selected}}개",
     "load_pricing_rules_error":"가격 규칙을 불러올 수 없습니다.","select_rule_named":"{{name}} 선택","delete_rule_named":"{{name}} 삭제",
     "could_not_save_this_pricing_rule":"이 가격 규칙을 저장할 수 없습니다.","view_only":"보기 전용","full_replacement":"완전 대체","view_legacy_rule":"레거시 규칙 보기",
     "edit_pricing_rule":"가격 규칙 수정","add_pricing_rule":"가격 규칙 추가","close":"닫기",

@@ -988,6 +988,11 @@ const de = {
     "select_currency_for_actions":"Währung {{name}} für Katalogaktionen auswählen","select_item_for_actions":"{{name}} für Katalogaktionen auswählen","method_currency_on_network":"{{name}}, {{code}}, auf {{network}}","edit_item_named":"{{name}} bearbeiten","more_actions_for_item":"Weitere Aktionen für {{name}}","select_all_visible_tab":"Alle sichtbaren Einträge in {{tab}} auswählen","page_number":"Seite {{page}}"
   },
   adminPricing: {
+    "filter_by_direction": "Nach Kundenseite filtern",
+    "all_rules": "Alle Regeln",
+    "you_send": "Sie senden",
+    "you_receive": "Sie erhalten",
+    "matching_selected": "{{matching}} passend · {{selected}} ausgewählt",
     "route":"Route","amount":"Betrag",
     "could_not_save_this_pricing_rule": "Diese Preisregel konnte nicht gespeichert werden.",
     "view_only": "NUR ANSICHT",

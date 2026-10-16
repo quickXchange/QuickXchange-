@@ -80,7 +80,76 @@ async function mockAmountPricing(page: Page, initialRules: any[] = amountRules) 
     rules = rules.map(rule => rule.id === id ? { ...rule, ...input, version: rule.version + 1 } : rule);
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify(rules.find(rule => rule.id === id)) });
   });
-  return { singleRequests, bulkRequests };
+  return { singleRequests, bulkRequests, currentRules: () => rules };
+}
+
+for (const width of [1440, 390]) {
+  test(`direction filter fences pricing selection and confirmed bulk edits at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const base = { ...amountRules[0], amountBasedPricingEnabled: false, amountBasedPricingTiers: [],
+      sourceSettlementOptionId: null, targetSettlementOptionId: null };
+    const fixture = [
+      { ...base, id: 'side-send', name: 'Receive named source rule', sourceSettlementOptionId: 'usd-bank' },
+      { ...base, id: 'side-receive', name: 'Send named target rule', targetSettlementOptionId: 'eur-bank' },
+      { ...base, id: 'side-both', name: 'Concrete both sides', sourceSettlementOptionId: 'usd-bank', targetSettlementOptionId: 'eur-bank' },
+      { ...base, id: 'side-any', name: 'Any fallback' },
+      { ...base, id: 'side-disabled', name: 'Disabled target', targetSettlementOptionId: 'eur-bunq', enabled: false },
+    ];
+    const state = await mockAmountPricing(page, fixture);
+    await page.goto('/admin/pricing');
+    const filter = page.getByTestId('select-filter-pricing-direction');
+    const selectAll = page.getByTestId('checkbox-select-visible-pricing');
+    const count = page.getByTestId('pricing-filter-count');
+    await expect(count).toHaveText('5 matching · 0 selected');
+    await selectAll.check();
+    await expect(count).toHaveText('5 matching · 5 selected');
+    await filter.selectOption('receive');
+    await expect(count).toHaveText('3 matching · 0 selected');
+    await expect(page.getByTestId('pricing-rule-side-send')).toHaveCount(0);
+    await expect(page.getByTestId('pricing-rule-side-any')).toHaveCount(0);
+    await page.getByTestId('select-filter-pricing-status').selectOption('true');
+    await expect(count).toHaveText('2 matching · 0 selected');
+    await selectAll.check();
+    await expect(count).toHaveText('2 matching · 2 selected');
+    await page.getByTestId('button-bulk-edit').click();
+    await page.getByTestId('apply-markup').check();
+    await page.getByTestId('input-bulk-markup').fill('2.50');
+    await page.getByTestId('button-cancel-bulk-pricing').click();
+    expect(state.bulkRequests).toEqual([]);
+    expect(state.currentRules()).toEqual(fixture);
+    await page.getByTestId('button-bulk-edit').click();
+    await page.getByTestId('apply-markup').check();
+    await page.getByTestId('input-bulk-markup').fill('2.50');
+    await page.getByTestId('apply-fixed-fee').check();
+    await page.getByTestId('input-bulk-fixed-fee').fill('0.123456');
+    await page.getByTestId('button-save-bulk-pricing').click();
+    await expect.poll(() => state.bulkRequests.length).toBe(1);
+    expect(state.bulkRequests[0].items.map((item: any) => item.id)).toEqual(['side-receive', 'side-both']);
+    expect(state.bulkRequests[0].patch).toEqual({ adjustmentDirection: 'MARKUP', markupBasisPoints: 250, fixedFee: '0.123456' });
+    for (const id of ['side-send', 'side-any', 'side-disabled']) {
+      expect(state.currentRules().find((rule: any) => rule.id === id)).toEqual(fixture.find(rule => rule.id === id));
+    }
+    await expect(count).toHaveText('2 matching · 0 selected');
+    await page.getByTestId('select-filter-pricing-status').selectOption('all');
+    await filter.selectOption('send');
+    await expect(count).toHaveText('2 matching · 0 selected');
+    await selectAll.check();
+    await expect(count).toHaveText('2 matching · 2 selected');
+    await page.getByTestId('input-filter-pricing').fill('Receive named');
+    await expect(count).toHaveText('1 matching · 0 selected');
+    await selectAll.check();
+    await page.getByTestId('button-bulk-edit').click();
+    await page.getByTestId('apply-markup').check();
+    await page.getByTestId('input-bulk-markup').fill('1.25');
+    await page.getByTestId('button-save-bulk-pricing').click();
+    await expect.poll(() => state.bulkRequests.length).toBe(2);
+    expect(state.bulkRequests[1].items.map((item: any) => item.id)).toEqual(['side-send']);
+    expect(state.bulkRequests[1].patch).toEqual({ adjustmentDirection: 'MARKUP', markupBasisPoints: 125 });
+    const bounds = await filter.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: `test-results/pricing-direction-filter-${width}.png` });
+  });
 }
 
 async function addRange(page: Page, prefix: 'single' | 'bulk', min: string, max: string | null, percent: string, direction = 'MARKUP', fixedFee = '0') {

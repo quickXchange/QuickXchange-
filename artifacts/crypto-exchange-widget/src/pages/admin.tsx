@@ -28,6 +28,7 @@ import {
 import { VerifiedTransaction } from '@/components/verified-transaction';
 import { adminOrderInformationLabels, viewOrderInformationRows, viewOrderStep2Rows } from '@/components/view-order-fields';
 import { orderPayoutCopyText } from '@/components/order-payout-copy';
+import { pricingRuleMatchesSide, visiblePricingSelection, type PricingRuleSideFilter } from '@/components/pricing-rule-filter';
 import {
   SiAlipay, SiCashapp, SiMastercard, SiPaypal, SiPix, SiRevolut,
   SiVenmo, SiVisa, SiWise, SiZelle, SiTelegram
@@ -9127,6 +9128,7 @@ function AdminManualPricing() {
   const [drawer, setDrawer] = useState<ManualDeskPricingRule | 'new' | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
+  const [sideFilter, setSideFilter] = useState<PricingRuleSideFilter>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [selectedRuleIds, setSelectedRuleIds] = useState<string[]>([]);
@@ -9138,7 +9140,7 @@ function AdminManualPricing() {
   const settlementOptions = config.data?.manualSettlementOptions || [];
   const pricingRules = rules.data?.items || [];
   const diagnostics = rules.data?.diagnostics;
-  const filtered = pricingRules.filter(rule => (status === 'all' || String(rule.enabled) === status) && (!search.trim() || `${rule.name} ${pricingSelectorLabel(rule, settlementOptions)}`.toLowerCase().includes(search.trim().toLowerCase())));
+  const filtered = pricingRules.filter(rule => pricingRuleMatchesSide(rule, sideFilter) && (status === 'all' || String(rule.enabled) === status) && (!search.trim() || `${rule.name} ${pricingSelectorLabel(rule, settlementOptions)}`.toLowerCase().includes(search.trim().toLowerCase())));
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visibleRules = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -9146,20 +9148,24 @@ function AdminManualPricing() {
   const allFilteredRulesSelected = filteredRuleIds.length > 0 && filteredRuleIds.every(id => selectedRuleIds.includes(id));
   const someFilteredRulesSelected = filteredRuleIds.some(id => selectedRuleIds.includes(id));
 
-  useEffect(() => setPage(1), [search, status]);
-  useEffect(() => setSelectedRuleIds([]), [search, status, pageSize]);
-
   useEffect(() => {
-    // Prune selected IDs if they no longer exist in the catalog (e.g. after deletion)
-    if (!pricingRules.length) return;
-    const existingIds = new Set(pricingRules.map(r => r.id));
+    setPage(1);
+    setBulkEditDrawerOpen(false);
+    setBulkDeleteModalOpen(false);
+  }, [search, status, sideFilter]);
+  useEffect(() => setSelectedRuleIds([]), [search, status, sideFilter, pageSize]);
+
+  const matchingIdsKey = JSON.stringify(filteredRuleIds);
+  useEffect(() => {
+    // Catalog refreshes can move or remove a selected rule from this filter.
+    const existingIds = new Set<string>(JSON.parse(matchingIdsKey));
     setSelectedRuleIds(current => {
       const valid = current.filter(id => existingIds.has(id));
       return valid.length === current.length ? current : valid;
     });
-  }, [pricingRules]);
+  }, [matchingIdsKey]);
 
-  const selectedRules = filtered.filter(r => selectedRuleIds.includes(r.id));
+  const selectedRules = visiblePricingSelection(filtered, selectedRuleIds);
   const anyReadOnlySelected = selectedRules.some(r => r.readOnly);
 
   const handleBulkActionSuccess = (data: ManualDeskPricingRulesBulkResponse, actionName: string) => {
@@ -9322,8 +9328,16 @@ function AdminManualPricing() {
             />
           </div>
           <select value={status} onChange={event => setStatus(event.target.value)} aria-label={t('adminPricing.filter_by_status')} data-testid="select-filter-pricing-status"><option value="all">{t('adminPricing.all_statuses')}</option><option value="true">{t('adminPricing.enabled')}</option><option value="false">{t('adminPricing.disabled')}</option></select>
+          <select value={sideFilter} onChange={event => setSideFilter(event.target.value as PricingRuleSideFilter)} aria-label={t('adminPricing.filter_by_direction')} data-testid="select-filter-pricing-direction">
+            <option value="all">{t('adminPricing.all_rules')}</option>
+            <option value="send">{t('adminPricing.you_send')}</option>
+            <option value="receive">{t('adminPricing.you_receive')}</option>
+          </select>
           <button className="button button-primary pricing-add-rule" onClick={() => setDrawer('new')} data-testid="button-add-pricing-rule"><TrendingUp size={15} /> {t('adminPricing.add_pricing_rule')}</button>
         </div>
+        <p className="pricing-filter-count px-4 pb-2 text-xs text-muted-foreground" aria-live="polite" data-testid="pricing-filter-count">
+          {t('adminPricing.matching_selected', { matching: filtered.length, selected: selectedRules.length })}
+        </p>
          <div className={cn("bulk-actions-toolbar", selectedRules.length > 0 && "visible")} data-testid="bulk-actions-toolbar">
            <div className="bulk-actions-inner">
              <span className="bulk-actions-count" data-testid="bulk-actions-count"><Check size={14} /> {selectedRules.length} selected</span>
@@ -9349,7 +9363,7 @@ function AdminManualPricing() {
               }
             }}>
               <table className="data-table pricing-table" data-testid="table-pricing-rules"><thead><tr>
-                <th className="pricing-select-column"><input type="checkbox" ref={el => { if (el) el.indeterminate = someFilteredRulesSelected && !allFilteredRulesSelected; }} checked={allFilteredRulesSelected} onChange={() => { if (allFilteredRulesSelected) setSelectedRuleIds(c => c.filter(id => !filteredRuleIds.includes(id))); else setSelectedRuleIds(c => [...new Set([...c, ...filteredRuleIds])]); }} aria-label="Select all filtered pricing rules" data-testid="checkbox-select-visible-pricing" /></th>
+                <th className="pricing-select-column"><input type="checkbox" ref={el => { if (el) el.indeterminate = someFilteredRulesSelected && !allFilteredRulesSelected; }} checked={allFilteredRulesSelected} onChange={() => setSelectedRuleIds(allFilteredRulesSelected ? [] : filteredRuleIds)} aria-label="Select all filtered pricing rules" data-testid="checkbox-select-visible-pricing" /></th>
                 <th>{t('adminPricing.rule')}</th><th>{t('adminPricing.route_2')}</th><th>Pricing</th><th>{t('adminPricing.specificity')}</th><th>{t('adminPricing.status')}</th><th>{t('adminPricing.actions')}</th><th>{t('adminPricing.test')}</th>
               </tr></thead><tbody>{visibleRules.map(rule => {
                 const option = optionForRule(rule);
@@ -9401,7 +9415,7 @@ function AdminManualPricing() {
       </div>
     </div>
     {drawer && <PricingRuleDrawer rule={drawer === 'new' ? undefined : drawer} rules={pricingRules} onClose={() => setDrawer(null)} />}
-    {bulkEditDrawerOpen && <BulkPricingRuleDrawer rules={selectedRules} allOptions={settlementOptions} onClose={() => setBulkEditDrawerOpen(false)} onSuccess={handleBulkActionSuccess} />}
+    {bulkEditDrawerOpen && selectedRules.length > 0 && <BulkPricingRuleDrawer key={selectedRules.map(rule => `${rule.id}:${rule.version}`).join('|')} rules={selectedRules} allOptions={settlementOptions} onClose={() => setBulkEditDrawerOpen(false)} onSuccess={handleBulkActionSuccess} />}
     {bulkDeleteModalOpen && <BulkDeleteModal rules={selectedRules} onClose={() => setBulkDeleteModalOpen(false)} onConfirm={handleBulkDelete} pending={bulkAction.isPending} error={error} />}
   </AdminShell>;
 }

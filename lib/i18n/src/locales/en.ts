@@ -1144,6 +1144,11 @@ const en = {
     "page_number": "Page {{page}}"
   },
   adminPricing: {
+    "filter_by_direction": "Filter by customer side",
+    "all_rules": "All Rules",
+    "you_send": "You Send",
+    "you_receive": "You Receive",
+    "matching_selected": "{{matching}} matching · {{selected}} selected",
     "could_not_save_this_pricing_rule": "Could not save this pricing rule.",
     "view_only": "VIEW ONLY",
     "full_replacement": "FULL REPLACEMENT",
