@@ -81,6 +81,43 @@ test("failed read leaves order unopened and displays an actionable error", async
   expect(state.items[1].read).toBe(false);
 });
 
+test("loading and failed requests never show fabricated zero counts and retry recovers", async ({ page }) => {
+  const state = await fixture(page);
+  state.failList = true;
+  // Hold initial requests long enough to inspect the real loading state.
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/admin/notifications**", async route => {
+    await gate;
+    await route.fallback();
+  });
+  await page.goto("/admin/notifications");
+  await expect(page.locator(".qxn-skel").first()).toBeVisible();
+  await expect(page.locator(".qxn-count")).toHaveText(["—", "—", "—"]);
+  await expect(page.getByTestId("badge-admin-unread")).toHaveCount(0);
+  release();
+  await expect(page.getByTestId("state-inbox-error")).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId("badge-admin-unknown")).toBeVisible();
+  await expect(page.locator(".qxn-count")).toHaveText(["—", "—", "—"]);
+  state.failList = false;
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(page.locator(".qxn-count")).toHaveText(["5", "3", "2"]);
+  await expect(page.getByTestId("badge-admin-unread")).toHaveText("3", { timeout: 20000 });
+  await expect(page.getByTestId("badge-admin-unknown")).toHaveCount(0);
+});
+
+test("failed background refresh does not present cached counts as current", async ({ page }) => {
+  test.setTimeout(60000);
+  const state = await fixture(page);
+  await page.goto("/admin/notifications");
+  await expect(page.locator(".qxn-count")).toHaveText(["5", "3", "2"]);
+  state.failList = true;
+  await expect(page.getByTestId("state-inbox-error")).toBeVisible({ timeout: 35000 });
+  await expect(page.locator(".qxn-count")).toHaveText(["—", "—", "—"]);
+  await expect(page.getByTestId("badge-admin-unknown")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByTestId("badge-admin-unread")).toHaveCount(0);
+});
+
 test("pagination and automatic polling pick up new notifications", async ({ page }) => {
   const state = await fixture(page, 24);
   await page.goto("/admin/notifications");

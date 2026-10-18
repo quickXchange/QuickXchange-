@@ -47,6 +47,13 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "DELETE", pattern: /^\/admin\/operators\/[^/]+$/, policy: P("team.members.remove", true) },
   { method: "GET", pattern: /^\/admin\/operator-audit$/, policy: P("team.activity.view") },
   { method: "GET", pattern: /^\/admin\/authorization$/, policy: AUTHENTICATED },
+  // Personal inbox access: the router scopes both reads and receipt writes to
+  // the authenticated operator's existing orders/integration/monitoring rights.
+  // Receipt changes do not require permission to edit orders or global settings.
+  { method: "GET", pattern: /^\/admin\/notifications$/, policy: { ...AUTHENTICATED, readOnly: true } },
+  { method: "POST", pattern: /^\/admin\/notifications\/read-all$/, policy: AUTHENTICATED },
+  { method: "POST", pattern: /^\/admin\/notifications\/[^/]+\/read$/, policy: AUTHENTICATED },
+  { method: "DELETE", pattern: /^\/admin\/notifications\/[^/]+$/, policy: AUTHENTICATED },
   { method: "GET", pattern: /^\/admin\/team-members$/, policy: P("team.members.view") },
   { method: "POST", pattern: /^\/admin\/team-members$/, policy: P("team.members.invite", true) },
   { method: "PATCH", pattern: /^\/admin\/team-members\/[^/]+$/, policy: P("team.members.update", true) },
@@ -189,6 +196,7 @@ const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "GET", pattern: /^\/admin\/site-page-media\/[^/]+\/[^/]+\/preview$/, policy: P("site_settings.view") },
   { method: "GET", pattern: /^\/admin\/website-branding$/, policy: P("site_settings.view") },
   { method: "GET", pattern: /^\/admin\/notification-settings$/, policy: P("site_settings.view") },
+  { method: "GET", pattern: /^\/admin\/notification-settings\/telegram-health$/, policy: P("site_settings.view", true) },
   { method: "PUT", pattern: /^\/admin\/notification-settings$/, policy: P("site_settings.manage", true) },
   { method: "GET", pattern: /^\/admin\/telegram\/support-bot$/, policy: P("site_settings.manage", true) },
   { method: "PUT", pattern: /^\/admin\/telegram\/support-bot$/, policy: P("site_settings.manage", true) },

@@ -18,6 +18,8 @@ All endpoints use existing operator authentication and MFA. Owners see all alert
 
 Read and deleted states are **per operator**. Deleting hides an alert only for that operator; the shared event remains to preserve deduplication. Mark All Read never makes an event visible again after deletion.
 
+The central Admin route policy explicitly classifies all four inbox endpoints as authenticated operator access (GET is read-only). Receipt writes are personal, not permission to edit orders, notification delivery settings, or other operators. Existing domain permissions still filter every list, count and write inside the inbox router; unavailable event IDs return 404. Unknown methods and paths remain denied by default. Loading/failed requests display unknown counts, never a fabricated zero or stale successful count.
+
 Lists are paginated (20 per page), no-store, and permission-scoped before counts and pagination. The UI refreshes every 15 seconds, on focus/mount, and after mutations. Cache keys include the signed-in identity.
 
 ## API

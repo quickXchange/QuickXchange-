@@ -45,7 +45,8 @@ export function AdminNotifications() {
     m.mutate(v, { onSuccess: () => { void refresh(); }, onError: fail(fallback) });
   };
 
-  const data = inbox.data;
+  // A failed refresh must not present old counts as the current unread state.
+  const data = inbox.isError ? undefined : inbox.data;
   const pageSize = data?.pageSize ?? 20;
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / pageSize));
   const busy = markAll.isPending || markOne.isPending || remove.isPending;
@@ -76,7 +77,7 @@ export function AdminNotifications() {
             <button key={f} type="button" role="tab" aria-selected={filter === f}
               className={`qxn-tab${filter === f ? ' active' : ''}`} data-testid={`tab-inbox-${f}`}
               onClick={() => { setFilter(f); setPage(1); }}>
-              {FILTER_LABEL[f]}<span className="qxn-count">{counts[f] ?? 0}</span>
+              {FILTER_LABEL[f]}<span className="qxn-count" aria-label={counts[f] === undefined ? 'Count unavailable' : undefined}>{counts[f] ?? '—'}</span>
             </button>
           ))}
         </div>

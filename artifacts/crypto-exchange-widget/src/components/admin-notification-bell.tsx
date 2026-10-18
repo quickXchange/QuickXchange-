@@ -6,10 +6,10 @@ import './admin-notification-bell.css';
 
 export function AdminNotificationBell() {
   const { t } = useI18n();
-  const { data, isError } = useAdminInboxLive({ filter: 'unread', page: 1 });
-  const unread = data?.unreadCount ?? 0;
+  const { data, isError, isLoading } = useAdminInboxLive({ filter: 'unread', page: 1 });
+  const unread = !isError ? data?.unreadCount : undefined;
   const base = t('adminShell.notifications');
-  const label = isError && !data ? `${base} - unread count unavailable` : base;
+  const label = isError ? `${base} - unread count unavailable` : isLoading ? `${base} - loading unread count` : base;
   return (
     <Link
       href="/admin/notifications"
@@ -20,10 +20,10 @@ export function AdminNotificationBell() {
     >
       <span className="qx-mobile-test-target" data-testid="link-admin-mobile-notifications" aria-hidden="true" />
       <Bell size={16} />
-      {isError && !data && (
+      {isError && (
         <span className="qx-bell-badge qx-bell-badge-error" data-testid="badge-admin-unknown" role="img" aria-label="Unread count unavailable" title="Unread count unavailable">!</span>
       )}
-      {unread > 0 && (
+      {unread !== undefined && unread > 0 && (
         <span className="qx-bell-badge" data-testid="badge-admin-unread">{unread > 99 ? '99+' : unread}</span>
       )}
     </Link>

@@ -11,6 +11,7 @@ import { configureOperatorAuthorizationForTests } from "../src/lib/operator-auth
 import { enqueueAdminOrderEvent, recordAdminOperationalAlert } from "../src/lib/admin-inbox";
 import { assertIsolatedWhitebitDatabase } from "./assert-isolated-whitebit-database";
 import { updateConvertOrderStatus } from "../src/lib/convert-provider-boundary";
+import { adminPolicy } from "../src/lib/admin-policy";
 
 assertIsolatedWhitebitDatabase();
 configureOperatorAuthorizationForTests({
@@ -21,20 +22,21 @@ configureOperatorAuthorizationForTests({
 });
 const app = express();
 app.use(pinoHttp({ level: "silent" }), express.json());
-app.use("/api", router);
+// Exercise the same central deny-by-default gate used before routers in production.
+app.use("/api", adminPolicy, router);
 app.use((error: ApiError, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   res.status(error.status ?? 500).json({ error: error.message, code: error.code });
 });
 let server: ReturnType<typeof app.listen>;
 let base = "";
 before(async () => {
-  for (const id of ["inbox-owner", "inbox-other", "inbox-viewer", "inbox-denied", "inbox-suspended"]) {
+  for (const id of ["inbox-owner", "inbox-other", "inbox-viewer", "inbox-integration", "inbox-denied", "inbox-suspended"]) {
     await db.insert(operatorsTable).values({
       clerkUserId: id, email: `${id}@example.test`, name: "Synthetic Inbox Operator",
       role: id.includes("owner") || id.includes("other") ? "owner" : "operator",
       status: id.includes("suspended") ? "suspended" : "active",
       legacyPermissionEligible: false,
-      permissionAllows: id === "inbox-viewer" ? ["orders.view"] : [],
+      permissionAllows: id === "inbox-viewer" ? ["orders.view"] : id === "inbox-integration" ? ["integrations.view"] : [],
     });
   }
   server = app.listen(0, "127.0.0.1");
@@ -74,6 +76,10 @@ test("durable real event helpers deduplicate concurrent Swap, Convert, deposit a
   assert.ok(restricted.body.items.every((item: any) => item.orderId));
   const empty = await request("", "GET", "inbox-denied");
   assert.equal(empty.body.allCount, 0);
+  const integration = await request("", "GET", "inbox-integration");
+  assert.equal(integration.status, 200);
+  assert.equal(integration.body.allCount, 1);
+  assert.ok(integration.body.items.every((item: any) => item.orderId === null));
 });
 
 test("individual read, filters, mark-all and deletion persist independently for each operator", async () => {
@@ -103,10 +109,24 @@ test("permission checks protect list, read, delete and mark-all; malformed input
   const provider = (await request("", "GET", "inbox-other")).body.items.find((item: any) => item.kind === "provider_error");
   assert.equal((await request(`/${provider.id}/read`, "POST", "inbox-viewer")).status, 404);
   assert.equal((await request(`/${provider.id}`, "DELETE", "inbox-viewer")).status, 404);
+  assert.equal((await request(`/${provider.id}/read`, "POST", "inbox-integration")).status, 200);
+  const orderEvent = (await request("", "GET", "inbox-other")).body.items.find((item: any) => item.orderId);
+  assert.equal((await request(`/${orderEvent.id}/read`, "POST", "inbox-integration")).status, 404);
+  assert.equal((await request(`/${provider.id}`, "DELETE", "inbox-integration")).status, 200);
   await request("/read-all", "POST", "inbox-viewer");
   assert.equal((await request("", "GET", "inbox-other")).body.unreadCount, 5);
   assert.equal((await request("", "GET", null)).status, 401);
   assert.equal((await request("", "GET", "inbox-suspended")).status, 403);
+  for (const actor of [null, "inbox-suspended"] as const) {
+    const expected = actor === null ? 401 : 403;
+    assert.equal((await request("/read-all", "POST", actor)).status, expected);
+    assert.equal((await request(`/${provider.id}/read`, "POST", actor)).status, expected);
+    assert.equal((await request(`/${provider.id}`, "DELETE", actor)).status, expected);
+  }
+  assert.equal((await request(`/${provider.id}/read`, "POST", "inbox-denied")).status, 404);
+  assert.equal((await request(`/${provider.id}`, "DELETE", "inbox-denied")).status, 404);
+  assert.equal((await request("/read-all", "POST", "inbox-denied")).status, 200);
+  assert.equal((await request("", "GET", "inbox-other")).body.unreadCount, 5);
   assert.equal((await request("?filter=invalid")).status, 400);
   assert.equal((await request("?page=-1")).status, 400);
   assert.equal((await request("/invalid/read", "POST")).status, 400);

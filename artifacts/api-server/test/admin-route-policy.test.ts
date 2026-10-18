@@ -4,6 +4,36 @@ import { join } from "node:path";
 import test from "node:test";
 import { adminPolicy, classifyAdminRoute } from "../src/lib/admin-policy";
 
+test("personal notification reads and receipt writes are classified without granting global mutation rights", async () => {
+  const routes = [
+    ["GET", "/admin/notifications?filter=unread&page=1"],
+    ["POST", "/admin/notifications/read-all"],
+    ["POST", "/admin/notifications/00000000-0000-4000-8000-000000000001/read"],
+    ["DELETE", "/admin/notifications/00000000-0000-4000-8000-000000000001"],
+  ];
+  for (const [method, path] of routes) {
+    assert.deepEqual(classifyAdminRoute(method, path), {
+      authenticatedOnly: true,
+      ...(method === "GET" ? { readOnly: true } : {}),
+    });
+    for (const role of ["owner", "operator"]) {
+      const error = await new Promise<unknown>(resolve => adminPolicy(
+        { method, path: path.split("?")[0] } as never,
+        { locals: { operator: { role, effectivePermissions: [] } } } as never,
+        resolve,
+      ));
+      assert.equal(error, undefined);
+    }
+  }
+  // New verbs/paths must remain closed; no broad namespace authorization.
+  assert.equal(classifyAdminRoute("POST", "/admin/notifications"), undefined);
+  assert.equal(classifyAdminRoute("PATCH", "/admin/notifications/example"), undefined);
+  assert.equal(classifyAdminRoute("POST", "/admin/notifications/example/delete"), undefined);
+  assert.deepEqual(classifyAdminRoute("GET", "/admin/notification-settings/telegram-health"), {
+    permission: "site_settings.view", ownerOnly: true,
+  });
+});
+
 test("bulk payment method reserve is Owner-only even with staff management overrides", async () => {
   const path = "/admin/payment-methods/bulk-reserve";
   assert.deepEqual(classifyAdminRoute("POST", path), { permission: "payment_methods.manage", ownerOnly: true });
