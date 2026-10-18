@@ -1,4 +1,5 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
+import { enqueueAdminOrderEvent } from "../lib/admin-inbox";
 import { manualMonitoringIntentionallyDisabled, persistPreparedMonitoringProof, savePreparedMonitoringProof } from "../lib/deposit-provider-monitoring";
 import { previewRegisteredManualWallets, saveRegisteredManualWallets, syncManualWalletRegistration, withManualWalletRegistration } from "../lib/manual-wallet-registration";
 import {
@@ -3732,6 +3733,7 @@ async function createOrderFromInput(
       .onConflictDoNothing({ target: ordersTable.clientRequestId })
       .returning();
     if (!created) return undefined;
+    await enqueueAdminOrderEvent(tx, { orderId: created.id, type: "Swap", status: created.status, version: created.statusVersion, created: true });
     const [customer] = await tx.insert(customersTable).values({
       id: `cus-${randomUUID()}`,
       name: intent.customerName,

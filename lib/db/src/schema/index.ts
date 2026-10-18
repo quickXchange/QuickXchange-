@@ -54,6 +54,7 @@ export * from "./telegram-news";
 export * from "./telegram-support-bot";
 export * from "./blockchain-monitoring";
 export * from "./notification-settings";
+export * from "./admin-inbox";
 export * from "./convert-notification-outbox";
 export * from "./convert-admin-notification-outbox";
 export * from "./swap-default-pair";

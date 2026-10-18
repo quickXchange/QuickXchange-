@@ -11,6 +11,7 @@ import { logger } from "./lib/logger";
 import { trustedProxyHops } from "./lib/client-ip";
 import { QuickexApiError } from "./lib/quickex";
 import { ApiError } from "./lib/api-error";
+import { recordAdminOperationalAlert } from "./lib/admin-inbox";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -94,6 +95,12 @@ const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
   }
 
   if (error instanceof QuickexApiError || error instanceof ApiError) {
+    const code = String(error.code ?? "");
+    const providerFailure = /^(QUICKEX|WHITEBIT|RPC|BLOCKCHAIN|PROVIDER)_/.test(code) &&
+      /(NETWORK|TIMEOUT|UNAVAILABLE|CONNECT|AUTH|RATE_LIMIT|INTERNAL|FAILED|ERROR)/.test(code);
+    if (providerFailure || error.status >= 500) {
+      void recordAdminOperationalAlert(providerFailure ? code.split("_")[0] : "API", code, !providerFailure);
+    }
     const status = error.status >= 400 && error.status < 600 ? error.status : 500;
     const orderId = error instanceof ApiError ? error.orderId : undefined;
     req.log.warn(
@@ -117,6 +124,7 @@ const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
   }
 
   req.log.error({ err: error }, "Unhandled API error");
+  void recordAdminOperationalAlert("API", "INTERNAL_ERROR", true);
   res.status(500).json({
     error: "The request could not be completed.",
     code: "INTERNAL_ERROR",

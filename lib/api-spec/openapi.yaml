@@ -27,6 +27,53 @@ tags:
   - name: telegram
     description: Shared Telegram customer account linking
 paths:
+  /admin/notifications:
+    get:
+      operationId: getAdminInbox
+      tags: [admin]
+      parameters:
+        - { name: filter, in: query, schema: { type: string, enum: [all, read, unread], default: all } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        "200":
+          description: Permission-scoped operator inbox
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminInboxPage" }
+  /admin/notifications/read-all:
+    post:
+      operationId: markAdminInboxRead
+      tags: [admin]
+      responses:
+        "200":
+          description: All currently visible notifications marked read for this operator
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminInboxResult" }
+  /admin/notifications/{id}/read:
+    post:
+      operationId: readAdminInboxItem
+      tags: [admin]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Marked read
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminInboxResult" }
+  /admin/notifications/{id}:
+    delete:
+      operationId: deleteAdminInboxItem
+      tags: [admin]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Dismissed for this operator
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminInboxResult" }
   /languages:
     get:
       operationId: getLanguageSettings
@@ -4878,6 +4925,33 @@ components:
       name: __session
       description: Clerk owner session. The authenticated user must match the single active owner account in the server-side operator registry.
   schemas:
+    AdminInboxResult:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean }
+    AdminInboxItem:
+      type: object
+      required: [id, kind, title, message, orderId, createdAt, read]
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        title: { type: string }
+        message: { type: string }
+        orderId: { type: [string, "null"] }
+        createdAt: { type: string }
+        read: { type: boolean }
+    AdminInboxPage:
+      type: object
+      required: [items, total, unreadCount, readCount, allCount, page, pageSize]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AdminInboxItem" } }
+        total: { type: integer }
+        unreadCount: { type: integer }
+        readCount: { type: integer }
+        allCount: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
     DepositProviderSwitchInput:
       allOf:
         - $ref: "#/components/schemas/CryptoDepositProviderAssignmentApply"

@@ -5,6 +5,31 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface AdminInboxResult {
+  success: boolean;
+}
+
+export interface AdminInboxItem {
+  id: string;
+  kind: string;
+  title: string;
+  message: string;
+  /** @nullable */
+  orderId: string | null;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface AdminInboxPage {
+  items: AdminInboxItem[];
+  total: number;
+  unreadCount: number;
+  readCount: number;
+  allCount: number;
+  page: number;
+  pageSize: number;
+}
+
 export type CryptoDepositProviderAssignmentApplyDepositProvider = typeof CryptoDepositProviderAssignmentApplyDepositProvider[keyof typeof CryptoDepositProviderAssignmentApplyDepositProvider];
 
 
@@ -7698,6 +7723,23 @@ export const RevenueGroupByParameter = {
  * Currency for historical normalized values. USD is always available; another currency must be present in every included order's immutable reference snapshot.
  */
 export type RevenueReportingCurrencyParameter = string;
+
+export type GetAdminInboxParams = {
+filter?: GetAdminInboxFilter;
+/**
+ * @minimum 1
+ */
+page?: number;
+};
+
+export type GetAdminInboxFilter = typeof GetAdminInboxFilter[keyof typeof GetAdminInboxFilter];
+
+
+export const GetAdminInboxFilter = {
+  all: 'all',
+  read: 'read',
+  unread: 'unread',
+} as const;
 
 export type GetExchangeRoutePricingParams = {
 /**

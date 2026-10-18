@@ -135,7 +135,7 @@ try {
     "whitebit-swap-integration.test.ts",
   ];
   const selected = process.argv[2];
-  if (selected && ![...entries, "manual-buy-orders.test.ts"].includes(selected)) throw new Error("Unknown isolated test entry.");
+  if (selected && ![...entries, "manual-buy-orders.test.ts", "admin-inbox.test.ts"].includes(selected)) throw new Error("Unknown isolated test entry.");
   for (const entry of selected ? [selected] : entries) {
     const child = spawn(process.execPath, ["test/run.mjs", entry], { env, stdio: "inherit" });
     if (await childFinished(child) !== 0) {

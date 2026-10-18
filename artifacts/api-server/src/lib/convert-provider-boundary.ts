@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { databasePoolTelemetry, db, quickexOrdersTable } from "@workspace/db";
+import { enqueueAdminOrderEvent } from "./admin-inbox";
 import {
   buildProviderQuoteTicket,
   listPublicProviderSettlementOptions,
@@ -100,15 +101,24 @@ export async function updateConvertOrderStatus(
   recordVersion: number,
   status: string,
 ) {
-  const [row] = await db.update(quickexOrdersTable).set({
-    status,
-    providerState: `admin_status_override:${status}`,
-    outcomeUnknown: false,
-    updatedAt: new Date(),
-    recordVersion: recordVersion + 1,
-  }).where(and(
-    eq(quickexOrdersTable.legacyOrderId, id),
-    eq(quickexOrdersTable.recordVersion, recordVersion),
-  )).returning();
-  return row;
+  return db.transaction(async tx => {
+    const [previous] = await tx.select({ status: quickexOrdersTable.status }).from(quickexOrdersTable)
+      .where(and(eq(quickexOrdersTable.legacyOrderId, id), eq(quickexOrdersTable.recordVersion, recordVersion))).limit(1);
+    const [row] = await tx.update(quickexOrdersTable).set({
+      status,
+      providerState: `admin_status_override:${status}`,
+      outcomeUnknown: false,
+      updatedAt: new Date(),
+      recordVersion: recordVersion + 1,
+    }).where(and(
+      eq(quickexOrdersTable.legacyOrderId, id),
+      eq(quickexOrdersTable.recordVersion, recordVersion),
+    )).returning();
+    if (row && previous && previous.status !== row.status) {
+      await enqueueAdminOrderEvent(tx, {
+        orderId: row.legacyOrderId, type: "Convert", status: row.status, version: row.recordVersion,
+      });
+    }
+    return row;
+  });
 }

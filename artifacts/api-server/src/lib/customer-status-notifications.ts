@@ -1,4 +1,5 @@
 import { formatDisplayAmount } from "@workspace/amount-format";
+import { enqueueAdminDepositEvent, enqueueAdminOrderEvent } from "./admin-inbox";
 import { randomUUID } from "node:crypto";
 import {
   and,
@@ -1110,6 +1111,16 @@ export async function updateOrderAndQueueStatusNotificationTx(
         ))
         .limit(1);
       hasPaymentEvidence = Boolean(whitebitPayment || blockchainPayment);
+    }
+    if (updated.type === "manual") {
+      if (statusChanged) {
+        await enqueueAdminOrderEvent(tx, {
+          orderId: updated.id, type: "Swap", status: updated.status, version: updated.statusVersion,
+          depositVerified: paymentEvidenceRequired && hasPaymentEvidence,
+        });
+      } else if (paymentEvidenceRequired && hasPaymentEvidence) {
+        await enqueueAdminDepositEvent(tx, "Swap", updated.id);
+      }
     }
     const eventEnabled = customerEmailEventEnabled(notificationSettings, eventKind);
     if (

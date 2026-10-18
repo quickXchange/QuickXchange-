@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, gt, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { recordAdminOperationalAlert } from "./admin-inbox";
 import {
   db, ordersTable, whitebitDepositAddressesTable, whitebitHistoryWorkerStateTable,
   whitebitOrderAddressesTable,
@@ -301,6 +302,7 @@ function productionPorts(source: WhitebitHistoryCredentialSource, testOrderId?: 
         .set({ lastErrorAt: new Date(), lastError: message, lastErrorCode: code,
           nextAttemptAt: new Date(Date.now() + delay), failureCount: failures, updatedAt: new Date() })
         .where(and(eq(whitebitHistoryWorkerStateTable.id, stateId), eq(whitebitHistoryWorkerStateTable.leaseToken, token)));
+      await recordAdminOperationalAlert("WhiteBIT", code);
     },
     release: async (token) => {
       await db.update(whitebitHistoryWorkerStateTable)

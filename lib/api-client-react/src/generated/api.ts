@@ -24,6 +24,8 @@ import type {
   AdminAuthorization,
   AdminConvertDefaultPairResponse,
   AdminCustomerUpdate,
+  AdminInboxPage,
+  AdminInboxResult,
   AdminLandingBackground,
   AdminSitePage,
   AdminSummary,
@@ -126,6 +128,7 @@ import type {
   FiatCurrencyPaymentMethodUpdate,
   FiatCurrencyUpdate,
   GetAdminCustomerReferralsParams,
+  GetAdminInboxParams,
   GetAdminSummaryParams,
   GetAffiliateAccountParams,
   GetAffiliateAccountsParams,
@@ -343,6 +346,279 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetAdminInboxUrl = (params?: GetAdminInboxParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/notifications?${stringifiedParams}` : `/api/admin/notifications`
+}
+
+export const getAdminInbox = async (params?: GetAdminInboxParams, options?: Parameters<typeof customFetch>[1]): Promise<AdminInboxPage> => {
+
+  return customFetch<AdminInboxPage>(getGetAdminInboxUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminInboxQueryKey = (params?: GetAdminInboxParams,) => {
+    return [
+    `/api/admin/notifications`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAdminInboxQueryOptions = <TData = Awaited<ReturnType<typeof getAdminInbox>>, TError = ErrorType<unknown>>(params?: GetAdminInboxParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminInbox>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminInboxQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminInbox>>> = ({ signal }) => getAdminInbox(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminInbox>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminInboxQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminInbox>>>
+export type GetAdminInboxQueryError = ErrorType<unknown>
+
+
+
+export function useGetAdminInbox<TData = Awaited<ReturnType<typeof getAdminInbox>>, TError = ErrorType<unknown>>(
+ params?: GetAdminInboxParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminInbox>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminInboxQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkAdminInboxReadUrl = () => {
+
+
+
+
+  return `/api/admin/notifications/read-all`
+}
+
+export const markAdminInboxRead = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminInboxResult> => {
+
+  return customFetch<AdminInboxResult>(getMarkAdminInboxReadUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkAdminInboxReadMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAdminInboxRead>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markAdminInboxRead>>, TError,void, TContext> => {
+
+const mutationKey = ['markAdminInboxRead'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markAdminInboxRead>>, void> = () => {
+
+
+          return  markAdminInboxRead(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkAdminInboxReadMutationResult = NonNullable<Awaited<ReturnType<typeof markAdminInboxRead>>>
+
+    export type MarkAdminInboxReadMutationError = ErrorType<unknown>
+
+    export const useMarkAdminInboxRead = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAdminInboxRead>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markAdminInboxRead>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getMarkAdminInboxReadMutationOptions(options));
+    }
+
+export const getReadAdminInboxItemUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/notifications/${id}/read`
+}
+
+export const readAdminInboxItem = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<AdminInboxResult> => {
+
+  return customFetch<AdminInboxResult>(getReadAdminInboxItemUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReadAdminInboxItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof readAdminInboxItem>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof readAdminInboxItem>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['readAdminInboxItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof readAdminInboxItem>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  readAdminInboxItem(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReadAdminInboxItemMutationResult = NonNullable<Awaited<ReturnType<typeof readAdminInboxItem>>>
+
+    export type ReadAdminInboxItemMutationError = ErrorType<unknown>
+
+    export const useReadAdminInboxItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof readAdminInboxItem>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof readAdminInboxItem>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getReadAdminInboxItemMutationOptions(options));
+    }
+
+export const getDeleteAdminInboxItemUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/notifications/${id}`
+}
+
+export const deleteAdminInboxItem = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<AdminInboxResult> => {
+
+  return customFetch<AdminInboxResult>(getDeleteAdminInboxItemUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteAdminInboxItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminInboxItem>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAdminInboxItem>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteAdminInboxItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAdminInboxItem>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteAdminInboxItem(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAdminInboxItemMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAdminInboxItem>>>
+
+    export type DeleteAdminInboxItemMutationError = ErrorType<unknown>
+
+    export const useDeleteAdminInboxItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminInboxItem>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAdminInboxItem>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteAdminInboxItemMutationOptions(options));
+    }
 
 export const getGetLanguageSettingsUrl = () => {
 

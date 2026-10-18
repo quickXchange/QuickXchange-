@@ -9,6 +9,7 @@ import {
   db, pool, fiatCurrenciesTable, fiatCurrencyPaymentMethodsTable,
   paymentMethodsTable, manualDeskPricingRulesTable, ordersTable,
   cryptoAssetsTable, cryptoAssetNetworksTable, operatorsTable,
+  adminInboxTable,
 } from "@workspace/db";
 import exchangeRouter from "../src/routes/exchange";
 import exchangeConfigRouter from "../src/routes/exchange-config";
@@ -16,6 +17,7 @@ import { configureCustomerAuthorizationForTests } from "../src/lib/customer-auth
 import { configureManualDeskRateAdapterForTests } from "../src/lib/manual-desk-rates";
 import { assertIsolatedWhitebitDatabase } from "./assert-isolated-whitebit-database";
 import { configureOperatorAuthorizationForTests } from "../src/lib/operator-auth";
+import { updateOrderAndQueueStatusNotificationTx } from "../src/lib/customer-status-notifications";
 
 assertIsolatedWhitebitDatabase();
 configureCustomerAuthorizationForTests({ getUserId: () => null });
@@ -133,6 +135,9 @@ test(`EUR ${methodName} BUY → ${destination.id} preserves the quote and is vis
   const replay = await json("/orders", input);
   assert.equal(replay.status, 200, JSON.stringify(replay.body));
   assert.equal(replay.body.id, order.body.id);
+  const notifications = await db.select().from(adminInboxTable).where(eq(adminInboxTable.orderId, saved.id));
+  assert.equal(notifications.length, 1, "Creation and replay produce exactly one inbox notification");
+  assert.equal(notifications[0].kind, "new_order");
   const headers = { "x-test-operator": "buy-test-owner" };
   const detail = await json(`/orders/${order.body.id}`, undefined, headers);
   assert.equal(detail.status, 200, JSON.stringify(detail.body));
@@ -147,6 +152,11 @@ test(`EUR ${methodName} BUY → ${destination.id} preserves the quote and is vis
   assert.equal(tracking.body.status, "awaiting funds");
   assert.equal(String(tracking.body.receiveAmount), saved.receiveAmount);
   assert.equal(saved.manualSettlementState, "awaiting_funds");
+  const changed = await db.transaction(tx => updateOrderAndQueueStatusNotificationTx(tx, saved, { status: "processing" }));
+  assert.equal(changed?.status, "processing");
+  const statusEvents = await db.select().from(adminInboxTable).where(eq(adminInboxTable.orderId, saved.id));
+  assert.equal(statusEvents.filter(event => event.kind === "status_change").length, 1);
+  assert.equal(statusEvents.filter(event => event.kind === "deposit").length, 0, "Status alone must not claim payment evidence");
 });
 }
 }

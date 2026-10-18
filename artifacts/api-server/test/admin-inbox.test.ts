@@ -1,0 +1,147 @@
+import assert from "node:assert/strict";
+import { once } from "node:events";
+import express from "express";
+import pinoHttp from "pino-http";
+import test, { before, after } from "node:test";
+import { eq } from "drizzle-orm";
+import { db, pool, adminInboxTable, operatorsTable, quickexOrdersTable } from "@workspace/db";
+import router from "../src/routes/admin-inbox";
+import { ApiError } from "../src/lib/api-error";
+import { configureOperatorAuthorizationForTests } from "../src/lib/operator-auth";
+import { enqueueAdminOrderEvent, recordAdminOperationalAlert } from "../src/lib/admin-inbox";
+import { assertIsolatedWhitebitDatabase } from "./assert-isolated-whitebit-database";
+import { updateConvertOrderStatus } from "../src/lib/convert-provider-boundary";
+
+assertIsolatedWhitebitDatabase();
+configureOperatorAuthorizationForTests({
+  getUserId: req => req.get("x-test-operator") ?? null,
+  getVerifiedEmail: id => `${id}@example.test`,
+  getTotpEnabled: () => true,
+  getSecondFactorVerified: () => true,
+});
+const app = express();
+app.use(pinoHttp({ level: "silent" }), express.json());
+app.use("/api", router);
+app.use((error: ApiError, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  res.status(error.status ?? 500).json({ error: error.message, code: error.code });
+});
+let server: ReturnType<typeof app.listen>;
+let base = "";
+before(async () => {
+  for (const id of ["inbox-owner", "inbox-other", "inbox-viewer", "inbox-denied", "inbox-suspended"]) {
+    await db.insert(operatorsTable).values({
+      clerkUserId: id, email: `${id}@example.test`, name: "Synthetic Inbox Operator",
+      role: id.includes("owner") || id.includes("other") ? "owner" : "operator",
+      status: id.includes("suspended") ? "suspended" : "active",
+      legacyPermissionEligible: false,
+      permissionAllows: id === "inbox-viewer" ? ["orders.view"] : [],
+    });
+  }
+  server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  base = `http://127.0.0.1:${(server.address() as { port: number }).port}/api/admin/notifications`;
+});
+after(async () => {
+  await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  await pool.end();
+});
+async function request(path = "", method = "GET", actor: string | null = "inbox-owner") {
+  const response = await fetch(base + path, { method, headers: actor ? { "x-test-operator": actor } : {} });
+  return { status: response.status, body: await response.json() as any, cache: response.headers.get("cache-control") };
+}
+
+test("durable real event helpers deduplicate concurrent Swap, Convert, deposit and provider notifications", async () => {
+  await Promise.all(Array.from({ length: 8 }, () => db.transaction(tx => enqueueAdminOrderEvent(tx, {
+    orderId: "O-INBOX-SWAP", type: "Swap", status: "awaiting funds", version: 0, created: true,
+  }))));
+  await db.transaction(async tx => {
+    await enqueueAdminOrderEvent(tx, { orderId: "O-INBOX-CONVERT", type: "Convert", status: "awaiting funds", version: 1, created: true });
+    await enqueueAdminOrderEvent(tx, { orderId: "O-INBOX-CONVERT", type: "Convert", status: "processing", version: 2, depositVerified: true });
+    await enqueueAdminOrderEvent(tx, { orderId: "O-INBOX-CONVERT", type: "Convert", status: "processing", version: 2, depositVerified: true });
+  });
+  await recordAdminOperationalAlert("Quickex", "QUICKEX_NETWORK");
+  await recordAdminOperationalAlert("Quickex", "QUICKEX_NETWORK");
+  const result = await request();
+  assert.equal(result.status, 200);
+  assert.equal(result.cache, "private, no-store");
+  assert.equal(result.body.allCount, 5);
+  assert.equal(result.body.unreadCount, 5);
+  assert.equal(result.body.items.filter((item: any) => item.kind === "new_order").length, 2);
+  assert.equal(result.body.items.filter((item: any) => item.kind === "deposit").length, 1);
+  assert.ok(result.body.items.every((item: any) => !item.read && Number.isFinite(Date.parse(item.createdAt))));
+  const restricted = await request("", "GET", "inbox-viewer");
+  assert.equal(restricted.body.allCount, 4);
+  assert.ok(restricted.body.items.every((item: any) => item.orderId));
+  const empty = await request("", "GET", "inbox-denied");
+  assert.equal(empty.body.allCount, 0);
+});
+
+test("individual read, filters, mark-all and deletion persist independently for each operator", async () => {
+  const initial = (await request()).body;
+  const id = initial.items.find((item: any) => item.kind === "new_order").id;
+  assert.equal((await request(`/${id}/read`, "POST")).status, 200);
+  assert.equal((await request(`/${id}/read`, "POST")).status, 200);
+  assert.equal((await request("?filter=read")).body.items.length, 1);
+  assert.equal((await request("?filter=unread")).body.unreadCount, 4);
+  assert.equal((await request("", "GET", "inbox-other")).body.unreadCount, 5);
+  assert.equal((await request("/read-all", "POST")).status, 200);
+  assert.equal((await request()).body.unreadCount, 0);
+  assert.equal((await request(`/${id}`, "DELETE")).status, 200);
+  assert.equal((await request(`/${id}`, "DELETE")).status, 200);
+  assert.equal((await request()).body.allCount, 4);
+  assert.equal((await request("", "GET", "inbox-other")).body.allCount, 5);
+  // Re-delivery after dismissal must not resurrect the event.
+  await db.transaction(tx => enqueueAdminOrderEvent(tx, {
+    orderId: initial.items.find((item: any) => item.id === id).orderId,
+    type: initial.items.find((item: any) => item.id === id).title.includes("Convert") ? "Convert" : "Swap",
+    status: "awaiting funds", version: 0, created: true,
+  }));
+  assert.equal((await request()).body.allCount, 4);
+});
+
+test("permission checks protect list, read, delete and mark-all; malformed input gives explicit errors", async () => {
+  const provider = (await request("", "GET", "inbox-other")).body.items.find((item: any) => item.kind === "provider_error");
+  assert.equal((await request(`/${provider.id}/read`, "POST", "inbox-viewer")).status, 404);
+  assert.equal((await request(`/${provider.id}`, "DELETE", "inbox-viewer")).status, 404);
+  await request("/read-all", "POST", "inbox-viewer");
+  assert.equal((await request("", "GET", "inbox-other")).body.unreadCount, 5);
+  assert.equal((await request("", "GET", null)).status, 401);
+  assert.equal((await request("", "GET", "inbox-suspended")).status, 403);
+  assert.equal((await request("?filter=invalid")).status, 400);
+  assert.equal((await request("?page=-1")).status, 400);
+  assert.equal((await request("/invalid/read", "POST")).status, 400);
+  assert.equal((await request("/00000000-0000-4000-8000-000000000000", "DELETE")).status, 404);
+});
+
+test("rolled-back order events never appear; pagination and new-unread updates remain accurate", async () => {
+  await assert.rejects(db.transaction(async tx => {
+    await enqueueAdminOrderEvent(tx, { orderId: "O-ROLLBACK", type: "Swap", status: "awaiting funds", version: 0, created: true });
+    throw new Error("synthetic transaction rollback");
+  }));
+  assert.equal((await db.select().from(adminInboxTable).where(eq(adminInboxTable.orderId, "O-ROLLBACK"))).length, 0);
+  for (let i = 0; i < 22; i++) await db.transaction(tx => enqueueAdminOrderEvent(tx, {
+    orderId: `O-PAGE-${i}`, type: "Swap", status: "awaiting funds", version: 0, created: true,
+  }));
+  const first = (await request()).body;
+  const second = (await request("?page=2")).body;
+  assert.equal(first.items.length, 20);
+  assert.equal(second.items.length, 6);
+  assert.equal(first.unreadCount, 22);
+  assert.equal(new Set([...first.items, ...second.items].map((item: any) => item.id)).size, 26);
+  assert.equal((await request("?page=999")).body.page, 2);
+});
+
+test("canonical Convert Admin status changes emit once; optimistic-conflict retries emit nothing", async () => {
+  const now = new Date();
+  await db.insert(quickexOrdersTable).values({
+    legacyOrderId: "O-CONVERT-STATUS", providerOrderId: "synthetic-provider-order",
+    status: "awaiting funds", route: {}, amounts: {}, addresses: {}, createdAt: now, updatedAt: now,
+  });
+  const updated = await updateConvertOrderStatus("O-CONVERT-STATUS", 0, "failed");
+  assert.equal(updated?.status, "failed");
+  assert.equal(await updateConvertOrderStatus("O-CONVERT-STATUS", 0, "failed"), undefined);
+  const events = await db.select().from(adminInboxTable).where(eq(adminInboxTable.orderId, "O-CONVERT-STATUS"));
+  assert.equal(events.length, 1);
+  assert.equal(events[0].kind, "payment_failed");
+  assert.ok(!events[0].title.includes("deposit"), "Unpaid failure is not a confirmed deposit");
+});

@@ -8,6 +8,58 @@
 import * as zod from 'zod';
 
 
+export const getAdminInboxQueryFilterDefault = `all`;
+export const getAdminInboxQueryPageDefault = 1;
+
+
+
+export const GetAdminInboxQueryParams = zod.object({
+  "filter": zod.enum(['all', 'read', 'unread']).default(getAdminInboxQueryFilterDefault),
+  "page": zod.coerce.number().int().min(1).default(getAdminInboxQueryPageDefault)
+})
+
+export const GetAdminInboxResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.string(),
+  "title": zod.string(),
+  "message": zod.string(),
+  "orderId": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "read": zod.boolean()
+})),
+  "total": zod.number().int(),
+  "unreadCount": zod.number().int(),
+  "readCount": zod.number().int(),
+  "allCount": zod.number().int(),
+  "page": zod.number().int(),
+  "pageSize": zod.number().int()
+})
+
+
+export const MarkAdminInboxReadResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+export const ReadAdminInboxItemParams = zod.object({
+  "id": zod.string().uuid()
+})
+
+export const ReadAdminInboxItemResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+export const DeleteAdminInboxItemParams = zod.object({
+  "id": zod.string().uuid()
+})
+
+export const DeleteAdminInboxItemResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
 
 
 

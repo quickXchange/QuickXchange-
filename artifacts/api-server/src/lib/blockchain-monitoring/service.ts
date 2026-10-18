@@ -1,4 +1,5 @@
 import { and, eq, gte, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { recordAdminOperationalAlert } from "../admin-inbox";
 import {
   blockchainMonitorAssetsTable,
   blockchainMonitorMatchesTable,
@@ -1958,6 +1959,7 @@ export async function runBlockchainMonitoringCycle(): Promise<void> {
           )),
           healthError: error instanceof Error ? error.message.slice(0, 500) : "Provider error",
         }).where(eq(blockchainMonitorNetworksTable.id, network.id)));
+        await recordAdminOperationalAlert(`RPC ${network.networkCode}`, "MONITOR_DISCONNECTED", true);
       } catch (leaseError) {
         logger.warn(
           {

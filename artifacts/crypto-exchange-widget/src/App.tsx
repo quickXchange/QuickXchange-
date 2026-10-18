@@ -86,6 +86,7 @@ import { ExchangeInformationCard } from '@/components/exchange-information-card'
 import { PublicShell } from '@/components/public-shell';
 import { CommunitySection } from '@/components/community-section';
 import { SideDrawer } from '@/components/side-drawer';
+import { AdminNotificationBell } from '@/components/admin-notification-bell';
 import { AdminHeader } from '@/components/admin-header';
 import { AdminActionToastHost } from '@/components/admin-action-toast';
 export { PublicShell } from '@/components/public-shell';
@@ -144,6 +145,7 @@ const PublicSitePage = lazy(() => import('./pages/site-content').then(module => 
 const AdminProviders = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminProviders })));
 const AdminIntegrations = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminIntegrations })));
 const AdminNotificationSettings = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminNotificationSettings })));
+const AdminNotifications = lazy(() => import('./pages/admin-notifications').then(module => ({ default: module.AdminNotifications })));
 const AdminCurrencies = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminCurrencies })));
 const AdminManualPricing = lazy(() => import('./pages/admin').then(module => ({ default: module.AdminManualPricing })));
 const AdminSwapAddonsPage = lazy(() => import('./pages/admin-swap-addons').then(module => ({ default: module.AdminSwapAddonsPage })));
@@ -1666,6 +1668,7 @@ const ADMIN_TOP_LEVEL_HEADER_LABELS: Record<string, string> = {
   '/admin/landing-background': 'DESIGN / LANDING BACKGROUND',
   '/admin/integrations': 'INTEGRATIONS / API',
   '/admin/notification-settings': 'SYSTEM / NOTIFICATIONS',
+  '/admin/notifications': 'SYSTEM / INBOX',
   '/admin/currencies': 'ASSETS / PAYMENT METHODS',
   '/admin/pricing': 'PRICING / ENGINE',
   '/admin/swap-addons': 'PRICING / SWAP',
@@ -1734,6 +1737,7 @@ export function AdminShell({ children, title, eyebrow, action, subtitle, titleIc
       title: t('adminShell.workspace'),
       items: [
         { href: '/admin', label: t('adminShell.overview'), testId: 'overview', icon: LayoutDashboard, requiredPermission: 'statistics.view' },
+        { href: '/admin/notifications', label: t('adminShell.notifications'), testId: 'notifications', icon: Bell, requiredPermission: undefined as string | undefined },
       ]
     },
     {
@@ -1781,9 +1785,9 @@ export function AdminShell({ children, title, eyebrow, action, subtitle, titleIc
     ...group,
      items: group.items.filter(item =>
       (!('ownerOnly' in item) || !item.ownerOnly || isOwner) &&
-      item.requiredPermission && (Array.isArray(item.requiredPermission)
+      (!item.requiredPermission ? true : (Array.isArray(item.requiredPermission)
        ? item.requiredPermission.some((permission) => can(permission as PermissionKey))
-       : can(item.requiredPermission as PermissionKey))
+       : can(item.requiredPermission as PermissionKey)))
     )
   })).filter(group => group.items.length > 0);
   const topLevelNavigationItem = permittedNavGroups
@@ -2058,16 +2062,7 @@ export function AdminShell({ children, title, eyebrow, action, subtitle, titleIc
               >
                 {isDark ? <Sun size={16} /> : <Moon size={16} />}
               </button>
-              <Link
-                href="/admin"
-                className="admin-header-icon-btn qx-header-icon-btn"
-                aria-label={t('adminShell.notifications')}
-                title={t('adminShell.notifications')}
-                data-testid="link-admin-notifications"
-              >
-                <span className="qx-mobile-test-target" data-testid="link-admin-mobile-notifications" aria-hidden="true" />
-                <Bell size={16} />
-              </Link>
+              <AdminNotificationBell />
               <div className="admin-header-profile-wrap qx-header-profile-wrap" ref={mobileProfileRef}>
                 <button
                   type="button"
@@ -2413,6 +2408,7 @@ const AdminAffiliateSettingsRoute = authorizedAdminRoute(AdminAffiliateSettingsP
 const AdminProvidersRoute = authorizedAdminRoute(AdminProviders);
 const AdminIntegrationsRoute = authorizedAdminRoute(AdminIntegrations);
 const AdminNotificationSettingsRoute = authorizedAdminRoute(AdminNotificationSettings);
+const AdminNotificationsRoute = authorizedAdminRoute(AdminNotifications);
 const AdminCurrenciesRoute = authorizedAdminRoute(AdminCurrencies);
 const AdminManualPricingRoute = authorizedAdminRoute(AdminManualPricing);
 const AdminSwapAddonsRoute = authorizedAdminRoute(AdminSwapAddonsPage);
@@ -2743,6 +2739,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/admin/affiliate-settings" component={AdminAffiliateSettingsRoute} />
             <Route path="/admin/providers" component={AdminProvidersRoute} />
             <Route path="/admin/integrations" component={AdminIntegrationsRoute} />
+            <Route path="/admin/notifications" component={AdminNotificationsRoute} />
             <Route path="/admin/notification-settings" component={AdminNotificationSettingsRoute} />
             <Route path="/admin/currencies" component={AdminCurrenciesRoute} />
             <Route path="/admin/pricing" component={AdminManualPricingRoute} />

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { enqueueAdminDepositEvent, enqueueAdminOrderEvent, recordAdminOperationalAlert } from "./admin-inbox";
 import { and, desc, eq, gte, isNull, lte, notInArray, or } from "drizzle-orm";
 import { affiliateAccountsTable, affiliateCompletionEventsTable, affiliateSettingsTable, db, providerSyncStatesTable, quickexOrdersTable } from "@workspace/db";
 import { ApiError } from "./api-error";
@@ -180,6 +181,7 @@ async function getQuickexOrderSnapshot(): Promise<QuickexOrderSnapshot | null> {
         eq(providerSyncStatesTable.provider, QUICKEX_PROVIDER_SNAPSHOT_KEY),
         eq(providerSyncStatesTable.leaseToken, leaseToken),
       ));
+      await recordAdminOperationalAlert("Quickex", "PROVIDER_UNAVAILABLE");
       throw error;
     }
   })();
@@ -398,6 +400,10 @@ export async function createQuickexConvertOrder(input: CreateInput) {
         ...providerProjection,
       }).where(eq(quickexOrdersTable.legacyOrderId, intent.legacyOrderId)).returning();
       if (updated) {
+        await enqueueAdminOrderEvent(tx, {
+          orderId: updated.legacyOrderId, type: "Convert", status: updated.status,
+          version: updated.recordVersion, created: true, depositVerified: Boolean(createPaidAmount),
+        });
         await enqueueConvertEmailNotification(tx, updated, "created", "order_created");
         if (createPaidAmount) {
           await enqueueConvertEmailNotification(
@@ -547,6 +553,21 @@ export async function reconcileQuickexOrder(row: typeof quickexOrdersTable.$infe
             "created",
             "order_created",
           );
+         // Recovered uncertain submissions also get their single creation event.
+         if (row.outcomeUnknown && !persisted.outcomeUnknown) {
+           await enqueueAdminOrderEvent(tx, {
+             orderId: persisted.legacyOrderId, type: "Convert", status: persisted.status,
+             version: persisted.recordVersion, created: true,
+           });
+         }
+         if (persisted.status !== row.status) {
+           await enqueueAdminOrderEvent(tx, {
+             orderId: persisted.legacyOrderId, type: "Convert", status: persisted.status,
+             version: persisted.recordVersion, depositVerified: Boolean(providerPaidAmount),
+           });
+         } else if (providerPaidAmount) {
+           await enqueueAdminDepositEvent(tx, "Convert", persisted.legacyOrderId);
+         }
          const completing = persisted.status === "completed" && row.status !== "completed";
          const reversing = ["refunded", "reversed"].includes(persisted.status.toLowerCase()) && row.status === "completed";
          if (completing || reversing) {
