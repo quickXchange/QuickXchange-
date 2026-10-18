@@ -4932,13 +4932,14 @@ components:
         success: { type: boolean }
     AdminInboxItem:
       type: object
-      required: [id, kind, title, message, orderId, createdAt, read]
+      required: [id, kind, title, message, orderId, orderType, createdAt, read]
       properties:
         id: { type: string }
         kind: { type: string }
         title: { type: string }
         message: { type: string }
         orderId: { type: [string, "null"] }
+        orderType: { type: string, enum: [Swap, Convert] }
         createdAt: { type: string }
         read: { type: boolean }
     AdminInboxPage:

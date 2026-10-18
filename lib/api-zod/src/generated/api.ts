@@ -25,6 +25,7 @@ export const GetAdminInboxResponse = zod.object({
   "title": zod.string(),
   "message": zod.string(),
   "orderId": zod.string().nullable(),
+  "orderType": zod.enum(['Swap', 'Convert']),
   "createdAt": zod.string(),
   "read": zod.boolean()
 })),

@@ -33,6 +33,7 @@ router.get("/admin/notifications", async (req, res) => {
     const page = Math.min(input.data.page, Math.max(1, Math.ceil(total / pageSize)));
     const items = await tx.select({
       id: events.id, kind: events.kind, title: events.title, message: events.message,
+      orderType: sql<"Swap" | "Convert">`case when ${events.eventKey} like 'swap:%' then 'Swap' else 'Convert' end`,
       orderId: events.orderId, createdAt: events.createdAt,
       read: sql<boolean>`${receipts.readAt} is not null`,
     }).from(events).leftJoin(receipts, join).where(and(visible,

@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AdminInboxItemOrderType } from './adminInboxItemOrderType';
 
 export interface AdminInboxItem {
   id: string;
@@ -13,6 +14,7 @@ export interface AdminInboxItem {
   message: string;
   /** @nullable */
   orderId: string | null;
+  orderType: AdminInboxItemOrderType;
   createdAt: string;
   read: boolean;
 }

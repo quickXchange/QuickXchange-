@@ -156,4 +156,4 @@
 - [Database timeout evidence](database-timeout-evidence.md) — correlate acquisition stages and incident-time load; recovered pool counters cannot prove the cause of an earlier failure.
 - [Customer language scope](customer-language-scope.md) — seven shared Website/Mini App languages, no Arabic/RTL; validate authentication locale template compatibility.
 - [Automatic rates XML](automatic-rates-xml-publication.md) — files-only replacement; no legacy fallback or dynamic order percentages; method codes and staged Perfect Money.
-- [Admin inbox boundaries](admin-inbox-event-boundaries.md) — operational inbox is independent of outbound channels; preserve per-operator dismissals and payment-evidence gates.
+- [Admin inbox boundaries](admin-inbox-event-boundaries.md) — order-only Swap/Convert inbox; technical alerts stay separate; preserve dismissals and payment-evidence gates.

@@ -12,6 +12,7 @@ export * from './adminAuthorization';
 export * from './adminConvertDefaultPairResponse';
 export * from './adminCustomerUpdate';
 export * from './adminInboxItem';
+export * from './adminInboxItemOrderType';
 export * from './adminInboxPage';
 export * from './adminInboxResult';
 export * from './adminLandingBackground';

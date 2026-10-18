@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
-import { Bell, CheckCheck, Check, Trash2, ChevronLeft, ChevronRight, ArrowRight, RefreshCw, Inbox, ShoppingBag, ArrowDownUp, Download, CircleAlert, Network, ShieldAlert } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Bell, CheckCheck, Check, Trash2, ChevronLeft, ChevronRight, RefreshCw, Inbox, ArrowLeftRight, Repeat2 } from 'lucide-react';
 import {
   useMarkAdminInboxRead, useReadAdminInboxItem, useDeleteAdminInboxItem,
 } from '@workspace/api-client-react';
@@ -12,14 +11,10 @@ import { useAdminInboxLive } from '../lib/admin-inbox';
 import './admin-notifications-page.css';
 
 type Filter = 'all' | 'read' | 'unread';
-function kindMeta(kind: string): { Icon: LucideIcon; tone: string } {
-  const k = kind.toLowerCase();
-  if (/fail|reject|expire|cancel/.test(k)) return { Icon: CircleAlert, tone: 'danger' };
-  if (/provider|api|integration|monitor/.test(k)) return { Icon: Network, tone: 'warn' };
-  if (/deposit|receiv/.test(k)) return { Icon: Download, tone: 'info' };
-  if (/status|update|paid|complete/.test(k)) return { Icon: ArrowDownUp, tone: 'info' };
-  if (/order|new/.test(k)) return { Icon: ShoppingBag, tone: 'primary' };
-  return { Icon: ShieldAlert, tone: 'warn' };
+function statusOf(item: AdminInboxItem): string | null {
+  const parts = (item.message ?? '').split('·');
+  const st = parts.length > 1 ? parts[parts.length - 1].trim() : '';
+  return st && st.length <= 28 && !item.title.toLowerCase().includes(st.toLowerCase()) ? st : null;
 }
 
 const FILTERS: Filter[] = ['all', 'unread', 'read'];
@@ -65,8 +60,8 @@ export function AdminNotifications() {
   const counts: Record<Filter, number | undefined> = { all: data?.allCount, unread: data?.unreadCount, read: data?.readCount };
 
   return (
-    <AdminShell title="Notifications" eyebrow="SYSTEM / INBOX" titleIcon={<Bell size={20} />}
-      subtitle="Alerts for your account. Read and delete states are private to you."
+    <AdminShell title="Notifications" eyebrow="ORDERS / INBOX" titleIcon={<Bell size={20} />}
+      subtitle="Swap and Convert order activity."
       action={<button type="button" className="qxn-btn qxn-btn-primary" data-testid="button-mark-all-read"
         disabled={busy || !data?.unreadCount}
         onClick={() => run(markAll, undefined as void, 'Could not mark all as read.')}>
@@ -97,35 +92,48 @@ export function AdminNotifications() {
           <div className="qxn-empty" data-testid="state-inbox-empty">
             <Inbox size={28} />
             <strong>{filter === 'unread' ? 'You are all caught up' : 'No notifications'}</strong>
-            <p>{filter === 'all' ? 'New order and system alerts will appear here.' : `Nothing in ${FILTER_LABEL[filter].toLowerCase()} right now.`}</p>
+            <p>{filter === 'all' ? 'Swap and Convert order activity will appear here.' : `Nothing in ${FILTER_LABEL[filter].toLowerCase()} right now.`}</p>
           </div>
         ) : (
           <ul className="qxn-list">
             {data.items.map((item) => (
               <li key={item.id} className={`qxn-item${item.read ? '' : ' unread'}`} data-testid={`row-inbox-${item.id}`}>
-                <span className="qxn-dot" aria-hidden="true" />
-                {(() => { const { Icon, tone } = kindMeta(item.kind); return (
-                  <span className={`qxn-kind ${tone}`} aria-hidden="true" data-testid={`icon-inbox-kind-${item.id}`}><Icon size={16} /></span>
-                ); })()}
-                <div className="qxn-body">
-                  <div className="qxn-head"><strong>{item.title}</strong><time dateTime={item.createdAt}>{ago(item.createdAt)}</time></div>
-                  <p>{item.message}</p>
-                  {item.orderId && (
-                    <button type="button" className="qxn-link" data-testid={`link-inbox-order-${item.id}`}
-                      disabled={busy} onClick={() => openOrder(item)}>
-                      View order <ArrowRight size={13} />
-                    </button>
-                  )}
-                </div>
+                {(() => {
+                  const swap = item.orderType === 'Swap';
+                  const Icon = swap ? ArrowLeftRight : Repeat2;
+                  const status = statusOf(item);
+                  const title = item.title.startsWith(`${item.orderType} `)
+                    ? item.title.slice(item.orderType.length + 1) : item.title;
+                  const inner = (
+                    <>
+                      <span className={`qxn-kind ${swap ? 'swap' : 'convert'}`} title={item.orderType} data-testid={`icon-inbox-kind-${item.id}`}>
+                        <Icon size={14} aria-hidden="true" /><span className="qxn-sr">{item.orderType}</span>
+                      </span>
+                      <span className="qxn-text">
+                        <strong className="qxn-title" title={item.title}>{title}</strong>
+                        <span className="qxn-meta">
+                          {item.orderId && <span className="qxn-ref">#{item.orderId}</span>}
+                          {status && <span className="qxn-status">{status}</span>}
+                        </span>
+                      </span>
+                      <time dateTime={item.createdAt}>{ago(item.createdAt)}</time>
+                      {!item.read && <span className="qxn-dot" role="img" aria-label="Unread" />}
+                    </>
+                  );
+                  return item.orderId ? (
+                    <button type="button" className="qxn-main" data-testid={`link-inbox-order-${item.id}`}
+                      disabled={busy} onClick={() => openOrder(item)}>{inner}</button>
+                  ) : <div className="qxn-main">{inner}</div>;
+                })()}
                 <div className="qxn-actions">
                   {!item.read && (
                     <button type="button" className="qxn-icon" title="Mark read" aria-label="Mark read"
                       data-testid={`button-inbox-read-${item.id}`} disabled={busy}
-                      onClick={() => run(markOne, { id: item.id }, 'Could not mark as read.')}><Check size={15} /></button>
+                      onClick={() => run(markOne, { id: item.id }, 'Could not mark as read.')}><Check size={14} /></button>
                   )}
                   <button type="button" className="qxn-icon danger" title="Delete" aria-label="Delete"
                     data-testid={`button-inbox-delete-${item.id}`} disabled={busy}
-                    onClick={() => run(remove, { id: item.id }, 'Could not delete this notification.')}><Trash2 size={15} /></button>
+                    onClick={() => run(remove, { id: item.id }, 'Could not delete this notification.')}><Trash2 size={14} /></button>
                 </div>
               </li>
             ))}

@@ -9,6 +9,14 @@ export interface AdminInboxResult {
   success: boolean;
 }
 
+export type AdminInboxItemOrderType = typeof AdminInboxItemOrderType[keyof typeof AdminInboxItemOrderType];
+
+
+export const AdminInboxItemOrderType = {
+  Swap: 'Swap',
+  Convert: 'Convert',
+} as const;
+
 export interface AdminInboxItem {
   id: string;
   kind: string;
@@ -16,6 +24,7 @@ export interface AdminInboxItem {
   message: string;
   /** @nullable */
   orderId: string | null;
+  orderType: AdminInboxItemOrderType;
   createdAt: string;
   read: boolean;
 }

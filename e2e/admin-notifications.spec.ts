@@ -1,12 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 
-type Item = { id: string; kind: string; title: string; message: string; orderId: string | null; createdAt: string; read: boolean };
+type Item = { id: string; kind: string; title: string; message: string; orderId: string; orderType: "Swap" | "Convert"; createdAt: string; read: boolean };
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const makeItem = (n: number): Item => ({
-  id: id(n), kind: n === 2 ? "deposit" : n === 3 ? "provider_error" : "new_order",
-  title: n === 2 ? "Convert deposit confirmed" : n === 3 ? "Provider connection needs attention" : "New Swap order",
-  message: `Synthetic notification ${n}: ${"A clear notification message with a longer description. ".repeat(n === 3 ? 5 : 1)}`,
-  orderId: n === 3 ? null : `O-NOTIFY-${n}`, createdAt: new Date(Date.now() - n * 60000).toISOString(), read: n > 3,
+  id: id(n), kind: n === 2 ? "deposit" : n === 3 ? "status_change" : "new_order",
+  title: n === 2 ? "Convert Payment Confirmed" : n === 3 ? "Convert Order Updated" : "New Swap Order",
+  message: n === 2 ? `Verified payment received for order O-NOTIFY-${n}.` : `Order O-NOTIFY-${n} · AWAITING FUNDS`,
+  orderId: `O-NOTIFY-${n}`, orderType: n === 2 || n === 3 ? "Convert" : "Swap",
+  createdAt: new Date(Date.now() - n * 60000).toISOString(), read: n > 3,
 });
 
 async function fixture(page: Page, count = 5) {
@@ -141,6 +142,14 @@ for (const theme of ["light", "dark"]) {
       await expect(page.getByTestId("link-admin-notifications")).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
       await expect(page.locator(".qxn-kind").first()).toBeVisible();
+      await expect(page.getByTestId(`icon-inbox-kind-${id(1)}`)).toHaveClass(/swap/);
+      await expect(page.getByTestId(`icon-inbox-kind-${id(2)}`)).toHaveClass(/convert/);
+      expect((await page.getByTestId(`row-inbox-${id(1)}`).boundingBox())!.height).toBeLessThan(85);
+      await expect(page.getByTestId(`link-inbox-order-${id(1)}`)).toContainText("O-NOTIFY-1");
+      const reference = page.getByTestId(`row-inbox-${id(1)}`).locator(".qxn-ref");
+      expect(await reference.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      if (mobile) await expect(reference).toHaveCSS("text-overflow", "clip");
+      await expect(page.locator(".qxn-item p")).toHaveCount(0);
       await page.screenshot({ path: `test-results/admin-inbox-${theme}-${mobile ? "mobile" : "desktop"}.png`, fullPage: true });
     });
   }

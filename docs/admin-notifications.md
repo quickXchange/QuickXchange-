@@ -1,26 +1,28 @@
 # Admin notification inbox
 
-The header bell and **Admin → Notifications** display real backend events. The existing **Notification Settings** page continues to manage external email/Telegram delivery; disabling those channels does not hide the in-app operational inbox.
+The header bell and **Admin → Notifications** display only real Swap/Convert order events. The existing **Notification Settings** page continues to manage external email/Telegram delivery; disabling those channels does not hide the order inbox.
 
 ## Behavior
 
 - Swap creation and canonical status changes; Convert creation, reconciliation, recovered submissions, and Admin status changes.
 - Confirmed deposits require the existing immutable funding evidence (Swap) or validated provider-paid amount (Convert). A status label alone must never claim funds arrived.
 - Failed/cancelled/expired/refunded orders use neutral attention messages, not an unsupported claim that a payment occurred.
-- Quickex reconciliation errors, WhiteBIT history errors, RPC health failures, provider API errors and internal API failures generate sanitized operational alerts.
-- Stable event identities prevent duplicate order/deposit alerts. Operational errors are coalesced into 15-minute windows with bounded in-process suppression and database uniqueness across instances.
+- Quickex/provider errors, RPC/monitoring failures and system diagnostics stay in structured technical logs, not the notification inbox or bell. Existing monitoring and health-check paths are unchanged. Technical summary logs are coalesced in bounded 15-minute windows.
+- Stable event identities prevent duplicate order/deposit alerts. Historical technical inbox records are retained but excluded server-side from every list, count and receipt action.
 - No bank details, wallet addresses, credentials, raw provider URLs/errors, customer names, or email addresses are stored in inbox messages.
 - Events start with this release; there is no fabricated historical backfill.
 
 ## Access and state
 
-All endpoints use existing operator authentication and MFA. Owners see all alerts. Other active operators see order events only with `orders.view`; system/provider events require `integrations.view` or `blockchain_monitoring.view`.
+All endpoints use existing operator authentication and MFA. Owners see all eligible order events. Other active operators require `orders.view`; integration/monitoring permissions alone do not reveal order notifications. Event eligibility requires a Swap/Convert identity, supported order-event kind and order reference.
 
 Read and deleted states are **per operator**. Deleting hides an alert only for that operator; the shared event remains to preserve deduplication. Mark All Read never makes an event visible again after deletion.
 
 The central Admin route policy explicitly classifies all four inbox endpoints as authenticated operator access (GET is read-only). Receipt writes are personal, not permission to edit orders, notification delivery settings, or other operators. Existing domain permissions still filter every list, count and write inside the inbox router; unavailable event IDs return 404. Unknown methods and paths remain denied by default. Loading/failed requests display unknown counts, never a fabricated zero or stale successful count.
 
 Lists are paginated (20 per page), no-store, and permission-scoped before counts and pagination. The UI refreshes every 15 seconds, on focus/mount, and after mutations. Cache keys include the signed-in identity.
+
+Compact rows show a server-derived Swap/Convert icon, short event title, order reference, relative timestamp and unread dot. Clicking the primary row button marks it read and opens the exact Admin order; separate receipt buttons do not trigger navigation. The `orderType` response field comes from the immutable event identity, not title matching. Technical alert filtering requires no data migration or deletion.
 
 ## API
 
