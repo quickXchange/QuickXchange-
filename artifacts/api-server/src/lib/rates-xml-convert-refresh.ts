@@ -1,4 +1,5 @@
 import type { RatesXmlItem } from "./rates-xml-format";
+import { selectConvertXmlBatch } from "./rates-xml-convert-scheduling";
 import { automaticXmlCryptoCode } from "./rates-xml-crypto-codes";
 import { fetchPartnerPairs, partnerPairKey, partnerRateParams, partnerRateToXml, partnerXmlCode, partnerQuoteTimestamp,
   type PartnerPair, type PartnerXmlClient } from "./quickex-xml-public";
@@ -59,6 +60,8 @@ export class ConvertXmlRefresh {
   private catalog?: { pairs: PartnerPair[]; expiresAt: number };
   private readonly retryAt = new Map<string, number>();
   private readonly verified = new Set<string>();
+  private readonly attempted = new Map<string, number>();
+  private attemptSequence = 0;
   private eligibleCount = 0;
   private loading?: { identity: string; promise: Promise<void> };
   private readonly sleep: (ms: number) => Promise<void>;
@@ -123,6 +126,7 @@ export class ConvertXmlRefresh {
       const active = new Map(pairs.map(p => [partnerPairKey(p), p]));
       for (const key of this.retryAt.keys()) if (!active.has(key)) this.retryAt.delete(key);
       for (const key of this.verified) if (!active.has(key)) this.verified.delete(key);
+      for (const key of this.attempted.keys()) if (!active.has(key)) this.attempted.delete(key);
       const removed: string[] = [];
       for (const [key, row] of this.rows) {
         // Never retain old limits/reserves when the provider's pair metadata changed.
@@ -133,21 +137,22 @@ export class ConvertXmlRefresh {
       if (removed.length) await this.deps.remove(scope, removed);
       if (!current()) return;
       this.error = undefined;
-      // Refresh existing publications before expiry; do not let the 57k-pair
-      // partner catalog hold early quotes hostage to a multi-hour batch.
+      // Renew current publications without starving the rest of the catalogue.
       const due = pairs.filter(pair => {
         const key = partnerPairKey(pair), row = this.rows.get(key);
         return (this.retryAt.get(key) ?? 0) <= this.now() &&
           (!this.verified.has(key) || !row || row.quotedAt + REFRESH_INTERVAL_MS - REFRESH_AHEAD_MS <= this.now());
-      }).sort((a, b) =>
-        (this.rows.get(partnerPairKey(a))?.quotedAt ?? Infinity) -
-        (this.rows.get(partnerPairKey(b))?.quotedAt ?? Infinity));
-      const batch = due.slice(0, MAX_RATE_BATCH);
+      });
+      const batch = selectConvertXmlBatch(due, this.rows, this.attempted,
+        this.now(), REFRESH_INTERVAL_MS, MAX_RATE_BATCH);
       const deadline = this.now() + RATE_BATCH_BUDGET_MS;
       let next = 0, failed = false, rateLimited = false;
       const worker = async () => {
         while (next < batch.length && current() && !rateLimited && this.now() < deadline) {
           const pair = batch[next++], key = partnerPairKey(pair);
+          // Record actual dispatch, not selection: a deadline/429 may stop a
+          // batch before its later candidates are attempted.
+          this.attempted.set(key, this.attemptSequence++);
           try {
             const json = await this.read(client, "/rates/public/one", partnerRateParams(pair),
               () => current() && !rateLimited && this.now() < deadline);
@@ -198,6 +203,7 @@ export class ConvertXmlRefresh {
       this.identity = client.identity; this.generation++;
       this.rows.clear(); this.flight = undefined; this.nextRefresh = 0;
       this.catalog = undefined; this.retryAt.clear(); this.verified.clear();
+      this.attempted.clear(); this.attemptSequence = 0;
       this.eligibleCount = 0;
       this.stale = true; this.updatedAt = undefined; this.error = undefined; this.skipped = 0;
       const generation = this.generation;

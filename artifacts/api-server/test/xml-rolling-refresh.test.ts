@@ -95,6 +95,39 @@ test("nonexecutable partner directions consume no rate requests", async () => {
   assert.equal(calls, 0);
 });
 
+test("a full refresh rotates beyond the first batch even while old rows need renewal", async () => {
+  let clock = 241_000;
+  const pairs = Array.from({ length: 600 }, (_, index) => ({
+    ...pair, instrumentFrom: { ...pair.instrumentFrom, currencyTitle: `COIN${index}`, bestChangeCurrencyName: `COIN${index}` },
+  }));
+  const attempted = new Set<string>();
+  const refresh = new ConvertXmlRefresh({
+    client: async () => ({ identity: "no-starvation", referrerId: "test", authenticated: true,
+      read: async (path, params) => {
+        if (path === "/pairs/all") return { total: pairs.length, pairs };
+        attempted.add(params.instrumentFromCurrencyTitle);
+        return { ...rate, updatedAt: clock };
+      } }),
+    codeAllowed: () => true,
+    load: async () => pairs.slice(0, 256).map(p => ({
+      key: partnerPairKey(p), pair: p, item: partnerRateToXml(p, rate), quotedAt: 0,
+    })),
+    save: async () => {}, remove: async () => {}, now: () => clock, sleep: async () => {},
+  });
+  try {
+    const first = await refresh.snapshot(1000);
+    assert.equal(first.rows.length, 320, "renew 192 old rows AND discover 64 later directions");
+    for (let cycle = 0; cycle < 10 && attempted.size < pairs.length; cycle++) {
+      clock += 61_000;
+      await refresh.snapshot(1000);
+    }
+    assert.equal(attempted.size, pairs.length);
+    clock += 300_001;
+    refresh.stop();
+    assert.equal((await refresh.snapshot(0)).freshRows.length, 0, "coverage must not extend freshness");
+  } finally { refresh.stop(); }
+});
+
 test("a batch completing after freshness expiry never renews its early rows' clock", async () => {
   let clock = 0;
   const pairs = [pair, { ...pair, instrumentFrom: { ...pair.instrumentFrom, currencyTitle: "ETH", bestChangeCurrencyName: "ETH" } }];

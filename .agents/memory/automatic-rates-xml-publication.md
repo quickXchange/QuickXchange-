@@ -33,6 +33,18 @@ take far longer than a rate's freshness window.
 completion. Share the executable-route authority and expose pending directions
 honestly; batching must not silently become a total catalog cap.
 
+Renewal priority must not indefinitely starve unquoted directions or later
+source currencies. Preserve fair exploration even when the renewal queue
+fills the available throughput.
+
+**Why:** A large catalogue can saturate refresh capacity with its first
+successful routes, leaving later pairs unattempted forever despite pagination
+being complete. Full discovery is not the same as full quote coverage.
+
+**How to apply:** Test saturated renewal queues and catalogues larger than one
+batch across multiple source currencies. Never claim simultaneous full-matrix
+coverage without a bulk feed or sufficient authorized provider throughput.
+
 The user explicitly chose to remove the previous XML system first, then rebuild solely from the newly supplied rates prompt and currency-code CSV. Do not restore the legacy BestChange feed, manual XML direction store, legacy fallback or dynamic active-order percentage adjustment.
 
 **Why:** The user rejected retaining the previous implementation while staging a replacement, and confirmed removal before rebuilding.

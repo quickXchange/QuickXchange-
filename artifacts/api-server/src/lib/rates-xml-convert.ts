@@ -108,7 +108,9 @@ export function startConvertXmlPublicationWorker() {
       console.warn("Quickex partner XML background refresh is temporarily unavailable.", { code });
     });
   };
-  const timer = setInterval(tick, 30_000);
+  // The refresh owns provider pacing, single-flight and retry deadlines.
+  // A short heartbeat avoids adding 30s idle gaps between bounded batches.
+  const timer = setInterval(tick, 5_000);
   timer.unref(); tick();
   return () => { stopped = true; clearInterval(timer); refresh.stop(); };
 }
