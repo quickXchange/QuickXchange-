@@ -52,13 +52,20 @@ export const XML_CRYPTO_IDENTITIES = codes.filter(c => c.type === "crypto").map(
   if (!chain) throw new Error(`Missing network identity for approved XML code ${entry.code}`);
   return { code: entry.code, asset: symbol, network: chain };
 });
+// The partner catalogue contains tens of thousands of routes. Build the fixed
+// whitelist index once instead of scanning it twice for every route on every read.
+const cryptoCodeIndex = new Map<string, string | null>();
+for (const entry of XML_CRYPTO_IDENTITIES) {
+  for (const asset of new Set([entry.asset, ...(entry.code === "GRAM" ? ["TON"] : [])])) {
+    const key = `${asset}\0${entry.network}`;
+    cryptoCodeIndex.set(key, cryptoCodeIndex.has(key) ? null : entry.code);
+  }
+}
 
 /** Exact asset + chain lookup, restricted to the supplied crypto whitelist. */
 export function automaticXmlCryptoCode(assetCode: string, networkCode: string): string | null {
   const asset = normalize(assetCode), chain = network(networkCode);
-  const matches = XML_CRYPTO_IDENTITIES.filter(entry =>
-    (entry.asset === asset || (entry.code === "GRAM" && asset === "TON")) && entry.network === chain);
-  return matches.length === 1 ? matches[0].code : null;
+  return cryptoCodeIndex.get(`${asset}\0${chain}`) ?? null;
 }
 
 /** Existing explicit operator mappings remain authoritative; missing codes are automatic. */

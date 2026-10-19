@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ConvertXmlRefresh } from "../src/lib/rates-xml-convert-refresh";
-import { parsePartnerPair } from "../src/lib/quickex-xml-public";
+import { ConvertXmlRefresh, freshExecutableXmlRows } from "../src/lib/rates-xml-convert-refresh";
+import { parsePartnerPair, partnerPairKey, partnerRateToXml } from "../src/lib/quickex-xml-public";
 import { XmlQuoteRefresh, type XmlCachedQuote } from "../src/lib/rates-xml-refresh";
 
 const pair = parsePartnerPair({
@@ -11,6 +11,48 @@ const pair = parsePartnerPair({
 });
 const rate = { quotesWithoutNetworkFee: { sellQuote: { baseValue: "1", quoteValue: "10" } },
   finalNetworkFeeAmount: "0", generalMinAmount: "0.001", generalMaxAmount: "5" };
+
+test("XML validates full affiliate candidates without depending on the popular-pair catalogue", async () => {
+  const paths: string[] = [];
+  const refresh = new ConvertXmlRefresh({
+    client: async () => ({ identity: "affiliate-authority", referrerId: "test", authenticated: true,
+      read: async path => {
+        paths.push(path);
+        if (path === "/pairs/all") return { total: 1, pairs: [pair] };
+        return { ...rate, updatedAt: Date.now() };
+      } }),
+    executableRoutes: async candidates => {
+      assert.deepEqual(candidates, [pair], "reuse the affiliate directions in the existing capability resolver");
+      return [{ fromAsset: "BTC", fromNetwork: "BTC", toAsset: "USDT", toNetwork: "TRX" }];
+    },
+    codeAllowed: () => true, load: async () => [], save: async () => {}, remove: async () => {},
+  });
+  assert.equal((await refresh.snapshot(1000)).freshRows.length, 1);
+  assert.deepEqual(paths, ["/pairs/all", "/rates/public/one"]);
+  refresh.stop();
+});
+
+test("slow background discovery does not hide a retained fresh rate or revive an expired one", async () => {
+  let clock = 1000;
+  let release!: (value: unknown) => void;
+  const catalog = new Promise<unknown>(resolve => { release = resolve; });
+  const saved = { key: partnerPairKey(pair), pair, item: partnerRateToXml(pair, rate), quotedAt: clock };
+  const refresh = new ConvertXmlRefresh({
+    client: async () => ({ identity: "slow-discovery", referrerId: "test", authenticated: true,
+      read: async path => path === "/pairs/all" ? catalog : { ...rate, updatedAt: clock } }),
+    codeAllowed: () => true, load: async () => [saved], save: async () => {}, remove: async () => {},
+    now: () => clock,
+  });
+  const snapshot = await refresh.snapshot(0);
+  assert.equal(snapshot.refreshing, true);
+  const currentRoutes = [{ fromAsset: "BTC", fromNetwork: "BTC", toAsset: "USDT", toNetwork: "TRX" }];
+  assert.equal(freshExecutableXmlRows(snapshot, currentRoutes).length, 1);
+  assert.equal(freshExecutableXmlRows(snapshot, []).length, 0, "current permissions still gate publication");
+  clock += 300_000;
+  assert.equal((await refresh.snapshot(0)).freshRows.length, 0, "background work cannot extend provider validity");
+  refresh.stop();
+  release({ total: 1, pairs: [pair] });
+});
 
 test("large XML catalogs yield bounded batches and refresh existing rows before expiry", async () => {
   let clock = 0, catalogs = 0, quotes = 0;

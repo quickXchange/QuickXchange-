@@ -1,11 +1,11 @@
 import { getQuickexXmlPublicClient } from "./quickex";
-import { partnerPairKey, partnerXmlCode, type PartnerPair } from "./quickex-xml-public";
+import { partnerPairKey, partnerPairRoute, partnerXmlCode, type PartnerPair } from "./quickex-xml-public";
 import { ConvertXmlRefresh, freshExecutableXmlRows, type ConvertXmlSaved } from "./rates-xml-convert-refresh";
 import { readPublishedXmlQuotes, savePublishedXmlQuote, removePublishedXmlQuotes } from "./rates-xml-publication";
 import type { XmlMethod } from "./rates-xml-methods";
 import type { GetAdminRatesXmlPreviewResponse } from "@workspace/api-zod";
 import { getQuickexPublicCapabilityConfig } from "./provider-capabilities";
-import { CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS, xmlDiscoveryDeadline, xmlDiscoverySingleFlight } from "./rates-xml-refresh";
+import { CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS, xmlDiscoveryDeadline } from "./rates-xml-refresh";
 
 type Diagnostic = typeof GetAdminRatesXmlPreviewResponse._output.diagnostics[number];
 const method = (pair: PartnerPair, side: "instrumentFrom" | "instrumentTo"): XmlMethod => {
@@ -28,12 +28,14 @@ const diagnostic = (row: ConvertXmlSaved, retained: boolean): Diagnostic => ({
     ? "Last successful Quickex partner JSON XML rate; background refresh in progress or temporarily unavailable."
     : "Live Quickex partner JSON rate, limits, reserve and network fee.",
 });
-const discoverExecutableConfig = xmlDiscoverySingleFlight(getQuickexPublicCapabilityConfig);
 const refresh = new ConvertXmlRefresh({
-  executableRoutes: async () => {
+  executableRoutes: async pairs => {
     // Only HTTP callers have a short response deadline. The background worker
     // must finish discovering the executable catalog before fetching live rates.
-    const config = await discoverExecutableConfig();
+    const config = await getQuickexPublicCapabilityConfig({
+      includeDefaultPair: false,
+      pairCandidates: pairs.filter(pair => pair.isActive).map(partnerPairRoute),
+    });
     return config.signedOrders ? config.pairs : [];
   },
   client: getQuickexXmlPublicClient,
@@ -57,10 +59,16 @@ const refresh = new ConvertXmlRefresh({
 
 export async function readConvertXmlPublication(waitMs = 250) {
   const snapshot = await refresh.snapshot(waitMs);
-  // Preserve historical publications, but require the same directed executable
-  // catalog as customer Convert and a non-expired provider rate for public XML.
+  // Preserve historical publications, but recheck the shared customer capability
+  // authority against fresh affiliate directions, not the popular-pair UI list.
   const config = await xmlDiscoveryDeadline(
-    discoverExecutableConfig(), CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS,
+    // Recheck runtime credentials and current Admin permissions, but never make
+    // an aggregator wait for provider catalogue refresh or UI default settings.
+    getQuickexPublicCapabilityConfig({
+      cacheOnly: true, includeDefaultPair: false,
+      pairCandidates: snapshot.freshRows.map(row => partnerPairRoute(row.pair)),
+    }),
+    CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS,
   );
   const publishable = new Set(freshExecutableXmlRows(snapshot,
     config.signedOrders ? config.pairs : []).map(row => row.key));
@@ -89,7 +97,10 @@ export async function readConvertXmlPublication(waitMs = 250) {
 export function startConvertXmlPublicationWorker() {
   let stopped = false;
   const tick = () => {
-    if (!stopped) void readConvertXmlPublication(0).catch((error: unknown) => {
+    // Background warming has no HTTP discovery deadline. Calling the public
+    // reader here used to report XML_DISCOVERY_TIMEOUT every slow cycle even
+    // while its shared provider work was still progressing successfully.
+    if (!stopped) void refresh.snapshot(0).catch((error: unknown) => {
       // XML requests surface diagnostics; do not log credentials/provider payloads.
       const code = error && typeof error === "object" && "code" in error &&
         typeof error.code === "string" && /^[A-Z0-9_]{1,64}$/.test(error.code)

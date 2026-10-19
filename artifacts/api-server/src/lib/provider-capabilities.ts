@@ -17,6 +17,12 @@ import {
 import { getEffectiveQuickexConvertDefaultPair } from "./quickex-convert-default-pair";
 
 const QUICKEX_PROVIDER_ID = "quickex";
+export type QuickexPublicConfigOptions = {
+  cacheOnly?: boolean;
+  includeDefaultPair?: boolean;
+  /** Server-owned affiliate catalogue candidates, never client request input. */
+  pairCandidates?: QuickexPair[];
+};
 type QuickexPublicConfigSourceValue = {
   provider: "Quickex";
   instruments: QuickexInstrument[];
@@ -24,10 +30,10 @@ type QuickexPublicConfigSourceValue = {
   signedOrders: boolean;
 };
 let quickexPublicConfigTestSource:
-  (() => Promise<QuickexPublicConfigSourceValue>) | undefined;
+  ((options: QuickexPublicConfigOptions) => Promise<QuickexPublicConfigSourceValue>) | undefined;
 
 export function configureQuickexPublicConfigSourceForTests(
-  source: (() => Promise<QuickexPublicConfigSourceValue>) | undefined,
+  source: ((options: QuickexPublicConfigOptions) => Promise<QuickexPublicConfigSourceValue>) | undefined,
 ): void {
   if (process.env.NODE_ENV !== "test") {
     throw new Error("Quickex public config test sources require NODE_ENV=test.");
@@ -314,10 +320,11 @@ export async function listPublicProviderSettlementOptions(
   }));
 }
 
-export async function getQuickexPublicCapabilityConfig() {
+export async function getQuickexPublicCapabilityConfig(options: QuickexPublicConfigOptions = {}) {
   if (process.env.NODE_ENV === "test" && quickexPublicConfigTestSource) {
-    const config = await quickexPublicConfigTestSource();
-    const defaultConvertPair = await getEffectiveQuickexConvertDefaultPair(config.pairs);
+    const config = await quickexPublicConfigTestSource(options);
+    const defaultConvertPair = options.includeDefaultPair === false ? undefined :
+      await getEffectiveQuickexConvertDefaultPair(config.pairs);
     return {
       ...config,
       ...(defaultConvertPair ? { defaultConvertPair } : {}),
@@ -336,13 +343,18 @@ export async function getQuickexPublicCapabilityConfig() {
   }
   // Public Convert configuration must not turn a transient catalog failure
   // into a valid-looking empty result that the client caches for five minutes.
-  // Warm both catalogs here so transport failures remain explicit 5xx errors.
-  const instruments = await getQuickexInstruments();
+  // Customer UI callers warm both catalogues. Publication callers supply the
+  // affiliate directions and may recheck local permissions without remote I/O.
+  const instruments = options.cacheOnly ? getCachedQuickexInstruments() ?? [] : await getQuickexInstruments();
   const capabilities = await listExecutableProviderCapabilities({ cacheOnly: true });
   if (!capabilities.length) {
     return { provider: "Quickex" as const, instruments: [], pairs: [], signedOrders: false };
   }
-  const routes = await quickexRoutesWithRateLimitFallback(capabilities);
+  const routes = options.pairCandidates
+    ? resolveExecutableQuickexRoutes(capabilities, options.pairCandidates)
+    : options.cacheOnly
+      ? resolveExecutableQuickexRoutes(capabilities, getCachedQuickexPairs() ?? [])
+      : await quickexRoutesWithRateLimitFallback(capabilities);
   const participating = new Set(routes.flatMap(route => [
     capabilityKey(route.fromAsset, route.fromNetwork),
     capabilityKey(route.toAsset, route.toNetwork),
@@ -354,7 +366,8 @@ export async function getQuickexPublicCapabilityConfig() {
     allowed.has(`${item.currencyTitle.toUpperCase()}\0${item.networkTitle.toUpperCase()}`) &&
     participating.has(capabilityKey(item.currencyTitle, item.networkTitle))
   );
-  const defaultConvertPair = await getEffectiveQuickexConvertDefaultPair(routes);
+  const defaultConvertPair = options.includeDefaultPair === false ? undefined :
+    await getEffectiveQuickexConvertDefaultPair(routes);
   return {
     provider: "Quickex" as const,
     instruments: publicInstruments,

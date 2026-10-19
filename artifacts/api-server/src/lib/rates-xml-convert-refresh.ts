@@ -32,7 +32,7 @@ type Dependencies = {
   save(scope: string, row: ConvertXmlSaved): Promise<void>;
   remove(scope: string, keys?: string[]): Promise<void>;
   codeAllowed(code: string): boolean;
-  executableRoutes?: () => Promise<ExecutableXmlRoute[]>;
+  executableRoutes?: (pairs: PartnerPair[]) => Promise<ExecutableXmlRoute[]>;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
 };
@@ -87,7 +87,14 @@ export class ConvertXmlRefresh {
   private async refresh(client: PartnerXmlClient, scope: string, generation: number) {
     const current = () => this.identity === client.identity && this.generation === generation;
     try {
-      const routes = await this.deps.executableRoutes?.();
+      const all = this.catalog && this.catalog.expiresAt > this.now() ? this.catalog.pairs :
+        await fetchPartnerPairs({ ...client, read: (path, params) => this.read(client, path, params) });
+      if (!current()) return;
+      if (!this.catalog || this.catalog.expiresAt <= this.now())
+        this.catalog = { pairs: all, expiresAt: this.now() + REFRESH_INTERVAL_MS };
+      // The affiliate catalogue is the direction authority for this feed.
+      // Do not first download /pairs/public (a separate popular-pair catalogue).
+      const routes = await this.deps.executableRoutes?.(all);
       if (!current()) return;
       if (routes && !routes.length) {
         this.error = "No currently executable Convert directions; retained publications remain gated.";
@@ -96,11 +103,6 @@ export class ConvertXmlRefresh {
       }
       const allowed = routes && new Set(routes.map(route =>
         directedKey(route.fromAsset, route.fromNetwork, route.toAsset, route.toNetwork)));
-      const all = this.catalog && this.catalog.expiresAt > this.now() ? this.catalog.pairs :
-        await fetchPartnerPairs({ ...client, read: (path, params) => this.read(client, path, params) });
-      if (!current()) return;
-      if (!this.catalog || this.catalog.expiresAt <= this.now())
-        this.catalog = { pairs: all, expiresAt: this.now() + REFRESH_INTERVAL_MS };
       const groups = new Map<string, PartnerPair[]>();
       this.skipped = 0;
       for (const pair of all) {

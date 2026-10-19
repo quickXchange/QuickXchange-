@@ -85,6 +85,15 @@ export function partnerPairKey(pair: PartnerPair) {
   return JSON.stringify([pair.instrumentFrom.currencyTitle, pair.instrumentFrom.networkTitle,
     pair.instrumentTo.currencyTitle, pair.instrumentTo.networkTitle]);
 }
+/** Adapt provider-owned identities to the existing executable-route resolver. */
+export function partnerPairRoute(pair: PartnerPair) {
+  return {
+    instrumentFromCurrencyTitle: pair.instrumentFrom.currencyTitle,
+    instrumentFromNetworkTitle: pair.instrumentFrom.networkTitle,
+    instrumentToCurrencyTitle: pair.instrumentTo.currencyTitle,
+    instrumentToNetworkTitle: pair.instrumentTo.networkTitle,
+  };
+}
 export function partnerRateParams(pair: PartnerPair) {
   return {
     instrumentFromCurrencyTitle: pair.instrumentFrom.currencyTitle,

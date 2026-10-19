@@ -87,14 +87,14 @@ Convert XML uses the same platform-owned affiliate identity on every full pair-c
 
 **How to apply:** Keep the adapter publication-only. Discover the complete paginated affiliate catalogue, skip inactive/malformed/unmapped/ambiguous/self directions, and pace requests against provider limits. The real catalogue is much larger than the PDF's example; discovery and quote population must stay background work, not an HTTP dependency. Preserve original JSON numeric tokens rather than rounding them through JavaScript floating point.
 
-Retained publication data is diagnostic/recovery data, not permission to publish expired rates. Public Convert XML must also respect the existing executable customer Convert catalog.
+Retained publication data is diagnostic/recovery data, not permission to publish expired rates. Public Convert XML must respect current verified Convert credentials and Admin asset/network capabilities.
 
 **Why:** The user explicitly requires fresh, executable XML directions and preservation of cached data without advertising stale rates as live.
 
-**How to apply:** Keep historical snapshots through temporary outages, but exclude expired or non-executable entries from public output. Check freshness per entry, not merely batch completion or a response-wide warning. If no fresh directions remain, report temporary unavailability rather than label an empty or stale feed fresh.
+**How to apply:** Keep historical snapshots through temporary outages, but exclude expired or non-executable entries from public output. Check freshness per entry, not merely batch completion or a response-wide warning. Use the shared capability resolver with affiliate pair candidates, not the separate popular-pair UI catalog. If no fresh directions remain, report temporary unavailability rather than label an empty or stale feed fresh.
 
-Apply short executable-catalog discovery deadlines only to HTTP response waits, not to the background XML refresh. Share in-flight discovery without caching completed route permissions.
+Apply short discovery deadlines only to HTTP response waits, never to the background XML refresh. XML directions come from the affiliate `/pairs/all` catalog, not `/pairs/public`.
 
-**Why:** A three-second background deadline repeatedly prevented publication while the live affiliate catalogue and quotes were reachable. Timed-out callers also started duplicate discovery work.
+**Why:** The provider migration document distinguishes the affiliate catalog from the popular-pair list. Depending on the latter and calling the HTTP reader from a worker caused repeated timeout reports even when affiliate quotes were reachable.
 
-**How to apply:** Let background discovery finish under the existing provider/database timeouts; HTTP callers may time out while that same flight continues. Clear the flight after success or failure, and retain the per-item freshness and current executable-route checks.
+**How to apply:** Warm affiliate data in the background under provider/database timeouts. Public reads recheck runtime credentials and local capabilities without remote catalog refresh or UI default-pair lookup. Never cache completed local route permissions or extend provider-rate validity.
