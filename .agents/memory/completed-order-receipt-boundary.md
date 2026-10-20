@@ -8,3 +8,9 @@ description: Invoice documents use saved customer-visible order facts, not opera
 **Why:** Historical invoices should not silently change when logos, prices, routes, or payment settings change. Raw payment/provider maps mix customer input with internal state; the later TXID requirement must not bypass that boundary. Independent HTML print styles lost repeated branding on long invoices, so printing the generated PDF keeps pagination and content identical. A separate Invoice action or early review prompt confuses the completion experience.
 
 **How to apply:** Keep Print on the generated PDF viewer rather than reintroducing a separate HTML print template. A completion email's Download PDF link uses the signed order URL and a one-time download intent, so it invokes that same client-side generator instead of a separate unguarded PDF endpoint; preserve the signed tracking token. Omit unprovable fee/custom data rather than guessing, and gate both invoice actions and review through actual completed-order state. Multi-page PDFs must repeat brand and footer without clipping long fields.
+
+**Invoice visual direction:** Keep invoice boxes light, thin, and compact in width and height, rather than large bold blocks.
+
+**Why:** The user explicitly requested smaller, lighter invoice boxes.
+
+**How to apply:** Preserve compact branding, subtle table/total fills and thin rules when extending the invoice; let long saved values expand rather than clipping them.

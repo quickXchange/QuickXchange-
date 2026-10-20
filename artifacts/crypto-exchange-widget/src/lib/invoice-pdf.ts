@@ -71,7 +71,7 @@ function lines(
 }
 
 function rule(page: PDFPage, y: number) {
-  page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_WIDTH - MARGIN, y }, thickness: 0.8, color: LINE });
+  page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_WIDTH - MARGIN, y }, thickness: 0.45, color: LINE });
 }
 
 /**
@@ -104,16 +104,16 @@ export async function buildInvoicePdf(invoice: InvoiceSnapshot, supportTelegramU
   let y = 0;
   const drawPage = () => {
     page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    page.drawRectangle({ x: 0, y: PAGE_HEIGHT - 125, width: PAGE_WIDTH, height: 125, color: NAVY });
-    page.drawRectangle({ x: 0, y: PAGE_HEIGHT - 4, width: PAGE_WIDTH * .67, height: 4, color: CYAN });
-    page.drawRectangle({ x: PAGE_WIDTH * .67, y: PAGE_HEIGHT - 4, width: PAGE_WIDTH * .33, height: 4, color: rgb(.486, .173, 1) });
-    page.drawImage(logo, { x: MARGIN, y: PAGE_HEIGHT - 93, width: 152, height: 64.3 });
-    page.drawText('INVOICE', { x: PAGE_WIDTH - MARGIN - bold.widthOfTextAtSize('INVOICE', 23), y: PAGE_HEIGHT - 58, font: bold, size: 23, color: WHITE });
+    page.drawRectangle({ x: MARGIN, y: PAGE_HEIGHT - 104, width: CONTENT_WIDTH, height: 82, color: NAVY });
+    page.drawRectangle({ x: MARGIN, y: PAGE_HEIGHT - 24, width: CONTENT_WIDTH * .67, height: 2, color: CYAN });
+    page.drawRectangle({ x: MARGIN + CONTENT_WIDTH * .67, y: PAGE_HEIGHT - 24, width: CONTENT_WIDTH * .33, height: 2, color: rgb(.486, .173, 1) });
+    page.drawImage(logo, { x: MARGIN + 12, y: PAGE_HEIGHT - 88, width: 124, height: 52.45 });
+    page.drawText('INVOICE', { x: PAGE_WIDTH - MARGIN - 12 - bold.widthOfTextAtSize('INVOICE', 19), y: PAGE_HEIGHT - 49, font: bold, size: 19, color: WHITE });
     const rightX = PAGE_WIDTH - MARGIN - 223;
-    lines(page, `Invoice / Order No. ${invoice.id}`, rightX, PAGE_HEIGHT - 69, 223, regular, 8.2, WHITE, 12);
+    lines(page, `Invoice / Order No. ${invoice.id}`, rightX, PAGE_HEIGHT - 58, 211, regular, 8.2, WHITE, 11);
     const finished = dateTime(invoice.completedAt);
-    if (finished) lines(page, `Completion date  ${finished}`, rightX, PAGE_HEIGHT - 91, 223, regular, 8.2, rgb(.755, .835, .929), 12);
-    y = PAGE_HEIGHT - 143;
+    if (finished) lines(page, `Completion date  ${finished}`, rightX, PAGE_HEIGHT - 80, 211, regular, 8.2, rgb(.755, .835, .929), 11);
+    y = PAGE_HEIGHT - 124;
   };
   const ensure = (height: number) => {
     if (y - height < 83) drawPage();
@@ -148,7 +148,7 @@ export async function buildInvoicePdf(invoice: InvoiceSnapshot, supportTelegramU
       second ? pair(second[0], second[1], MARGIN + 272, 225, y) : 0,
       32,
     );
-    y -= height + 5;
+    y -= height + 2;
     ensure(51);
   }
   y -= 9;
@@ -157,11 +157,11 @@ export async function buildInvoicePdf(invoice: InvoiceSnapshot, supportTelegramU
   const x1 = MARGIN + 12;
   const x2 = MARGIN + 229;
   const x3 = MARGIN + 365;
-  page.drawRectangle({ x: MARGIN, y: y - 25, width: CONTENT_WIDTH, height: 27, color: NAVY });
-  page.drawText('DESCRIPTION', { x: x1, y: y - 16, font: bold, size: 7.5, color: WHITE });
-  page.drawText('YOU SEND', { x: x2, y: y - 16, font: bold, size: 7.5, color: WHITE });
-  page.drawText('YOU RECEIVE', { x: x3, y: y - 16, font: bold, size: 7.5, color: WHITE });
-  y -= 36;
+  page.drawRectangle({ x: MARGIN, y: y - 18, width: CONTENT_WIDTH, height: 20, color: PALE, borderColor: LINE, borderWidth: .45 });
+  page.drawText('DESCRIPTION', { x: x1, y: y - 11, font: bold, size: 7.5, color: MUTED });
+  page.drawText('YOU SEND', { x: x2, y: y - 11, font: bold, size: 7.5, color: MUTED });
+  page.drawText('YOU RECEIVE', { x: x3, y: y - 11, font: bold, size: 7.5, color: MUTED });
+  y -= 24;
 
   const description = `Exchange ${invoice.fromAsset} to ${invoice.toAsset}`;
   const sent = `${formatDisplayAmount(invoice.sendAmount)} ${invoice.fromAsset}`;
@@ -171,14 +171,13 @@ export async function buildInvoicePdf(invoice: InvoiceSnapshot, supportTelegramU
     (invoice.sendNetwork ? wrapped(`Network: ${invoice.sendNetwork}`, regular, 7.8, 117).length * 11 + 7 : 0);
   const receiveHeight = wrapped(received, bold, 9, 130).length * 14 +
     (invoice.receiveMethod ? wrapped(invoice.receiveMethod, regular, 7.8, 130).length * 11 + 7 : 0);
-  const itemHeight = Math.max(49, descriptionHeight, sendHeight, receiveHeight) + 15;
+  const itemHeight = Math.max(28, descriptionHeight, sendHeight, receiveHeight) + 10;
   ensure(itemHeight + 125);
-  page.drawRectangle({ x: MARGIN, y: y - itemHeight, width: CONTENT_WIDTH, height: itemHeight, color: PALE });
-  lines(page, description, x1, y - 14, 201, bold, 9.5);
-  const sendUsed = lines(page, sent, x2, y - 14, 117, bold, 9);
-  if (invoice.sendNetwork) lines(page, `Network: ${invoice.sendNetwork}`, x2, y - 14 - sendUsed - 5, 117, regular, 7.8, MUTED, 11);
-  const receiveUsed = lines(page, received, x3, y - 14, 130, bold, 9);
-  if (invoice.receiveMethod) lines(page, invoice.receiveMethod, x3, y - 14 - receiveUsed - 5, 130, regular, 7.8, MUTED, 11);
+  lines(page, description, x1, y - 5, 201, regular, 9.5);
+  const sendUsed = lines(page, sent, x2, y - 5, 117, regular, 9);
+  if (invoice.sendNetwork) lines(page, `Network: ${invoice.sendNetwork}`, x2, y - 5 - sendUsed - 5, 117, regular, 7.8, MUTED, 11);
+  const receiveUsed = lines(page, received, x3, y - 5, 130, regular, 9);
+  if (invoice.receiveMethod) lines(page, invoice.receiveMethod, x3, y - 5 - receiveUsed - 5, 130, regular, 7.8, MUTED, 11);
   y -= itemHeight + 11;
 
   const summary = [
@@ -194,13 +193,15 @@ export async function buildInvoicePdf(invoice: InvoiceSnapshot, supportTelegramU
     rule(page, y);
     y -= 6;
   }
-  ensure(55);
-  page.drawRectangle({ x: MARGIN, y: y - 48, width: CONTENT_WIDTH, height: 48, color: NAVY });
-  page.drawText('FINAL RECEIVE / TOTAL', { x: MARGIN + 15, y: y - 29, font: bold, size: 9, color: WHITE });
   const totalText = `${formatDisplayAmount(invoice.receiveAmount)} ${invoice.toAsset}`;
-  const totalSize = bold.widthOfTextAtSize(totalText, 12) <= 226 ? 12 : 9;
-  lines(page, totalText, MARGIN + 278, y - 12, 215, bold, totalSize, WHITE, 15);
-  y -= 63;
+  const totalSize = bold.widthOfTextAtSize(totalText, 10) <= 215 ? 10 : 8.5;
+  const totalHeight = Math.max(30, wrapped(totalText, bold, totalSize, 215).length * 13 + 16);
+  // Keep unusually long saved amounts readable rather than clipping the compact row.
+  ensure(totalHeight + 12);
+  page.drawRectangle({ x: MARGIN + 8, y: y - totalHeight, width: CONTENT_WIDTH - 16, height: totalHeight, color: PALE, borderColor: LINE, borderWidth: .45 });
+  page.drawText('FINAL RECEIVE / TOTAL', { x: MARGIN + 15, y: y - 19, font: regular, size: 8.5, color: MUTED });
+  lines(page, totalText, MARGIN + 278, y - 8, 215, bold, totalSize, DARK, 13);
+  y -= totalHeight + 12;
 
   if (invoice.receivingFields.length) {
     section('PAYMENT / RECEIVING INFORMATION', 70);
