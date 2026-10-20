@@ -222,6 +222,23 @@ test("full catalogue pagination advances by actual page size without popular-pai
     return { total: "1001", pairs: rows.slice(Number(params.offset), Number(params.offset) + 1000) };
   }));
   assert.deepEqual(offsets, ["0", "1000"]); assert.equal(result.length, 1001);
+  assert.equal(new Set(result.map(row => row.instrumentTo)).size, 1,
+    "repeated destination metadata is shared across pages, not retained 1001 times");
+  assert.equal(new Set(result.map(row => row.instrumentFrom)).size, 1001,
+    "distinct instrument identities must remain distinct");
+});
+
+test("catalogue metadata sharing preserves exact reserve variants and caller input", async () => {
+  const changedReserve = { ...pair, instrumentTo: { ...pair.instrumentTo, reservesAmount: "999.000000000000000001" } };
+  const input = [pair, structuredClone(pair), changedReserve];
+  const before = structuredClone(input);
+  const result = await fetchPartnerPairs(client(async () => ({ total: 3, pairs: input })));
+  assert.equal(result[0].instrumentFrom, result[1].instrumentFrom);
+  assert.equal(result[0].instrumentTo, result[1].instrumentTo);
+  assert.notEqual(result[0].instrumentTo, result[2].instrumentTo,
+    "same asset/network with different provider economics must not be merged");
+  assert.equal(result[2].instrumentTo.reservesAmount, "999.000000000000000001");
+  assert.deepEqual(input, before, "provider input is not rewritten");
 });
 test("truncated/repeated/invalid-total catalogue is rejected rather than silently published", async () => {
   await assert.rejects(fetchPartnerPairs(client(async () => ({ total: "2", pairs: [pair] }))), /repeated/);

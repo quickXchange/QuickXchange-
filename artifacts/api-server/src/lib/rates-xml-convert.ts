@@ -6,6 +6,7 @@ import type { XmlMethod } from "./rates-xml-methods";
 import type { GetAdminRatesXmlPreviewResponse } from "@workspace/api-zod";
 import { getQuickexPublicCapabilityConfig } from "./provider-capabilities";
 import { CONVERT_XML_CATALOG_DISCOVERY_WAIT_MS, xmlDiscoveryDeadline } from "./rates-xml-refresh";
+import { logger } from "./logger";
 
 type Diagnostic = typeof GetAdminRatesXmlPreviewResponse._output.diagnostics[number];
 const method = (pair: PartnerPair, side: "instrumentFrom" | "instrumentTo"): XmlMethod => {
@@ -41,7 +42,9 @@ const refresh = new ConvertXmlRefresh({
   client: getQuickexXmlPublicClient,
   // Provider XML code or its documented uppercase slug; no local Admin mapping.
   codeAllowed: code => /^[A-Z0-9][A-Z0-9_-]{0,63}$/.test(code),
-  load: async scope => (await readPublishedXmlQuotes(scope))
+  // Keep expired history in PostgreSQL, not in every new replica's startup
+  // heap. Only provider-fresh rows can possibly be published after restart.
+  load: async scope => (await readPublishedXmlQuotes(scope, Date.now() - 5 * 60_000))
     .filter(row => row.quote.providerPair && row.quote.item.providerJson)
     .map(row => ({
       key: partnerPairKey(row.quote.providerPair!), pair: row.quote.providerPair!,
@@ -105,7 +108,7 @@ export function startConvertXmlPublicationWorker() {
       const code = error && typeof error === "object" && "code" in error &&
         typeof error.code === "string" && /^[A-Z0-9_]{1,64}$/.test(error.code)
         ? error.code : "XML_PUBLICATION_UNAVAILABLE";
-      console.warn("Quickex partner XML background refresh is temporarily unavailable.", { code });
+      logger.warn({ code }, "Quickex partner XML background refresh is temporarily unavailable.");
     });
   };
   // The refresh owns provider pacing, single-flight and retry deadlines.

@@ -1,4 +1,4 @@
-import { and, eq, lt, inArray } from "drizzle-orm";
+import { and, eq, lt, gte, inArray } from "drizzle-orm";
 import { db, ratesXmlPublishedQuotesTable } from "@workspace/db";
 import type { GetAdminRatesXmlPreviewResponse } from "@workspace/api-zod";
 import type { RatesXmlItem } from "./rates-xml-format";
@@ -12,9 +12,11 @@ export type PublishedXmlQuote = {
 };
 
 /** Stored data is exclusively public publication metadata, never a signed provider ticket. */
-export async function readPublishedXmlQuotes(configurationHash: string) {
+export async function readPublishedXmlQuotes(configurationHash: string, quotedAfter?: number) {
   const rows = await db.select().from(ratesXmlPublishedQuotesTable)
-    .where(eq(ratesXmlPublishedQuotesTable.configurationHash, configurationHash));
+    .where(and(eq(ratesXmlPublishedQuotesTable.configurationHash, configurationHash),
+      ...(quotedAfter !== undefined
+        ? [gte(ratesXmlPublishedQuotesTable.quotedAt, new Date(quotedAfter))] : [])));
   return rows.map(row => ({
     key: row.key, quotedAt: row.quotedAt.getTime(),
     quote: row.payload as unknown as PublishedXmlQuote,

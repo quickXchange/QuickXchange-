@@ -106,6 +106,42 @@ rate was substituted during that interval.
 
 ## Production rollout
 
+### Release preparation, 2026-10-20
+
+The configured authenticated client returned HTTP 200 for the exact affiliate
+BTC/BTC -> USDT/TRC20 catalogue entry and its rate. Actual response headers
+reported 60 catalogue requests/minute and 600 rate requests/minute. This is
+observed quota evidence, not an inferred account tier.
+
+The latest read-only Production check before this release returned three Swap
+entries and no Convert entries. Runtime logs showed repeated provider transport
+timeouts alongside approximately 36-second event-loop P99 delays. These are
+confirmed symptoms; no CPU profile has yet established the dominant source
+of those pauses. Do not attribute all such failures to Quickex or claim they
+are fully solved by XML changes.
+
+Release changes reduce XML-only memory overhead: page-repeat detection keeps
+SHA-256 digests rather than complete serialized pages, byte-equivalent parsed
+instrument metadata is shared, and Convert startup queries load only rows
+within possible provider freshness. Expired historical publications remain in
+PostgreSQL; live rates, precision, permission gates and customer operations are
+unchanged.
+
+Verification: 67 focused XML tests plus two isolated database/API tests passed.
+The complete `build:production` entrypoint passed, including workspace type
+checks and Website, Mini App and API production outputs. The routed Development
+feed returned 599 fresh Convert entries across 180 source codes in 0.994 seconds
+after restart, and a browser snapshot displayed valid XML.
+
+An existing 80-case browser run had 79 passing cases and one outdated mobile
+Admin navigation expectation missing the existing Notifications link. That
+expectation was corrected to match the observed navigation. The full browser
+suite was not rerun for these publication-only changes; do not report 80/80.
+
+Publishing still requires the user's Publish action. Production runtime
+stability and Convert XML population must be rechecked after the new release
+is actually live. No database migration is required.
+
 Publish the tested API source through the existing project publishing flow.
 No schema migration, price change, credential rotation, financial-data edit or
 DNS change is required by this patch. Allow the initial paginated background

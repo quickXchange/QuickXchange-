@@ -57,6 +57,13 @@ test("public XML retains cold recovery data but never exports expired or disable
   const persisted = (await readPublishedXmlQuotes(configuration)).find(q => q.key === key)!;
   assert.equal(persisted.quote.item.out, "0.00001", "older replicas cannot overwrite newer publications");
   assert.equal((await readPublishedXmlQuotes("unrelated")).length, 0);
+  const historyKey = `${key}:expired-history`;
+  await savePublishedXmlQuote(configuration, historyKey, saved, Date.now() - 600_000);
+  const recent = await readPublishedXmlQuotes(configuration, Date.now() - 300_000);
+  assert.ok(recent.some(row => row.key === key), "startup still loads a potentially fresh publication");
+  assert.ok(!recent.some(row => row.key === historyKey), "startup excludes expired history from its heap");
+  assert.ok((await readPublishedXmlQuotes(configuration)).some(row => row.key === historyKey),
+    "startup filtering does not delete retained publication history");
 
   const app = express(); app.use("/api", router);
   app.use((error: any, _req: any, res: any, _next: any) =>

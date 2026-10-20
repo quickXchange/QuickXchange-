@@ -110,3 +110,14 @@ Apply short discovery deadlines only to HTTP response waits, never to the backgr
 **Why:** The provider migration document distinguishes the affiliate catalog from the popular-pair list. Depending on the latter and calling the HTTP reader from a worker caused repeated timeout reports even when affiliate quotes were reachable.
 
 **How to apply:** Warm affiliate data in the background under provider/database timeouts. Public reads recheck runtime credentials and local capabilities without remote catalog refresh or UI default-pair lookup. Never cache completed local route permissions or extend provider-rate validity.
+
+Retain expired publication history durably without requiring each replica to
+hydrate it into its startup heap.
+
+**Why:** A large route matrix can accumulate far more historical rates than
+can be fresh simultaneously. Loading them all increases cold-start database
+transfer and memory pressure without making any additional rate publishable.
+
+**How to apply:** Filter cold-start publication reads by possible freshness,
+preserve historical database records, and keep the provider timestamp check
+as the final authority. Never refresh an expired row's age on receipt or load.

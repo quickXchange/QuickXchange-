@@ -1,4 +1,5 @@
 import { compareDecimal, plainDecimal } from "./rates-xml-decimal";
+import { createHash } from "node:crypto";
 import type { RatesXmlItem } from "./rates-xml-format";
 
 /** Public partner data, not a customer quote ticket or an executable order. */
@@ -124,6 +125,16 @@ export function partnerRateToXml(pair: PartnerPair, value: unknown): RatesXmlIte
 }
 export async function fetchPartnerPairs(client: PartnerXmlClient) {
   const pairs: PartnerPair[] = [], seenPages = new Set<string>();
+  // A full directed matrix repeats each instrument hundreds of times. Share
+  // only byte-equivalent parsed metadata, including its exact reserve value.
+  const instruments = new Map<string, PartnerInstrument>();
+  const intern = (value: PartnerInstrument) => {
+    const key = JSON.stringify(value);
+    const existing = instruments.get(key);
+    if (existing) return existing;
+    instruments.set(key, value);
+    return value;
+  };
   let offset = 0;
   for (;;) {
     const body = object(await client.read("/pairs/all", { limit: "1000", offset: String(offset) }));
@@ -134,10 +145,17 @@ export async function fetchPartnerPairs(client: PartnerXmlClient) {
       throw new Error("Invalid Quickex affiliate pair pagination.");
     const page: PartnerPair[] = [];
     for (const raw of body.pairs) {
-      try { page.push(parsePartnerPair(raw)); }
+      try {
+        const pair = parsePartnerPair(raw);
+        pair.instrumentFrom = intern(pair.instrumentFrom);
+        pair.instrumentTo = intern(pair.instrumentTo);
+        page.push(pair);
+      }
       catch { /* One malformed direction must not prevent valid directions from refreshing. */ }
     }
-    const signature = JSON.stringify(body.pairs);
+    // Retaining every serialized page duplicates the complete catalogue in
+    // memory. A digest provides the same repeated-page guard at bounded cost.
+    const signature = createHash("sha256").update(JSON.stringify(body.pairs)).digest("hex");
     if (body.pairs.length && seenPages.has(signature)) throw new Error("Quickex affiliate pagination repeated a page.");
     seenPages.add(signature);
     pairs.push(...page); offset += body.pairs.length;
