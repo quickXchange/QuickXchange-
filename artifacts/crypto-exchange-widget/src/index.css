@@ -24945,3 +24945,38 @@ html:not(.dark) .public-shell .exchange-card.swap-widget-flow.swap-widget-step-3
     text-align: left;
   }
 }
+
+/* Convert owns its Step 1 footer; keep the shared Swap shell and CTA untouched. */
+.public-shell .exchange-card.redesigned-widget.convert-widget-step-1 .convert-widget-form-viewport,
+.public-shell .exchange-card.redesigned-widget.convert-widget-step-1 [data-testid="convert-step-quote"] {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.public-shell .exchange-card.redesigned-widget.convert-widget-step-1 .convert-quote-scroll-region {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.public-shell .exchange-card.redesigned-widget.convert-widget-step-1 .convert-quote-footer {
+  flex: 0 0 auto;
+  padding-top: 8px;
+}
+
+.public-shell .exchange-card.redesigned-widget.convert-widget-step-1 .convert-step1-email input {
+  height: 44px;
+  min-height: 44px;
+}
+
+.public-shell .exchange-card.redesigned-widget.convert-widget-step-1 .convert-quote-footer .exchange-submit-wrap {
+  margin-top: 0 !important;
+  padding-top: 10px !important;
+}
+
+.public-shell .exchange-card.redesigned-widget.convert-widget-step-1 .convert-quote-footer .widget-primary-submit {
+  margin-top: 0;
+}

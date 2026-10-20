@@ -1257,7 +1257,13 @@ test('uses dedicated Quickex Convert routes and submits both wallet directions',
     });
   });
   await page.route('https://icons.test/broken.svg', route => route.abort());
+  await page.route('https://quickex.io/assets/coins/*.svg', route => route.fulfill({
+    status: 200,
+    contentType: 'image/svg+xml',
+    body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="#888"/></svg>',
+  }));
 
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.route('**/api/quickex/quote', async (route) => {
     const body = route.request().postDataJSON() as Record<string, unknown>;
     expect(body.fromNetwork).toBe('Bitcoin');
@@ -1318,6 +1324,67 @@ test('uses dedicated Quickex Convert routes and submits both wallet directions',
   await page.goto('/');
   await page.getByTestId('button-mode-select-instant').click();
   await expect(page.getByTestId('button-mode-select-instant')).toHaveAttribute('aria-pressed', 'true');
+  for (const theme of ['light', 'dark'] as const) {
+    await page.evaluate((value) => document.documentElement.classList.toggle('dark', value === 'dark'), theme);
+    for (const viewport of [
+      { width: 1440, height: 1000 },
+      { width: 390, height: 844 },
+      { width: 768, height: 1024 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.getByTestId('button-mode-select-instant').click();
+      const convertLayout = await page.evaluate(() => {
+        const rect = (element: Element) => {
+          const box = element.getBoundingClientRect();
+          return { x: box.x, y: box.y, width: box.width, height: box.height };
+        };
+        const shell = document.querySelector('.exchange-card.redesigned-widget')!;
+        const email = document.querySelector('[data-testid="convert-input-email"]')!;
+        const cta = document.querySelector('[data-testid="convert-button-continue"]')!;
+        const emailBox = email.getBoundingClientRect();
+        const shellBox = shell.getBoundingClientRect();
+        const ctaBox = cta.getBoundingClientRect();
+        return {
+          shell: rect(shell),
+          cta: rect(cta),
+          gradient: getComputedStyle(cta).backgroundImage,
+          email: rect(email),
+          emailVisible: !!(email as HTMLElement).offsetWidth && getComputedStyle(email).visibility === 'visible',
+          emailCentered: Math.abs((emailBox.left + emailBox.right) / 2 - (shellBox.left + shellBox.right) / 2) <= 1,
+          emailInsideShell: emailBox.left >= shellBox.left && emailBox.right <= shellBox.right,
+          emailAboveCta: emailBox.bottom <= ctaBox.top,
+          ctaInsideShell: ctaBox.left >= shellBox.left && ctaBox.right <= shellBox.right && ctaBox.bottom <= shellBox.bottom,
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        };
+      });
+      expect(convertLayout.emailVisible, `${theme} ${viewport.width}px email visible`).toBe(true);
+      expect(convertLayout.emailCentered, `${theme} ${viewport.width}px email centered`).toBe(true);
+      expect(convertLayout.emailInsideShell, `${theme} ${viewport.width}px email not cropped`).toBe(true);
+      expect(convertLayout.emailAboveCta, `${theme} ${viewport.width}px email does not overlap CTA`).toBe(true);
+      expect(convertLayout.ctaInsideShell, `${theme} ${viewport.width}px CTA in shell footer`).toBe(true);
+      expect(convertLayout.overflow, `${theme} ${viewport.width}px no horizontal overflow`).toBe(0);
+
+      await page.getByTestId('button-mode-select-manual').click();
+      const swapLayout = await page.evaluate(() => {
+        const rect = (element: Element) => {
+          const box = element.getBoundingClientRect();
+          return { x: box.x, y: box.y, width: box.width, height: box.height };
+        };
+        const shell = document.querySelector('.exchange-card.redesigned-widget')!;
+        const cta = document.querySelector('[data-testid="button-swap-continue"]')!;
+        return { shell: rect(shell), cta: rect(cta), gradient: getComputedStyle(cta).backgroundImage };
+      });
+      expect(swapLayout.shell, `${theme} ${viewport.width}px Convert/Swap shell`).toEqual(convertLayout.shell);
+      expect(swapLayout.cta, `${theme} ${viewport.width}px Convert/Swap CTA`).toEqual(convertLayout.cta);
+      expect(swapLayout.gradient, `${theme} ${viewport.width}px Convert/Swap gradient`).toBe(convertLayout.gradient);
+      await page.getByTestId('button-mode-select-instant').click();
+    }
+  }
+  await page.evaluate(() => document.documentElement.classList.remove('dark'));
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
   await expect(page.getByTestId('convert-select-from-asset')).toHaveAttribute('data-value', 'btc-bitcoin');
   await expect(page.getByTestId('convert-select-to-asset')).toHaveAttribute('data-value', 'usdt-trc20');
   await expect(page.getByTestId('convert-select-from-asset')).toContainText('Bitcoin');
@@ -1371,8 +1438,28 @@ test('uses dedicated Quickex Convert routes and submits both wallet directions',
   await page.getByTestId('convert-input-amount').press('Enter');
   await expect.poll(() => validationRequests).toBe(0);
   expect(orderRequest).toBeUndefined();
+  const customerEmail = page.getByTestId('convert-input-email');
+  await expect(customerEmail).toBeVisible();
+  await expect(customerEmail).toHaveAttribute('type', 'email');
+  await expect(customerEmail).toHaveAttribute('required', '');
+  const continueButton = page.getByTestId('convert-button-continue');
+  await expect(continueButton).toBeEnabled();
+  await continueButton.click();
+  await expect(page.getByTestId('convert-step-quote')).toBeVisible();
+  expect(await customerEmail.evaluate((input: HTMLInputElement) => input.validity.valueMissing)).toBe(true);
+  await customerEmail.fill('invalid-email');
+  await continueButton.click();
+  await expect(page.getByTestId('convert-step-quote')).toBeVisible();
+  expect(await customerEmail.evaluate((input: HTMLInputElement) => (
+    input.validity.typeMismatch && input.validationMessage.length > 0
+  ))).toBe(true);
+  await customerEmail.fill('instant@example.test');
+  await page.getByTestId('button-mode-select-manual').click();
+  await page.getByTestId('button-mode-select-instant').click();
+  await expect(customerEmail).toHaveValue('instant@example.test');
   await page.getByTestId('convert-button-continue').click();
   await expect(page.getByTestId('convert-step-wallets')).toBeVisible();
+  await expect(page.getByTestId('convert-input-email')).toHaveCount(0);
   await expect(page.getByTestId('convert-input-destination-address')).toBeFocused();
   await expect(page.getByTestId('convert-wallet-quote-summary')).toContainText('1 BTC');
   await expect(page.getByTestId('convert-summary-from-logo').locator('.crypto-logo img')).toHaveAttribute('src', 'https://quickex.io/assets/coins/btc.svg');
@@ -1382,18 +1469,19 @@ test('uses dedicated Quickex Convert routes and submits both wallet directions',
   await expect(page.getByTestId('convert-input-refund-address')).not.toHaveAttribute('required', '');
   await expect(page.getByTestId('convert-input-refund-address')).toHaveValue('');
   await expect(page.getByTestId('convert-input-refund-memo')).toBeDisabled();
-  await page.getByTestId('convert-input-email').fill('instant@example.test');
   await page.getByTestId('convert-input-destination-address').fill('destination-wallet');
   await page.getByTestId('convert-input-destination-memo').fill('destination-memo');
   await page.getByTestId('convert-button-back').click();
   await expect(page.getByTestId('convert-step-quote')).toBeVisible();
   await expect(page.getByTestId('convert-input-amount')).toBeFocused();
+  await expect(page.getByTestId('convert-input-email')).toHaveValue('instant@example.test');
+  await page.getByTestId('convert-input-email').fill('latest-fixed@example.test');
   await page.getByTestId('convert-button-continue').click();
+  await expect(page.getByTestId('convert-input-email')).toHaveCount(0);
   await expect(page.getByTestId('convert-input-destination-address')).toBeFocused();
   await expect(page.getByTestId('convert-input-destination-address')).toHaveValue('destination-wallet');
   await expect(page.getByTestId('convert-input-destination-memo')).toHaveValue('destination-memo');
   await expect(page.getByTestId('convert-input-refund-address')).toBeVisible();
-  await expect(page.getByTestId('convert-input-email')).toHaveValue('instant@example.test');
   await page.locator('#convert-terms').check();
   await page.getByTestId('convert-button-submit').click();
 
@@ -1407,7 +1495,7 @@ test('uses dedicated Quickex Convert routes and submits both wallet directions',
     destinationAddress: 'destination-wallet',
     destinationMemo: 'destination-memo',
     rateMode: 'FIXED',
-    customerEmail: 'instant@example.test',
+    customerEmail: 'latest-fixed@example.test',
   });
   await expect(page).toHaveURL(new RegExp(
     `/order/${instantOrderId}\\?provider=quickex&trackingToken=${instantOrder.trackingToken}$`,
@@ -1417,6 +1505,25 @@ test('uses dedicated Quickex Convert routes and submits both wallet directions',
   await expect(page.getByTestId('convert-step-quote')).toHaveCount(0);
   await expect(page.getByTestId('text-order-id')).toHaveText(instantOrderId);
   await expect(page.getByTestId('button-cancel-order')).toHaveCount(0);
+
+  await page.goto('/');
+  await page.getByTestId('button-mode-select-instant').click();
+  await page.getByTestId('convert-input-amount').fill('1');
+  await expect(page.getByTestId('convert-input-receive-amount')).toHaveValue('99.5');
+  await page.getByTestId('convert-input-email').fill('latest-floating@example.test');
+  await page.getByTestId('convert-button-continue').click();
+  await page.getByTestId('convert-input-destination-address').fill('floating-destination-wallet');
+  await page.locator('#convert-terms').check();
+  await page.getByTestId('convert-button-submit').click();
+  await expect.poll(() => orderRequest).toMatchObject({
+    rateMode: 'FLOATING',
+    customerEmail: 'latest-floating@example.test',
+    destinationAddress: 'floating-destination-wallet',
+  });
+  await expect(page).toHaveURL(new RegExp(
+    `/order/${instantOrderId}\\?provider=quickex&trackingToken=${instantOrder.trackingToken}$`,
+  ));
+  await expect(page.getByTestId('heading-order-created')).toBeVisible();
 });
 
 test('opens Convert and offers the working Swap calculator when provider configuration is empty', async ({
@@ -1447,6 +1554,224 @@ test('opens Convert and offers the working Swap calculator when provider configu
   await page.getByTestId('button-use-swap').click();
   await expect(page.getByTestId('button-mode-select-manual')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('form-exchange')).toBeVisible();
+});
+
+test('keeps Convert email and footer geometry aligned with Swap across themes and viewports', async ({ page }) => {
+  const submittedOrders: Array<Record<string, unknown>> = [];
+  const fixtureOrder = {
+    id: 'QX-CONVERT-LAYOUT-FIXTURE',
+    type: 'instant',
+    status: 'awaiting deposit',
+    fromAsset: 'BTC',
+    fromNetwork: 'Bitcoin',
+    toAsset: 'USDT',
+    toNetwork: 'TRC20',
+    amount: 1,
+    receiveAmount: 99.5,
+    depositAddress: 'fixture-deposit-address',
+    rateMode: 'FLOATING',
+    outcomeUnknown: false,
+    refreshUnavailable: false,
+    trackingToken: 'convert-layout-fixture-token',
+    createdAt: new Date().toISOString(),
+  };
+  await page.route('**/api/exchange/config', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(instantExchangeConfig),
+  }));
+  await page.route('**/api/quickex/config', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      provider: 'Quickex',
+      signedOrders: true,
+      instruments: [
+        { currencyTitle: 'BTC', networkTitle: 'Bitcoin', slug: 'btc-bitcoin', instrumentType: 'crypto', fullName: 'Bitcoin', currencyFriendlyTitle: 'Bitcoin', precisionDecimals: 8, requiresMemo: false },
+        { currencyTitle: 'USDT', networkTitle: 'TRC20', slug: 'usdt-trc20', instrumentType: 'crypto', fullName: 'Tether', currencyFriendlyTitle: 'Tether', precisionDecimals: 6, requiresMemo: false },
+      ],
+      pairs: [{ fromAsset: 'BTC', fromNetwork: 'Bitcoin', toAsset: 'USDT', toNetwork: 'TRC20' }],
+    }),
+  }));
+  await page.route('**/api/quickex/quote', async route => {
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        quoteId: 'convert-layout-fixture-quote',
+        type: 'instant',
+        provider: 'Quickex',
+        fromAsset: body.fromAsset,
+        fromNetwork: body.fromNetwork,
+        toAsset: body.toAsset,
+        toNetwork: body.toNetwork,
+        amount: body.amount,
+        receiveAmount: 99.5,
+        rate: 99.5,
+        fee: 0.1,
+        minAmount: 0.01,
+        maxAmount: 50,
+        rateMode: body.rateMode,
+        expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      }),
+    });
+  });
+  await page.route('**/api/quickex/validate-address', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ valid: true }),
+  }));
+  await page.route(/\/api\/quickex\/create-order(?:\?|$)/, route => {
+    submittedOrders.push(route.request().postDataJSON() as Record<string, unknown>);
+    return route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify(fixtureOrder),
+    });
+  });
+  await page.route('**/api/quickex/orders/*/status*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(fixtureOrder),
+  }));
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/');
+  await page.getByTestId('button-mode-select-instant').click();
+  await expect(page.getByTestId('convert-step-quote')).toBeVisible();
+
+  for (const theme of ['light', 'dark'] as const) {
+    if (theme === 'dark') {
+      await page.evaluate(() => document.documentElement.classList.add('dark'));
+      await expect(page.locator('html')).toHaveClass(/dark/);
+    } else {
+      await expect(page.locator('html')).not.toHaveClass(/dark/);
+    }
+    for (const viewport of [
+      { width: 1440, height: 1000 },
+      { width: 390, height: 844 },
+      { width: 768, height: 1024 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.getByTestId('button-mode-select-instant').click();
+      const convert = await page.evaluate(() => {
+        const rect = (el: Element) => {
+          const b = el.getBoundingClientRect();
+          return { x: b.x, y: b.y, width: b.width, height: b.height };
+        };
+        const shell = document.querySelector('.exchange-card.redesigned-widget')!;
+        const email = document.querySelector('[data-testid="convert-input-email"]')!;
+        const cta = document.querySelector('[data-testid="convert-button-continue"]')!;
+        const s = shell.getBoundingClientRect();
+        const e = email.getBoundingClientRect();
+        const c = cta.getBoundingClientRect();
+        return {
+          shell: rect(shell),
+          cta: rect(cta),
+          gradient: getComputedStyle(cta).backgroundImage,
+          email: rect(email),
+          emailVisible: !!(email as HTMLElement).offsetWidth && getComputedStyle(email).visibility === 'visible',
+          emailCentered: Math.abs((e.left + e.right) / 2 - (s.left + s.right) / 2) <= 1,
+          emailInsideShell: e.left >= s.left && e.right <= s.right && e.top >= s.top && e.bottom <= s.bottom,
+          emailAboveCta: e.bottom <= c.top,
+          ctaInsideShell: c.left >= s.left && c.right <= s.right && c.bottom <= s.bottom,
+          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        };
+      });
+      expect(convert.emailVisible, `${theme} ${viewport.width}px email visible`).toBe(true);
+      expect(convert.emailCentered, `${theme} ${viewport.width}px email centered`).toBe(true);
+      expect(convert.emailInsideShell, `${theme} ${viewport.width}px email not cropped`).toBe(true);
+      expect(convert.emailAboveCta, `${theme} ${viewport.width}px no email/CTA overlap`).toBe(true);
+      expect(convert.ctaInsideShell, `${theme} ${viewport.width}px CTA aligned in footer`).toBe(true);
+      expect(convert.overflow, `${theme} ${viewport.width}px horizontal overflow`).toBe(0);
+
+      await page.getByTestId('button-mode-select-manual').click();
+      const swap = await page.evaluate(() => {
+        const rect = (el: Element) => {
+          const b = el.getBoundingClientRect();
+          return { x: b.x, y: b.y, width: b.width, height: b.height };
+        };
+        const shell = document.querySelector('.exchange-card.redesigned-widget')!;
+        const cta = document.querySelector('[data-testid="button-swap-continue"]')!;
+        return { shell: rect(shell), cta: rect(cta), gradient: getComputedStyle(cta).backgroundImage };
+      });
+      expect(swap.shell, `${theme} ${viewport.width}px Convert/Swap shell`).toEqual(convert.shell);
+      expect(swap.cta, `${theme} ${viewport.width}px Convert/Swap CTA`).toEqual(convert.cta);
+      expect(swap.gradient, `${theme} ${viewport.width}px Convert/Swap gradient`).toBe(convert.gradient);
+      await page.getByTestId('button-mode-select-instant').click();
+    }
+  }
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByTestId('convert-input-amount').fill('1');
+  await expect(page.getByTestId('convert-input-receive-amount')).toHaveValue('99.5');
+  const email = page.getByTestId('convert-input-email');
+  const continueButton = page.getByTestId('convert-button-continue');
+  await expect(email).toHaveAttribute('type', 'email');
+  await expect(email).toHaveAttribute('required', '');
+  await expect(continueButton).toBeEnabled();
+  await continueButton.click();
+  expect(await email.evaluate((input: HTMLInputElement) => input.validity.valueMissing)).toBe(true);
+  await email.fill('invalid-email');
+  await continueButton.click();
+  expect(await email.evaluate((input: HTMLInputElement) => (
+    input.validity.typeMismatch && input.validationMessage.length > 0
+  ))).toBe(true);
+  await expect(page.getByTestId('convert-step-quote')).toBeVisible();
+
+  await email.fill('initial@example.test');
+  await page.getByTestId('button-mode-select-manual').click();
+  await page.getByTestId('button-mode-select-instant').click();
+  await expect(email).toHaveValue('initial@example.test');
+  await page.getByTestId('convert-rate-fixed').click();
+  await expect(continueButton).toBeEnabled();
+  await continueButton.click();
+  await expect(page.getByTestId('convert-step-wallets')).toBeVisible();
+  await expect(page.getByTestId('convert-input-email')).toHaveCount(0);
+  await page.getByTestId('convert-input-destination-address').fill('fixed-destination-wallet');
+  await page.locator('#convert-terms').check();
+  await page.getByTestId('convert-button-back').click();
+  await expect(email).toHaveValue('initial@example.test');
+  await email.fill('latest-fixed@example.test');
+  await continueButton.click();
+  await expect(page.getByTestId('convert-input-email')).toHaveCount(0);
+  await expect(page.getByTestId('convert-input-destination-address')).toHaveValue('fixed-destination-wallet');
+  await page.locator('#convert-terms').check();
+  await page.getByTestId('convert-button-submit').click();
+  await expect.poll(() => submittedOrders.at(-1)).toMatchObject({
+    type: 'instant',
+    rateMode: 'FIXED',
+    customerEmail: 'latest-fixed@example.test',
+    destinationAddress: 'fixed-destination-wallet',
+  });
+  await expect(page).toHaveURL(new RegExp(
+    `/order/${fixtureOrder.id}\\?provider=quickex&trackingToken=${fixtureOrder.trackingToken}$`,
+  ));
+  await expect(page.getByTestId('heading-order-created')).toBeVisible();
+  await expect(page.getByTestId('status-order-confirmation')).toHaveText('Awaiting Funds');
+
+  await page.goto('/');
+  await page.getByTestId('button-mode-select-instant').click();
+  await page.getByTestId('convert-input-amount').fill('1');
+  await expect(page.getByTestId('convert-input-receive-amount')).toHaveValue('99.5');
+  await page.getByTestId('convert-input-email').fill('latest-floating@example.test');
+  await page.getByTestId('convert-button-continue').click();
+  await expect(page.getByTestId('convert-input-email')).toHaveCount(0);
+  await page.getByTestId('convert-input-destination-address').fill('floating-destination-wallet');
+  await page.locator('#convert-terms').check();
+  await page.getByTestId('convert-button-submit').click();
+  await expect.poll(() => submittedOrders.at(-1)).toMatchObject({
+    type: 'instant',
+    rateMode: 'FLOATING',
+    customerEmail: 'latest-floating@example.test',
+    destinationAddress: 'floating-destination-wallet',
+  });
+  await expect(page).toHaveURL(new RegExp(
+    `/order/${fixtureOrder.id}\\?provider=quickex&trackingToken=${fixtureOrder.trackingToken}$`,
+  ));
+  await expect(page.getByTestId('heading-order-created')).toBeVisible();
+  await expect(page.getByTestId('status-order-confirmation')).toHaveText('Awaiting Funds');
 });
 
 test('keeps compact exchange widgets and asset menus usable across viewport sizes', async ({
@@ -1916,16 +2241,19 @@ test('keeps compact exchange widgets and asset menus usable across viewport size
     expect(tabletMenuGeometry.menuRight).toBeLessThanOrEqual(tabletMenuGeometry.viewportWidth);
     expect(tabletMenuGeometry.documentOverflow).toBe(0);
     await page.keyboard.press('Escape');
+    await expect(page.locator('.asset-combobox-menu, .convert-contained-selector')).toHaveCount(0);
   }
 
   await page.setViewportSize({ width: 1440, height: 1200 });
   await page.getByTestId('convert-input-amount').fill('1');
+  await page.getByTestId('convert-input-email').fill('fulfillment@example.test');
   await expect(page.getByTestId('convert-button-continue')).toBeEnabled();
+  await expect(page.getByText('Email address', { exact: true })).toBeVisible();
   await page.getByTestId('convert-button-continue').click();
   await expect(page.getByTestId('convert-input-destination-address')).toBeVisible();
+  await expect(page.getByTestId('convert-input-email')).toHaveCount(0);
   await expect(page.getByText('Destination address', { exact: false })).toBeVisible();
   await expect(page.getByText('Refund address', { exact: false })).toBeVisible();
-  await expect(page.getByText('Email address', { exact: true })).toBeVisible();
   const convertFulfillmentGeometry = await page.evaluate(() => {
     const rect = (testId: string) => {
       const element = document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)!;
@@ -1940,18 +2268,14 @@ test('keeps compact exchange widgets and asset menus usable across viewport size
       destination: rect('convert-input-destination-address'),
       destinationMemo: rect('convert-input-destination-memo'),
       refund: rect('convert-input-refund-address'),
-      email: rect('convert-input-email'),
       documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
   });
   expect(convertFulfillmentGeometry.destination.width).toBeGreaterThanOrEqual(240);
   expect(convertFulfillmentGeometry.destinationMemo.width).toBeGreaterThanOrEqual(104);
   expect(convertFulfillmentGeometry.refund.width).toBeGreaterThanOrEqual(240);
-  expect(convertFulfillmentGeometry.email.width).toBeGreaterThanOrEqual(200);
   expect(convertFulfillmentGeometry.destination.cssHeight).toBeGreaterThanOrEqual(40);
-  expect(convertFulfillmentGeometry.email.cssHeight).toBeGreaterThanOrEqual(40);
   expect(convertFulfillmentGeometry.destination.height).toBeGreaterThanOrEqual(40);
-  expect(convertFulfillmentGeometry.email.height).toBeGreaterThanOrEqual(40);
   expect(convertFulfillmentGeometry.documentOverflow).toBe(0);
 });
 

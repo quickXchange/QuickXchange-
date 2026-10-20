@@ -174,6 +174,7 @@ export function QuickexConvertWidget({
   const autoRequoteGuardRef = useRef<{ requestKey: string; attempted: boolean } | null>(null);
   const autoRequoteInFlightKeyRef = useRef<string | null>(null);
   const amountInputRef = useRef<HTMLInputElement>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const destinationAddressInputRef = useRef<HTMLInputElement>(null);
   const stepFocusPendingRef = useRef(false);
 
@@ -478,6 +479,7 @@ export function QuickexConvertWidget({
     }
     if (!customerEmail.trim()) {
       setNotice({ kind: 'error', text: t('swap.contactEmail') });
+      moveToStep(1);
       return;
     }
     if (!termsAccepted) {
@@ -619,6 +621,7 @@ export function QuickexConvertWidget({
       <form onSubmit={submit} className="widget-form-body convert-widget-form-viewport">
           {step === 1 && (
             <div className="convert-step-panel animate-in fade-in slide-in-from-bottom-4 duration-300" data-testid="convert-step-quote">
+              <div className="convert-quote-scroll-region">
               <fieldset className="convert-rate-tabs">
                 <legend className="sr-only">{t('convert.rateType')}</legend>
                 {uiText((['FLOATING', 'FIXED'] as QuickexRateMode[]).map(mode => (
@@ -727,12 +730,35 @@ export function QuickexConvertWidget({
                   <span>{uiText(quoteError)}</span>
                 </div>
               )}
+              </div>
 
-              <div className="exchange-submit-wrap">
+              <div className="convert-quote-footer">
+                <div className="convert-step1-email flex flex-col gap-1.5">
+                  <label htmlFor="convert-email" className="text-[13px] font-semibold text-muted-foreground">
+                    {t('convert.emailAddress')}
+                  </label>
+                  <div className="relative">
+                    <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <input
+                      ref={emailInputRef}
+                      id="convert-email"
+                      type="email"
+                      required
+                      value={customerEmail}
+                      onChange={event => setCustomerEmail(event.target.value)}
+                      autoComplete="email"
+                      data-testid="convert-input-email"
+                      placeholder={t('convert.emailPlaceholder')}
+                      className="font-sans text-[14px] w-full pl-11 pr-4 rounded-xl border border-border bg-card focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-colors shadow-sm"
+                    />
+                  </div>
+                </div>
+                <div className="exchange-submit-wrap">
                 <button
                   type="button"
                   disabled={!ready}
                   onClick={() => {
+                    if (!emailInputRef.current?.reportValidity()) return;
                     setNotice(null);
                     moveToStep(2);
                   }}
@@ -742,6 +768,7 @@ export function QuickexConvertWidget({
                   {t('convert.continue')}
                   <span className="continue-arrow-accent" aria-hidden="true"><ArrowRight size={16} /></span>
                 </button>
+                </div>
               </div>
             </div>
           )}
@@ -853,27 +880,6 @@ export function QuickexConvertWidget({
                       data-testid="convert-input-destination-memo"
                       placeholder={t('convert.memoPlaceholder')}
                       className="font-mono text-[14px] placeholder:font-sans placeholder:text-[14px] w-full h-[54px] px-4 rounded-xl border border-border bg-card focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-colors shadow-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* Email */}
-                <div className="order-detail-field order-detail-field--email flex flex-col gap-1.5">
-                  <label htmlFor="convert-email" className="text-[13px] font-semibold text-muted-foreground">
-                    {t('convert.emailAddress')}
-                  </label>
-                  <div className="relative">
-                    <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <input
-                      id="convert-email"
-                      type="email"
-                      required
-                      value={customerEmail}
-                      onChange={event => setCustomerEmail(event.target.value)}
-                      autoComplete="email"
-                      data-testid="convert-input-email"
-                      placeholder={t('convert.emailPlaceholder')}
-                      className="font-sans text-[14px] w-full h-[54px] pl-11 pr-4 rounded-xl border border-border bg-card focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-colors shadow-sm"
                     />
                   </div>
                 </div>
