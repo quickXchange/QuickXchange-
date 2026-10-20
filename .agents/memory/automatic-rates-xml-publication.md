@@ -121,3 +121,26 @@ transfer and memory pressure without making any additional rate publishable.
 **How to apply:** Filter cold-start publication reads by possible freshness,
 preserve historical database records, and keep the provider timestamp check
 as the final authority. Never refresh an expired row's age on receipt or load.
+
+Compare persisted provider metadata by canonical field values, never by raw
+object serialization order.
+
+**Why:** PostgreSQL JSONB reorders keys and omits undefined optional fields.
+Stringifying raw loaded and freshly parsed objects falsely retired identical
+fresh Convert publications, making transient provider failures visible as
+missing directions.
+
+**How to apply:** Include every financial and route identity field in canonical
+comparison; retain exact decimal strings. JSON layout changes are not route
+changes, but changed limits, reserves, codes or activation still invalidate old
+publications.
+
+Fresh shared publications and real instrument metadata need recovery paths
+independent of downloading the entire affiliate direction matrix.
+
+**Why:** A slow replica cannot serve valid shared rates if it only reads storage
+at startup or waits for the full provider matrix before warming capabilities.
+
+**How to apply:** Reconcile bounded fresh reads under current credential scope,
+without blocking HTTP or extending timestamps. Fence retired directions and
+credential rotation, and recheck current local permissions before publication.

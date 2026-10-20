@@ -142,6 +142,42 @@ Publishing still requires the user's Publish action. Production runtime
 stability and Convert XML population must be rechecked after the new release
 is actually live. No database migration is required.
 
+### Missing Convert entries: recovery follow-up, 2026-10-20
+
+A live check at 14:46 UTC returned HTTP 200 with 37 Convert items and one
+Swap item. Thus the reported disappearance is intermittent; Development counts
+must not be presented as Production coverage. Production logs still showed
+DNS/TLS/response timeouts and elevated event-loop delays.
+
+A deterministic defect was reproduced: PostgreSQL JSONB changes property order
+and omits undefined fields, but catalogue reconciliation compared raw
+`JSON.stringify` output. Identical stored metadata was consequently retired.
+Comparison now uses a fixed-field canonical representation, including exact
+reserves, source limits, symbols, networks, slugs, codes and activation state.
+Real metadata changes still retire the old publication.
+
+Recovery also reads potentially fresh shared publications every 15 seconds,
+single-flight and without blocking public requests. It fences credentials,
+retired directions, metadata changes, older timestamps, expired/future rows and
+current executable-route permissions. The existing capability resolver warms
+real instrument metadata independently of the full affiliate pair matrix.
+
+Verification: 73 focused XML tests and one disposable-database integration
+test passed. The latter verifies actual JSONB round-trip metadata equality.
+The complete production build and workspace type checks passed. The integration
+fixture now uses a local origin because mocking global fetch alone does not
+intercept Quickex's direct HTTPS transport.
+
+After restarting the updated Development server, its routed feed returned
+HTTP 200 with 1,028 fresh Convert items across 180 source codes in 0.995 seconds.
+A browser snapshot confirmed rendered XML. A subsequent live-domain check
+still returned only 22 Convert items and three Swap items in 1.888 seconds;
+that Production response does not validate the unpublished correction.
+
+These changes require publication before they affect the live domain. They do
+not prove that Production resource stalls or external timeouts are resolved,
+and do not permit publishing expired rates during a prolonged outage.
+
 Publish the tested API source through the existing project publishing flow.
 No schema migration, price change, credential rotation, financial-data edit or
 DNS change is required by this patch. Allow the initial paginated background

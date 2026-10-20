@@ -18,3 +18,14 @@ Libraries that locate native executables relative to their package must not be b
 **Why:** esbuild's JavaScript API rejects being relocated into a test bundle because its executable discovery depends on its original package location.
 
 **How to apply:** Keep executable-locating dependencies external or resolve them from the workspace package at runtime; do not install another copy or change application dependencies to compensate.
+
+Provider fixtures must intercept the actual transport, not assume that replacing
+global fetch blocks all external I/O.
+
+**Why:** Quickex uses direct Node HTTPS for its production host. A publication
+test's fetch mock did not cover background catalogue discovery, so assertions
+passed while real provider pagination kept the child alive until timeout.
+
+**How to apply:** Use an isolated local origin or explicit transport fixture
+that every request traverses, preserve TLS protections in real code, and verify
+that the test process exits cleanly as well as passing its assertions.

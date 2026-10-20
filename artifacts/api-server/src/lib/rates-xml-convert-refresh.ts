@@ -1,7 +1,7 @@
 import type { RatesXmlItem } from "./rates-xml-format";
 import { selectConvertXmlBatch } from "./rates-xml-convert-scheduling";
 import { automaticXmlCryptoCode } from "./rates-xml-crypto-codes";
-import { fetchPartnerPairs, partnerPairKey, partnerRateParams, partnerRateToXml, partnerXmlCode, partnerQuoteTimestamp,
+import { fetchPartnerPairs, partnerPairKey, partnerPairMetadataKey, partnerRateParams, partnerRateToXml, partnerXmlCode, partnerQuoteTimestamp,
   type PartnerPair, type PartnerXmlClient } from "./quickex-xml-public";
 
 export type ConvertXmlSaved = { key: string; pair: PartnerPair; item: RatesXmlItem; quotedAt: number };
@@ -30,6 +30,10 @@ export function freshExecutableXmlRows(
 type Dependencies = {
   client(): Promise<PartnerXmlClient>;
   load(scope: string): Promise<ConvertXmlSaved[]>;
+  /** Read fresh publications produced by other replicas, independently of provider discovery. */
+  reload?: (scope: string) => Promise<ConvertXmlSaved[]>;
+  /** Warm real instrument capabilities without waiting for the full pair matrix. */
+  warm?: () => Promise<unknown>;
   save(scope: string, row: ConvertXmlSaved): Promise<void>;
   remove(scope: string, keys?: string[]): Promise<void>;
   codeAllowed(code: string): boolean;
@@ -64,6 +68,13 @@ export class ConvertXmlRefresh {
   private attemptSequence = 0;
   private eligibleCount = 0;
   private loading?: { identity: string; promise: Promise<void> };
+  private publicationSync?: Promise<void>;
+  private nextPublicationSync = 0;
+  private publicationSyncFailed = false;
+  private capabilityWarm?: Promise<void>;
+  private nextCapabilityWarm = 0;
+  private eligiblePairs?: Map<string, PartnerPair>;
+  private readonly retired = new Set<string>();
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly now: () => number;
   constructor(private readonly deps: Dependencies) {
@@ -73,6 +84,48 @@ export class ConvertXmlRefresh {
   stop() {
     this.generation++;
     this.flight = undefined;
+  }
+  private warmCapabilities() {
+    if (!this.deps.warm || this.capabilityWarm || this.now() < this.nextCapabilityWarm) return;
+    this.nextCapabilityWarm = this.now() + 60_000;
+    const warm = Promise.resolve().then(() => this.deps.warm!()).then(() => {}).catch(() => {
+      // The normal provider transport reports failures. Public readers still
+      // recheck the current capability authority and fail closed.
+    }).finally(() => {
+      if (this.capabilityWarm === warm) this.capabilityWarm = undefined;
+    });
+    this.capabilityWarm = warm;
+  }
+  private syncPublications(client: PartnerXmlClient, scope: string) {
+    if (!this.deps.reload || this.publicationSync || this.now() < this.nextPublicationSync) return;
+    const generation = this.generation;
+    this.nextPublicationSync = this.now() + 15_000;
+    // Do not make HTTP responses wait for a database read. Existing fresh rows
+    // remain usable while this independent, single-flight recovery runs.
+    const sync = Promise.resolve().then(() => this.deps.reload!(scope)).then(saved => {
+      if (this.identity !== client.identity || this.generation !== generation) return;
+      this.publicationSyncFailed = false;
+      for (const row of saved) {
+        const pair = this.eligiblePairs?.get(row.key);
+        if (this.retired.has(row.key) ||
+            (this.eligiblePairs && (!pair || partnerPairMetadataKey(pair) !== partnerPairMetadataKey(row.pair))) ||
+            row.key !== partnerPairKey(row.pair) || !row.item.providerJson ||
+            !row.pair.isActive || row.item.from === row.item.to ||
+            !this.deps.codeAllowed(row.item.from) || !this.deps.codeAllowed(row.item.to) ||
+            !Number.isFinite(row.quotedAt) || row.quotedAt > this.now() ||
+            this.now() - row.quotedAt >= REFRESH_INTERVAL_MS) continue;
+        const current = this.rows.get(row.key);
+        if (!current || current.quotedAt < row.quotedAt) this.rows.set(row.key, row);
+      }
+    }).catch(() => {
+      // A store outage must neither erase good publications nor extend their
+      // provider timestamps. Retry on the next bounded interval.
+      if (this.identity === client.identity && this.generation === generation)
+        this.publicationSyncFailed = true;
+    }).finally(() => {
+      if (this.publicationSync === sync) this.publicationSync = undefined;
+    });
+    this.publicationSync = sync;
   }
   private async read(client: PartnerXmlClient, path: "/pairs/all" | "/rates/public/one", params: Record<string, string>,
     canRetry = () => true) {
@@ -124,14 +177,15 @@ export class ConvertXmlRefresh {
       }
       this.eligibleCount = pairs.length;
       const active = new Map(pairs.map(p => [partnerPairKey(p), p]));
+      this.eligiblePairs = active;
       for (const key of this.retryAt.keys()) if (!active.has(key)) this.retryAt.delete(key);
       for (const key of this.verified) if (!active.has(key)) this.verified.delete(key);
       for (const key of this.attempted.keys()) if (!active.has(key)) this.attempted.delete(key);
       const removed: string[] = [];
       for (const [key, row] of this.rows) {
         // Never retain old limits/reserves when the provider's pair metadata changed.
-        if (!active.has(key) || JSON.stringify(row.pair) !== JSON.stringify(active.get(key))) {
-          this.rows.delete(key); removed.push(key);
+        if (!active.has(key) || partnerPairMetadataKey(row.pair) !== partnerPairMetadataKey(active.get(key)!)) {
+          this.rows.delete(key); this.retired.add(key); removed.push(key);
         }
       }
       if (removed.length) await this.deps.remove(scope, removed);
@@ -161,14 +215,17 @@ export class ConvertXmlRefresh {
             if (!current()) return;
             const row = { key, pair, item, quotedAt };
             await this.deps.save(scope, row);
-            if (current()) { this.rows.set(key, row); this.retryAt.delete(key); this.verified.add(key); }
+            if (current()) {
+              this.rows.set(key, row); this.retired.delete(key);
+              this.retryAt.delete(key); this.verified.add(key);
+            }
           } catch (e) {
             if (!current()) return;
             failed = true; this.skipped++;
             if (upstreamStatus(e) === 429) rateLimited = true;
             this.retryAt.set(key, this.now() + (retryable(e) ? 60_000 : REFRESH_INTERVAL_MS));
             if (!retryable(e)) {
-              this.rows.delete(key);
+              this.rows.delete(key); this.retired.add(key);
               await this.deps.remove(scope, [key]);
             }
           }
@@ -189,7 +246,9 @@ export class ConvertXmlRefresh {
       this.error = e instanceof Error ? e.message : "Quickex partner XML refresh unavailable.";
       this.stale = true; this.nextRefresh = this.now() + 60_000;
       if (!retryable(e)) {
+        for (const key of this.rows.keys()) this.retired.add(key);
         this.rows.clear();
+        this.eligiblePairs = new Map();
         await this.deps.remove(scope);
       }
     }
@@ -202,6 +261,10 @@ export class ConvertXmlRefresh {
     if (this.identity !== client.identity) {
       this.identity = client.identity; this.generation++;
       this.rows.clear(); this.flight = undefined; this.nextRefresh = 0;
+      this.publicationSync = undefined; this.nextPublicationSync = this.now() + 15_000;
+      this.publicationSyncFailed = false;
+      this.nextCapabilityWarm = 0;
+      this.eligiblePairs = undefined; this.retired.clear();
       this.catalog = undefined; this.retryAt.clear(); this.verified.clear();
       this.attempted.clear(); this.attemptSequence = 0;
       this.eligibleCount = 0;
@@ -223,6 +286,8 @@ export class ConvertXmlRefresh {
       throw error;
     }
     if (this.identity !== client.identity) return this.snapshot(waitMs);
+    this.warmCapabilities();
+    this.syncPublications(client, scope);
     if (!this.flight && this.now() >= this.nextRefresh) {
       const flight = this.refresh(client, scope, this.generation);
       this.flight = flight;
@@ -244,7 +309,9 @@ export class ConvertXmlRefresh {
     const freshRows = rows.filter(row => Number.isFinite(row.quotedAt) &&
       row.quotedAt <= this.now() && this.now() - row.quotedAt < REFRESH_INTERVAL_MS);
     return { rows, freshRows, refreshing: !!this.flight, stale: this.stale || expired,
-      error: this.error, skipped: this.skipped, updatedAt: this.updatedAt,
+      error: this.error ?? (this.publicationSyncFailed
+        ? "Shared XML publication recovery is temporarily unavailable; expired rates remain excluded." : undefined),
+      skipped: this.skipped, updatedAt: this.updatedAt,
       pending: Math.max(0, this.eligibleCount - freshRows.length) };
   }
 }

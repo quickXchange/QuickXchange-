@@ -13,6 +13,7 @@ import {
 } from "../src/lib/rates-xml-methods";
 import { invalidateRatesXml } from "../src/lib/rates-xml-export";
 import { readPublishedXmlQuotes, savePublishedXmlQuote } from "../src/lib/rates-xml-publication";
+import { parsePartnerPair, partnerPairMetadataKey } from "../src/lib/quickex-xml-public";
 
 if (process.env.API_TEST_DISPOSABLE_DATABASE !== "1")
   throw new Error("XML publication tests require a disposable database.");
@@ -20,6 +21,11 @@ after(() => pool.end());
 
 test("public XML retains cold recovery data but never exports expired or disabled routes", async () => {
   const nativeFetch = globalThis.fetch;
+  const previousBaseUrl = process.env.QUICKEX_BASE_URL;
+  // The real Quickex host uses its direct HTTPS transport, not global fetch.
+  // A local test origin makes the existing mock authoritative for every
+  // background XML request; never contact the live provider from this suite.
+  process.env.QUICKEX_BASE_URL = "http://127.0.0.1:1/api/v2";
   globalThis.fetch = async () => { throw new Error("External provider I/O disabled in publication tests."); };
   configureQuickexPublicConfigSourceForTests(async () => { throw new ApiError("QUICKEX_NETWORK", "Provider offline", 503); });
   // Operator-edited seed rows are not test fixtures. Prepare exact enabled identities
@@ -56,6 +62,16 @@ test("public XML retains cold recovery data but never exports expired or disable
   await savePublishedXmlQuote(configuration, key, { ...saved, item: { ...saved.item, out: "9" } }, quotedAt - 1);
   const persisted = (await readPublishedXmlQuotes(configuration)).find(q => q.key === key)!;
   assert.equal(persisted.quote.item.out, "0.00001", "older replicas cannot overwrite newer publications");
+  const providerPair = parsePartnerPair({
+    instrumentFrom: { currencyTitle: "USDT", networkTitle: "TRC20", bestChangeCurrencyName: "USDTTRC20" },
+    instrumentTo: { currencyTitle: "BTC", networkTitle: "BTC", bestChangeCurrencyName: "BTC", reservesAmount: "10" },
+    isActive: true, minAmount: "1", maxAmount: "100",
+  });
+  const jsonbKey = `${key}:jsonb`;
+  await savePublishedXmlQuote(configuration, jsonbKey, { ...saved, providerPair }, quotedAt);
+  const roundTrip = (await readPublishedXmlQuotes(configuration)).find(row => row.key === jsonbKey)!;
+  assert.equal(partnerPairMetadataKey(roundTrip.quote.providerPair!), partnerPairMetadataKey(providerPair),
+    "real PostgreSQL JSONB reordering/undefined omission must not invalidate identical provider metadata");
   assert.equal((await readPublishedXmlQuotes("unrelated")).length, 0);
   const historyKey = `${key}:expired-history`;
   await savePublishedXmlQuote(configuration, historyKey, saved, Date.now() - 600_000);
@@ -96,6 +112,8 @@ test("public XML retains cold recovery data but never exports expired or disable
     assert.equal(disabled.status, 503);
     assert.doesNotMatch(await disabled.text(), /<from>USDTTRC20<\/from>\s*<to>BTC<\/to>/);
   } finally {
+    if (previousBaseUrl === undefined) delete process.env.QUICKEX_BASE_URL;
+    else process.env.QUICKEX_BASE_URL = previousBaseUrl;
     globalThis.fetch = nativeFetch;
     configureQuickexPublicConfigSourceForTests(undefined);
     await new Promise<void>(resolve => server.close(() => resolve()));

@@ -86,6 +86,17 @@ export function partnerPairKey(pair: PartnerPair) {
   return JSON.stringify([pair.instrumentFrom.currencyTitle, pair.instrumentFrom.networkTitle,
     pair.instrumentTo.currencyTitle, pair.instrumentTo.networkTitle]);
 }
+/** PostgreSQL JSONB reorders object keys and drops undefined optional fields. */
+export function partnerPairMetadataKey(pair: PartnerPair) {
+  const fields = (value: PartnerInstrument) => [
+    value.currencyTitle, value.networkTitle, value.slug,
+    value.bestChangeCurrencyName, value.reservesAmount ?? null,
+  ];
+  return JSON.stringify([
+    fields(pair.instrumentFrom), fields(pair.instrumentTo),
+    pair.isActive, pair.minAmount, pair.maxAmount,
+  ]);
+}
 /** Adapt provider-owned identities to the existing executable-route resolver. */
 export function partnerPairRoute(pair: PartnerPair) {
   return {

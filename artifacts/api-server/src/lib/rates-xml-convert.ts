@@ -29,6 +29,13 @@ const diagnostic = (row: ConvertXmlSaved, retained: boolean): Diagnostic => ({
     ? "Last successful Quickex partner JSON XML rate; background refresh in progress or temporarily unavailable."
     : "Live Quickex partner JSON rate, limits, reserve and network fee.",
 });
+const loadFreshPublications = async (scope: string): Promise<ConvertXmlSaved[]> =>
+  (await readPublishedXmlQuotes(scope, Date.now() - 5 * 60_000))
+    .filter(row => row.quote.providerPair && row.quote.item.providerJson)
+    .map(row => ({
+      key: partnerPairKey(row.quote.providerPair!), pair: row.quote.providerPair!,
+      item: row.quote.item, quotedAt: row.quotedAt,
+    }));
 const refresh = new ConvertXmlRefresh({
   executableRoutes: async pairs => {
     // Only HTTP callers have a short response deadline. The background worker
@@ -44,12 +51,11 @@ const refresh = new ConvertXmlRefresh({
   codeAllowed: code => /^[A-Z0-9][A-Z0-9_-]{0,63}$/.test(code),
   // Keep expired history in PostgreSQL, not in every new replica's startup
   // heap. Only provider-fresh rows can possibly be published after restart.
-  load: async scope => (await readPublishedXmlQuotes(scope, Date.now() - 5 * 60_000))
-    .filter(row => row.quote.providerPair && row.quote.item.providerJson)
-    .map(row => ({
-      key: partnerPairKey(row.quote.providerPair!), pair: row.quote.providerPair!,
-      item: row.quote.item, quotedAt: row.quotedAt,
-    })),
+  load: loadFreshPublications,
+  reload: loadFreshPublications,
+  warm: () => getQuickexPublicCapabilityConfig({
+    includeDefaultPair: false, pairCandidates: [],
+  }),
   save: async (scope, row) => {
     await savePublishedXmlQuote(scope, `${scope}:${row.key}`, {
       item: row.item, providerPair: row.pair,
