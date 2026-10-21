@@ -8,7 +8,7 @@ import { db, pool, adminInboxTable, adminInboxReceiptsTable, operatorsTable, qui
 import router from "../src/routes/admin-inbox";
 import { ApiError } from "../src/lib/api-error";
 import { configureOperatorAuthorizationForTests } from "../src/lib/operator-auth";
-import { enqueueAdminOrderEvent, recordAdminOperationalAlert } from "../src/lib/admin-inbox";
+import { enqueueAdminDepositEvent, enqueueAdminOrderEvent, recordAdminOperationalAlert } from "../src/lib/admin-inbox";
 import { assertIsolatedWhitebitDatabase } from "./assert-isolated-whitebit-database";
 import { updateConvertOrderStatus } from "../src/lib/convert-provider-boundary";
 import { adminPolicy } from "../src/lib/admin-policy";
@@ -53,37 +53,45 @@ async function request(path = "", method = "GET", actor: string | null = "inbox-
   return { status: response.status, body: await response.json() as any, cache: response.headers.get("cache-control") };
 }
 
-test("only real Swap/Convert order events are listed and counted; historical technical alerts are retained but hidden", async () => {
+test("only new Swap/Convert orders are listed and counted; historical status and technical alerts are retained but hidden", async () => {
   await Promise.all(Array.from({ length: 8 }, () => db.transaction(tx => enqueueAdminOrderEvent(tx, {
     orderId: "O-INBOX-SWAP", type: "Swap", status: "awaiting funds", version: 0, created: true,
   }))));
   await db.transaction(async tx => {
-    await enqueueAdminOrderEvent(tx, { orderId: "O-INBOX-CONVERT", type: "Convert", status: "awaiting funds", version: 1, created: true });
+    await enqueueAdminOrderEvent(tx, { orderId: "O-INBOX-CONVERT", type: "Convert", status: "awaiting funds", version: 1, created: true, createdAt: new Date("2026-01-02T03:04:05Z") });
     await enqueueAdminOrderEvent(tx, { orderId: "O-INBOX-CONVERT", type: "Convert", status: "processing", version: 2, depositVerified: true });
     await enqueueAdminOrderEvent(tx, { orderId: "O-INBOX-CONVERT", type: "Convert", status: "processing", version: 2, depositVerified: true });
   });
   await recordAdminOperationalAlert("Quickex", "QUICKEX_NETWORK");
   await recordAdminOperationalAlert("Quickex", "QUICKEX_NETWORK");
-  assert.equal((await db.select().from(adminInboxTable)).length, 4, "Technical diagnostics no longer create inbox rows");
+  assert.equal((await db.select().from(adminInboxTable)).length, 2, "Only creation events insert inbox rows");
   await db.insert(adminInboxTable).values([
     { id: hiddenProviderId, eventKey: "operational:historical", kind: "provider_error", title: "Old Quickex alert", message: "Retained", orderId: null },
     { eventKey: "swap:old:technical", kind: "system_alert", title: "Old RPC alert", message: "Retained", orderId: "O-INBOX-SWAP" },
     { eventKey: "operational:old:kind", kind: "status_change", title: "Old monitoring status", message: "Retained", orderId: "O-INBOX-SWAP" },
+    ...["status_change", "payment_failed", "deposit"].flatMap(kind =>
+      ["swap", "convert"].map(type => ({
+        eventKey: `${type}:O-OLD-${kind}:${kind}`, kind,
+        title: "Old lifecycle notification", message: "Retained", orderId: `O-OLD-${kind}`,
+      }))),
+    { eventKey: "swap:O-INBOX-SWAP:status:99", kind: "new_order", title: "Malformed historical event", message: "Retained", orderId: "O-INBOX-SWAP" },
   ]);
   const result = await request();
   assert.equal(result.status, 200);
   assert.equal(result.cache, "private, no-store");
-  assert.equal(result.body.allCount, 4);
-  assert.equal(result.body.unreadCount, 4);
+  assert.equal(result.body.allCount, 2);
+  assert.equal(result.body.unreadCount, 2);
   assert.equal(result.body.items.filter((item: any) => item.kind === "new_order").length, 2);
-  assert.equal(result.body.items.filter((item: any) => item.kind === "deposit").length, 1);
+  assert.ok(result.body.items.every((item: any) => item.kind === "new_order"));
+  assert.deepEqual(result.body.items.map((item: any) => item.title).sort(), ["New Convert Order", "New Swap Order"]);
+  assert.equal(result.body.items.find((item: any) => item.orderType === "Convert").createdAt, "2026-01-02T03:04:05.000Z");
   assert.ok(result.body.items.every((item: any) => !item.read && Number.isFinite(Date.parse(item.createdAt))));
   assert.ok(result.body.items.every((item: any) => item.orderId && ["Swap", "Convert"].includes(item.orderType)));
   assert.equal(result.body.items.find((item: any) => item.orderId === "O-INBOX-SWAP").orderType, "Swap");
   assert.equal(result.body.items.find((item: any) => item.orderId === "O-INBOX-CONVERT").orderType, "Convert");
-  assert.equal((await db.select().from(adminInboxTable)).length, 7, "Historical alerts were not deleted");
+  assert.equal((await db.select().from(adminInboxTable)).length, 12, "Historical alerts were not deleted");
   const restricted = await request("", "GET", "inbox-viewer");
-  assert.equal(restricted.body.allCount, 4);
+  assert.equal(restricted.body.allCount, 2);
   assert.ok(restricted.body.items.every((item: any) => item.orderId));
   const empty = await request("", "GET", "inbox-denied");
   assert.equal(empty.body.allCount, 0);
@@ -98,21 +106,21 @@ test("individual read, filters, mark-all and deletion persist independently for 
   assert.equal((await request(`/${id}/read`, "POST")).status, 200);
   assert.equal((await request(`/${id}/read`, "POST")).status, 200);
   assert.equal((await request("?filter=read")).body.items.length, 1);
-  assert.equal((await request("?filter=unread")).body.unreadCount, 3);
-  assert.equal((await request("", "GET", "inbox-other")).body.unreadCount, 4);
+  assert.equal((await request("?filter=unread")).body.unreadCount, 1);
+  assert.equal((await request("", "GET", "inbox-other")).body.unreadCount, 2);
   assert.equal((await request("/read-all", "POST")).status, 200);
   assert.equal((await request()).body.unreadCount, 0);
   assert.equal((await request(`/${id}`, "DELETE")).status, 200);
   assert.equal((await request(`/${id}`, "DELETE")).status, 200);
-  assert.equal((await request()).body.allCount, 3);
-  assert.equal((await request("", "GET", "inbox-other")).body.allCount, 4);
+  assert.equal((await request()).body.allCount, 1);
+  assert.equal((await request("", "GET", "inbox-other")).body.allCount, 2);
   // Re-delivery after dismissal must not resurrect the event.
   await db.transaction(tx => enqueueAdminOrderEvent(tx, {
     orderId: initial.items.find((item: any) => item.id === id).orderId,
     type: initial.items.find((item: any) => item.id === id).title.includes("Convert") ? "Convert" : "Swap",
     status: "awaiting funds", version: 0, created: true,
   }));
-  assert.equal((await request()).body.allCount, 3);
+  assert.equal((await request()).body.allCount, 1);
 });
 
 test("permission checks protect list, read, delete and mark-all; malformed input gives explicit errors", async () => {
@@ -126,7 +134,7 @@ test("permission checks protect list, read, delete and mark-all; malformed input
   assert.equal((await request(`/${orderEvent.id}/read`, "POST", "inbox-integration")).status, 404);
   assert.equal((await request(`/${provider.id}`, "DELETE", "inbox-integration")).status, 404);
   await request("/read-all", "POST", "inbox-viewer");
-  assert.equal((await request("", "GET", "inbox-other")).body.unreadCount, 4);
+  assert.equal((await request("", "GET", "inbox-other")).body.unreadCount, 2);
   const [hidden] = await db.select().from(adminInboxTable).where(eq(adminInboxTable.id, hiddenProviderId));
   assert.ok(hidden, "Hidden technical notification must be retained");
   assert.equal((await db.select().from(adminInboxReceiptsTable).where(eq(adminInboxReceiptsTable.notificationId, hiddenProviderId))).length, 0,
@@ -142,7 +150,7 @@ test("permission checks protect list, read, delete and mark-all; malformed input
   assert.equal((await request(`/${provider.id}/read`, "POST", "inbox-denied")).status, 404);
   assert.equal((await request(`/${provider.id}`, "DELETE", "inbox-denied")).status, 404);
   assert.equal((await request("/read-all", "POST", "inbox-denied")).status, 200);
-  assert.equal((await request("", "GET", "inbox-other")).body.unreadCount, 4);
+  assert.equal((await request("", "GET", "inbox-other")).body.unreadCount, 2);
   assert.equal((await request("?filter=invalid")).status, 400);
   assert.equal((await request("?page=-1")).status, 400);
   assert.equal((await request("/invalid/read", "POST")).status, 400);
@@ -161,13 +169,13 @@ test("rolled-back order events never appear; pagination and new-unread updates r
   const first = (await request()).body;
   const second = (await request("?page=2")).body;
   assert.equal(first.items.length, 20);
-  assert.equal(second.items.length, 5);
+  assert.equal(second.items.length, 3);
   assert.equal(first.unreadCount, 22);
-  assert.equal(new Set([...first.items, ...second.items].map((item: any) => item.id)).size, 25);
+  assert.equal(new Set([...first.items, ...second.items].map((item: any) => item.id)).size, 23);
   assert.equal((await request("?page=999")).body.page, 2);
 });
 
-test("canonical Convert Admin status changes emit once; optimistic-conflict retries emit nothing", async () => {
+test("canonical Convert Admin status changes still succeed without generating inbox events", async () => {
   const now = new Date();
   await db.insert(quickexOrdersTable).values({
     legacyOrderId: "O-CONVERT-STATUS", providerOrderId: "synthetic-provider-order",
@@ -177,24 +185,25 @@ test("canonical Convert Admin status changes emit once; optimistic-conflict retr
   assert.equal(updated?.status, "failed");
   assert.equal(await updateConvertOrderStatus("O-CONVERT-STATUS", 0, "failed"), undefined);
   const events = await db.select().from(adminInboxTable).where(eq(adminInboxTable.orderId, "O-CONVERT-STATUS"));
-  assert.equal(events.length, 1);
-  assert.equal(events[0].kind, "payment_failed");
-  assert.ok(!events[0].title.includes("deposit"), "Unpaid failure is not a confirmed deposit");
+  assert.equal(events.length, 0);
 });
 
-test("Swap and Convert lifecycle notifications remain concise and deduplicated for every final status", async () => {
+test("Swap and Convert payment and lifecycle updates generate nothing; creation is deduplicated", async () => {
   for (const type of ["Swap", "Convert"] as const) {
     const orderId = `O-LIFECYCLE-${type}`;
-    for (const [version, status] of ["processing", "completed", "cancelled", "failed", "expired", "refunded"].entries()) {
-      const event = { type, orderId, status, version };
+    for (const [version, status] of ["payment detected", "payment confirmed", "processing", "completed", "cancelled", "failed", "expired", "refunded"].entries()) {
+      const event = { type, orderId, status, version, depositVerified: true };
       await db.transaction(tx => enqueueAdminOrderEvent(tx, event));
       await db.transaction(tx => enqueueAdminOrderEvent(tx, event));
     }
     const rows = await db.select().from(adminInboxTable).where(eq(adminInboxTable.orderId, orderId));
-    assert.equal(rows.length, 6);
-    assert.ok(rows.some(row => row.title === `${type} Order Completed`));
-    assert.ok(rows.some(row => row.title === `${type} Order Cancelled`));
-    assert.ok(rows.some(row => row.title === `${type} Order Failed`));
-    assert.ok(rows.every(row => row.kind !== "deposit"), "Status transitions alone must never claim verified payment");
+    assert.equal(rows.length, 0);
+    await db.transaction(tx => enqueueAdminDepositEvent(tx, type, orderId));
+    const created = { type, orderId, status: "awaiting funds", version: 0, created: true, depositVerified: true };
+    await Promise.all(Array.from({ length: 8 }, () => db.transaction(tx => enqueueAdminOrderEvent(tx, created))));
+    const createdRows = await db.select().from(adminInboxTable).where(eq(adminInboxTable.orderId, orderId));
+    assert.equal(createdRows.length, 1);
+    assert.equal(createdRows[0].title, `New ${type} Order`);
+    assert.equal(createdRows[0].kind, "new_order");
   }
 });

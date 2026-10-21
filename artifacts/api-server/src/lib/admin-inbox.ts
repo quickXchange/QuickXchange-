@@ -1,41 +1,30 @@
-import { and, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
+import { and, eq, isNotNull, sql, type SQL } from "drizzle-orm";
 import { adminInboxTable, db } from "@workspace/db";
 import type { OperatorAuthorization } from "./operator-auth";
 import { logger } from "./logger";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
-type OrderEvent = { orderId: string; type: "Swap" | "Convert"; status: string; version: number; created?: boolean; depositVerified?: boolean };
+type OrderEvent = { orderId: string; type: "Swap" | "Convert"; status: string; version: number; created?: boolean; depositVerified?: boolean; createdAt?: Date };
 const operationalAlerts = new Map<string, number>();
 
 /** Called inside the canonical order transaction. No customer, bank, or wallet data. */
 export async function enqueueAdminOrderEvent(tx: Transaction, event: OrderEvent) {
+  // Lifecycle callers remain intact, but only a committed creation is inbox-worthy.
+  if (!event.created) return;
   const prefix = `${event.type.toLowerCase()}:${event.orderId}`;
-  const status = event.status.toLowerCase();
-  const failed = ["failed", "payment failed", "expired", "cancelled", "canceled", "refunded", "reversed"].includes(status);
-  const label = status === "completed" ? "Completed"
-    : ["cancelled", "canceled"].includes(status) ? "Cancelled"
-    : ["failed", "payment failed"].includes(status) ? "Failed"
-    : status === "expired" ? "Expired"
-    : ["refunded", "reversed"].includes(status) ? "Refunded"
-    : "Updated";
   await tx.insert(adminInboxTable).values({
-    eventKey: event.created ? `${prefix}:created` : `${prefix}:status:${event.version}`,
-    kind: event.created ? "new_order" : failed ? "payment_failed" : "status_change",
-    title: event.created ? `New ${event.type} Order` : `${event.type} Order ${label}`,
-    message: `Order ${event.orderId} · ${event.status.toUpperCase()}`,
+    eventKey: `${prefix}:created`,
+    kind: "new_order",
+    title: `New ${event.type} Order`,
+    message: `Order ${event.orderId}`,
     orderId: event.orderId,
+    createdAt: event.createdAt,
   }).onConflictDoNothing({ target: adminInboxTable.eventKey });
-  if (event.depositVerified) await enqueueAdminDepositEvent(tx, event.type, event.orderId);
 }
 
-export async function enqueueAdminDepositEvent(tx: Transaction, type: "Swap" | "Convert", orderId: string) {
-  await tx.insert(adminInboxTable).values({
-    eventKey: `${type.toLowerCase()}:${orderId}:deposit`,
-    kind: "deposit",
-    title: `${type} Payment Confirmed`,
-    message: `Verified payment received for order ${orderId}.`,
-    orderId,
-  }).onConflictDoNothing({ target: adminInboxTable.eventKey });
+/** Keep payment/evidence callers independent from the creation-only Admin inbox. */
+export async function enqueueAdminDepositEvent(_tx: Transaction, _type: "Swap" | "Convert", _orderId: string) {
+  // Payment records, customer delivery and technical monitoring are unaffected.
 }
 
 /** Technical diagnostics stay in structured logs, never in the order inbox. */
@@ -57,11 +46,12 @@ export async function recordAdminOperationalAlert(provider: string, code: string
 
 export function inboxVisibility(operator: OperatorAuthorization): SQL {
   // Apply the same scope to items, counts, mark-all and individual receipt writes.
-  // Retain historical technical rows, but never show/count them even for Owner.
+  // Retain historical lifecycle/technical rows without showing or counting them.
   return and(
     sql`${operator.role === "owner" || operator.effectivePermissions.includes("orders.view")}`,
     isNotNull(adminInboxTable.orderId),
-    inArray(adminInboxTable.kind, ["new_order", "status_change", "payment_failed", "deposit"]),
-    sql`(${adminInboxTable.eventKey} like 'swap:%' or ${adminInboxTable.eventKey} like 'convert:%')`,
+    eq(adminInboxTable.kind, "new_order"),
+    sql`(${adminInboxTable.eventKey} = 'swap:' || ${adminInboxTable.orderId} || ':created'
+      or ${adminInboxTable.eventKey} = 'convert:' || ${adminInboxTable.orderId} || ':created')`,
   )!;
 }

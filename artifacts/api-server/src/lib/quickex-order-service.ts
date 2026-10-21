@@ -402,7 +402,7 @@ export async function createQuickexConvertOrder(input: CreateInput) {
       if (updated) {
         await enqueueAdminOrderEvent(tx, {
           orderId: updated.legacyOrderId, type: "Convert", status: updated.status,
-          version: updated.recordVersion, created: true, depositVerified: Boolean(createPaidAmount),
+          version: updated.recordVersion, created: true, createdAt: updated.createdAt,
         });
         await enqueueConvertEmailNotification(tx, updated, "created", "order_created");
         if (createPaidAmount) {
@@ -557,7 +557,7 @@ export async function reconcileQuickexOrder(row: typeof quickexOrdersTable.$infe
          if (row.outcomeUnknown && !persisted.outcomeUnknown) {
            await enqueueAdminOrderEvent(tx, {
              orderId: persisted.legacyOrderId, type: "Convert", status: persisted.status,
-             version: persisted.recordVersion, created: true,
+             version: persisted.recordVersion, created: true, createdAt: persisted.createdAt,
            });
          }
          if (persisted.status !== row.status) {

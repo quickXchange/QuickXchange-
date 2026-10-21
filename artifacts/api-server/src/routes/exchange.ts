@@ -3733,7 +3733,7 @@ async function createOrderFromInput(
       .onConflictDoNothing({ target: ordersTable.clientRequestId })
       .returning();
     if (!created) return undefined;
-    await enqueueAdminOrderEvent(tx, { orderId: created.id, type: "Swap", status: created.status, version: created.statusVersion, created: true });
+    await enqueueAdminOrderEvent(tx, { orderId: created.id, type: "Swap", status: created.status, version: created.statusVersion, created: true, createdAt: created.createdAt });
     const [customer] = await tx.insert(customersTable).values({
       id: `cus-${randomUUID()}`,
       name: intent.customerName,

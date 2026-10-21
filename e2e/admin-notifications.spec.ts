@@ -3,10 +3,10 @@ import { expect, test, type Page } from "@playwright/test";
 type Item = { id: string; kind: string; title: string; message: string; orderId: string; orderType: "Swap" | "Convert"; createdAt: string; read: boolean };
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const makeItem = (n: number): Item => ({
-  id: id(n), kind: n === 2 ? "deposit" : n === 3 ? "status_change" : "new_order",
-  title: n === 2 ? "Convert Payment Confirmed" : n === 3 ? "Convert Order Updated" : "New Swap Order",
-  message: n === 2 ? `Verified payment received for order O-NOTIFY-${n}.` : `Order O-NOTIFY-${n} · AWAITING FUNDS`,
-  orderId: `O-NOTIFY-${n}`, orderType: n === 2 || n === 3 ? "Convert" : "Swap",
+  id: id(n), kind: "new_order",
+  title: n % 2 === 0 ? "New Convert Order" : "New Swap Order",
+  message: `New order O-NOTIFY-${n}.`,
+  orderId: `O-NOTIFY-${n}`, orderType: n % 2 === 0 ? "Convert" : "Swap",
   createdAt: new Date(Date.now() - n * 60000).toISOString(), read: n > 3,
 });
 
@@ -64,12 +64,16 @@ test("notification filters, read actions, deletion and reload keep bell/counts s
   await expect(page.getByTestId(`row-inbox-${id(1)}`)).toHaveCount(0);
 });
 
-test("order notification marks read and navigates to its exact order", async ({ page }) => {
+test("Swap and Convert order notifications mark read and navigate to their exact orders", async ({ page }) => {
   const state = await fixture(page);
   await page.goto("/admin/notifications");
   await page.getByTestId(`link-inbox-order-${id(2)}`).click();
   await expect(page).toHaveURL(/\/admin\/orders\/O-NOTIFY-2$/);
   expect(state.items.find(item => item.id === id(2))?.read).toBe(true);
+  await page.goto("/admin/notifications");
+  await page.getByTestId(`link-inbox-order-${id(1)}`).click();
+  await expect(page).toHaveURL(/\/admin\/orders\/O-NOTIFY-1$/);
+  expect(state.items.find(item => item.id === id(1))?.read).toBe(true);
 });
 
 test("failed read leaves order unopened and displays an actionable error", async ({ page }) => {
@@ -144,8 +148,13 @@ for (const theme of ["light", "dark"]) {
       await expect(page.locator(".qxn-kind").first()).toBeVisible();
       await expect(page.getByTestId(`icon-inbox-kind-${id(1)}`)).toHaveClass(/swap/);
       await expect(page.getByTestId(`icon-inbox-kind-${id(2)}`)).toHaveClass(/convert/);
+      await expect(page.getByTestId(`row-inbox-${id(1)}`).locator(".qxn-title")).toHaveAttribute("title", "New Swap Order");
+      await expect(page.getByTestId(`row-inbox-${id(2)}`).locator(".qxn-title")).toHaveAttribute("title", "New Convert Order");
       expect((await page.getByTestId(`row-inbox-${id(1)}`).boundingBox())!.height).toBeLessThan(85);
-      await expect(page.getByTestId(`link-inbox-order-${id(1)}`)).toContainText("O-NOTIFY-1");
+      await expect(page.getByTestId(`row-inbox-${id(1)}`).locator(".qxn-ref")).toHaveText("#O-NOTIFY-1");
+      await expect(page.getByTestId(`row-inbox-${id(2)}`).locator(".qxn-ref")).toHaveText("#O-NOTIFY-2");
+      await expect(page.getByTestId(`row-inbox-${id(1)}`).locator("time")).toHaveText(/\d+m ago/);
+      await expect(page.getByTestId(`row-inbox-${id(2)}`).locator("time")).toHaveText(/\d+m ago/);
       const reference = page.getByTestId(`row-inbox-${id(1)}`).locator(".qxn-ref");
       expect(await reference.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
       if (mobile) await expect(reference).toHaveCSS("text-overflow", "clip");
