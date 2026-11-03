@@ -15,9 +15,7 @@
 - [Mutable configuration test fixtures](mutable-pricing-test-fixtures.md) — tests must tolerate operator-edited seed rows and populate only fields the current schema requires.
 - [Admin pricing previews](admin-pricing-previews.md) — operator-only funding bypass; preserve [Any-side loading](wildcard-pricing-previews.md) and require concrete market routes.
 - [Optional exact path overrides](manual-pricing-global-fallback.md) — existing Swap pricing remains the fallback; direct and reciprocal exact rates are optional higher-priority overrides.
-- [Browser API fixtures](playwright-query-route-mocks.md) — match query/ID; cover [full contracts](browser-fixture-contracts.md) and [custom contexts](playwright-custom-contexts.md).
-- [Browser interaction checks](drawer-browser-verification.md) — wait for drawer animations; verify [touch](touch-carousel-verification.md) with genuine touch events.
-- [Browser input event verification](browser-input-event-verification.md) — test-runner fill helpers may clear and slowly retype; inspect events before diagnosing extra quote calls.
+- [Browser verification](browser-verification-index.md) — fixture contracts, interactions, routed previews, measurement safety and browser-process cleanup.
 - [Order detail round-trips](order-detail-roundtrips.md) — editable operational fields must survive detail response validation or unrelated saves can silently clear them.
 - [Order creation provenance](order-creation-provenance.md) — freeze creation channel; later Telegram links cannot identify historical origin reliably.
 - [Provider-create idempotency](provider-create-idempotency.md) — claim before create; [replay before capability gates](provider-idempotency-ordering.md).
@@ -50,10 +48,8 @@
 - [Social footer logo fitting](social-footer-logo-fitting.md) — bare social artwork without plates or clipping; preserve transparency and compensate padding without stretching.
 - [Workspace cache triage](workspace-cache-triage.md) — purge only inactive rebuildable caches; [restart Vite after purges](vite-cache-cleanup.md).
 - [Customer dashboard summaries](customer-dashboard-summaries.md) — scope paginated counts honestly and group exact amounts by asset; never coerce or combine currencies.
-- [Stranded browser-test processes](stranded-browser-tests.md) — after browser-heavy validation, check for orphaned Playwright Chromium trees before diagnosing app slowness.
 - [Shared customer-area design](customer-area-design-system.md) — customer routes share one shell, theme, typography, and card language; never solve visual drift with route-only cosmetic layers.
 - [Stale TypeScript language servers](stale-typescript-language-servers.md) — prolonged editor slowness can come from an aged tsserver tree even when app load, disk, and browser processes are healthy.
-- [Artifact preview verification](artifact-preview-verification.md) — verify data-dependent UI through the routed artifact preview, not the raw Vite port.
 - [Multi-artifact build routing](multi-artifact-build-routing.md) — build each web artifact with its own trailing-slash base path; one shared root build environment can misverify outputs.
 - [Customer order detail projection](customer-order-detail-projection.md) — Additional Payment Details uses saved Step 2 field provenance, not flattened metadata or today's Admin configuration.
 - [Global flag geometry](global-flag-geometry.md) — keep country flags under the last-loaded shared square-wrapper contract; legacy context rules can otherwise reshape them.
@@ -151,9 +147,8 @@
 - [Admin add-on key validation](admin-addon-key-validation.md) — HTML pattern rules can differ from server regex; generate readable keys and check the exact server contract before saves.
 - [Website Telegram support scope](website-telegram-support-scope.md) — one published support destination; preserve other Telegram purposes and never activate stale defaults while loading.
 - [Amount display precision](amount-display-precision.md) — three decimals for human-facing amounts; exact input, copy and machine-data boundaries stay intact.
-- [Performance measurement safety](performance-measurement-safety.md) — enlarge resource timing buffers, discard probe-induced failures, and distinguish process CPU from main-thread profiles.
-- [Client bootstrap SSR tests](client-bootstrap-ssr-tests.md) — isolated image markup tests need a test-only language fixture, not a client Provider that waits for API bootstrap.
 - [Database timeout evidence](database-timeout-evidence.md) — correlate acquisition stages and incident-time load; recovered pool counters cannot prove the cause of an earlier failure.
 - [Customer language scope](customer-language-scope.md) — seven shared Website/Mini App languages, no Arabic/RTL; validate authentication locale template compatibility.
 - [Automatic rates XML](automatic-rates-xml-publication.md) — files-only replacement; no legacy fallback or dynamic order percentages; method codes and staged Perfect Money.
-- [Admin inbox boundaries](admin-inbox-event-boundaries.md) — order-only Swap/Convert inbox; technical alerts stay separate; preserve dismissals and payment-evidence gates.
+- [Admin inbox boundaries](admin-inbox-event-boundaries.md) — new-order-only Swap/Convert inbox; retain historical events but exclude them from feed and counts.
+- [Browser restoration safety](browser-restoration-safety.md) — retain routes through auth renewal; restore only safe tab-scoped drafts with fresh quotes and no automatic submission.

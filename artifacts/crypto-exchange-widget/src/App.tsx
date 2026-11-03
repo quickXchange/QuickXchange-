@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { ClerkProvider, Show, useClerk, useSession, useUser } from '@clerk/react';
+import { loginReturnPath } from './lib/navigation-state';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
@@ -2330,17 +2331,19 @@ function AdminMfaEnrollmentRequired() {
 }
 
 function AdminGate({ component: Component }: { component: React.ComponentType }) {
+  const { isLoaded, isSignedIn } = useUser();
   useLayoutEffect(() => {
     void import('./admin-redesign.css');
   }, []);
-  return <>
-    <Show when="signed-in"><OwnerAuthorizationGate component={Component} /></Show>
-    <Show when="signed-out"><Redirect to="/" /></Show>
-  </>;
+  if (!isLoaded) return <main className="operator-access-page" aria-busy="true"><Loader2 className="spin" size={24} /></main>;
+  if (!isSignedIn) return <Redirect to={loginReturnPath()} replace />;
+  return <OwnerAuthorizationGate component={Component} />;
 }
 
 function OwnerAuthorizationGate({ component: Component }: { component: React.ComponentType }) {
   const { t } = useI18n();
+  const { session } = useSession();
+  const refreshedSession = useRef<string | null>(null);
   const authorization = useGetOperators({
     query: {
       queryKey: getGetOperatorsQueryKey(),
@@ -2354,6 +2357,18 @@ function OwnerAuthorizationGate({ component: Component }: { component: React.Com
   const mfaRequired = authorizationErrorCode === 'ADMIN_MFA_REQUIRED';
   const mfaEnrollmentRequired = authorizationErrorCode === 'ADMIN_MFA_ENROLLMENT_REQUIRED';
 
+  useEffect(() => {
+    if (authorizationStatus !== 401 || !session || refreshedSession.current === session.id) return;
+    refreshedSession.current = session.id;
+    let cancelled = false;
+    // Resume can race the first authenticated request with token renewal.
+    // Refresh once; never reinterpret an access failure as homepage navigation.
+    void session.getToken({ skipCache: true }).then(() => {
+      if (!cancelled) void authorization.refetch();
+    }).catch(() => { /* Keep the explicit retry/error screen if renewal fails. */ });
+    return () => { cancelled = true; };
+  }, [authorizationStatus, session, authorization.refetch]);
+
   if (authorization.isPending) {
     return <main className="operator-access-page" aria-busy="true">
       <Loader2 className="spin" size={24} />
@@ -2366,9 +2381,6 @@ function OwnerAuthorizationGate({ component: Component }: { component: React.Com
     }
     if (mfaEnrollmentRequired) {
       return <AdminMfaEnrollmentRequired />;
-    }
-    if (authorizationStatus === 401 || authorizationStatus === 403) {
-      return <Redirect to="/" />;
     }
     return <main className="operator-access-page">
       <BrandLogo />

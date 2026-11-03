@@ -55,10 +55,18 @@ export function useUser() {
 }
 
 export function useSession() {
+  const hasTestSession = new URLSearchParams(window.location.search).has('__e2eSession');
   return {
     isLoaded: true,
     isSignedIn: !isE2eGuest(),
-    session: null,
+    session: hasTestSession ? {
+      id: 'e2e-session',
+      getToken: async (options?: { skipCache?: boolean }) => {
+        const target = window as Window & { __e2eTokenRefreshes?: number };
+        if (options?.skipCache) target.__e2eTokenRefreshes = (target.__e2eTokenRefreshes ?? 0) + 1;
+        return 'e2e-token';
+      },
+    } : null,
   };
 }
 

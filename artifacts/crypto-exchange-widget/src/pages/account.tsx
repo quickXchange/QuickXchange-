@@ -1,4 +1,5 @@
 import { useI18n as useCustomerI18n } from "@workspace/i18n";
+import { loginReturnPath, safeReturnPath } from '@/lib/navigation-state';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useQueryClient } from '@tanstack/react-query';
@@ -85,23 +86,7 @@ function exactTotalsByAsset(
 }
 
 function validatedCustomerRedirect(): string | undefined {
-  const raw = new URLSearchParams(window.location.search).get('redirect_url');
-  if (!raw) return undefined;
-  try {
-    const target = new URL(raw, window.location.origin);
-    const expectedPath = `${basePath}/telegram/connect`.replace(/\/+/g, '/');
-    const accountPath = `${basePath}/account`.replace(/\/+/g, '/');
-    const isTelegramConnect = target.pathname === expectedPath && Boolean(target.searchParams.get('token'));
-    const isCustomerAccount = target.pathname === accountPath || target.pathname.startsWith(`${accountPath}/`);
-    if (
-      target.origin !== window.location.origin ||
-      target.hash ||
-      (!isTelegramConnect && !isCustomerAccount)
-    ) return undefined;
-    return `${target.pathname}${target.search}`;
-  } catch {
-    return undefined;
-  }
+  return safeReturnPath(new URLSearchParams(window.location.search).get('redirect_url'), basePath);
 }
 
 export function CustomerSignInPage() {
@@ -375,8 +360,8 @@ export function AccountPage() {
             {t('account.signInDescription')}
           </p>
           <div className="mx-auto flex w-full max-w-sm flex-col justify-center gap-3 min-[380px]:flex-row sm:gap-4">
-            <Link href="/sign-in" className="button button-primary w-full px-5 py-3 min-[380px]:w-auto sm:px-6">{t('auth.signIn')}</Link>
-            <Link href="/sign-up" className="button button-secondary w-full px-5 py-3 min-[380px]:w-auto sm:px-6">{t('auth.signUp')}</Link>
+            <Link href={loginReturnPath()} className="button button-primary w-full px-5 py-3 min-[380px]:w-auto sm:px-6">{t('auth.signIn')}</Link>
+            <Link href={loginReturnPath().replace('/sign-in?', '/sign-up?')} className="button button-secondary w-full px-5 py-3 min-[380px]:w-auto sm:px-6">{t('auth.signUp')}</Link>
           </div>
         </main>
       </PublicShell>
@@ -580,7 +565,7 @@ export function AccountOrdersPage() {
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
-      setLocation('/sign-in');
+      setLocation(loginReturnPath(), { replace: true });
     }
   }, [isLoaded, isSignedIn, setLocation]);
 
@@ -791,7 +776,7 @@ export function AccountSettingsPage() {
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
-      setLocation('/sign-in');
+      setLocation(loginReturnPath(), { replace: true });
     }
   }, [isLoaded, isSignedIn, setLocation]);
 
@@ -1395,8 +1380,7 @@ export function AccountOrderDetailPage() {
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
-      const returnTo = `${window.location.pathname}${window.location.search}`;
-      setLocation(`/sign-in?redirect_url=${encodeURIComponent(returnTo)}`);
+      setLocation(loginReturnPath(), { replace: true });
     }
   }, [isLoaded, isSignedIn, setLocation]);
 

@@ -1,6 +1,7 @@
 import { useI18n as useCustomerI18n } from "@workspace/i18n";
 import { formatAmountInputValue } from '@workspace/amount-format';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { readExchangeDraft, useExchangeDraft } from '@/hooks/use-exchange-draft';
 import {
   GlobalAssetSelector,
   type GlobalAssetSelectorOption,
@@ -139,15 +140,17 @@ export function QuickexConvertWidget({
   const receiveQuoteMutation = useCreateQuickexQuoteByReceive();
   const validateAddress = useValidateQuickexAddress();
   const createOrder = useCreateQuickexOrder();
-  const [fromSlug, setFromSlug] = useState('');
+  const [draft] = useState(() => readExchangeDraft('convert'));
+  const [fromSlug, setFromSlug] = useState(draft.fromSlug || '');
   const [marketRequest, setMarketRequest] = useState<MarketConvertSelection | null>(null);
   const [urlAssetInitialized, setUrlAssetInitialized] = useState(false);
-  const [toSlug, setToSlug] = useState('');
-  const [amount, setAmount] = useState('');
-  const [receiveAmount, setReceiveAmount] = useState('');
-  const [activeAmountSide, setActiveAmountSide] = useState<'send' | 'receive'>('send');
+  const [toSlug, setToSlug] = useState(draft.toSlug || '');
+  const [amount, setAmount] = useState(draft.amount || '');
+  const [receiveAmount, setReceiveAmount] = useState(draft.receiveAmount || '');
+  const [activeAmountSide, setActiveAmountSide] = useState<'send' | 'receive'>(draft.activeAmountSide === 'receive' ? 'receive' : 'send');
   const [editingAmountSide, setEditingAmountSide] = useState<'send' | 'receive' | null>(null);
-  const [rateMode, setRateMode] = useState<QuickexRateMode>('FLOATING');
+  const [rateMode, setRateMode] = useState<QuickexRateMode>(draft.rateMode === 'FIXED' ? 'FIXED' : 'FLOATING');
+  useExchangeDraft('convert', { fromSlug, toSlug, amount, receiveAmount, activeAmountSide, rateMode });
   const [fromSelectorOpen, setFromSelectorOpen] = useState(false);
   const [toSelectorOpen, setToSelectorOpen] = useState(false);
   const selectorOpen = fromSelectorOpen || toSelectorOpen;
@@ -287,6 +290,16 @@ export function QuickexConvertWidget({
           openSelector: urlOpen || undefined,
         });
       } else {
+        const restoredFrom = fromOptions.find(item => item.slug === draft.fromSlug);
+        const restoredTo = cryptoInstruments.find(item => item.slug === draft.toSlug);
+        if (restoredFrom && restoredTo && config.data?.pairs.some(pair =>
+          instrumentKey(pair.fromAsset, pair.fromNetwork) === instrumentKey(restoredFrom.currencyTitle, restoredFrom.networkTitle) &&
+          instrumentKey(pair.toAsset, pair.toNetwork) === instrumentKey(restoredTo.currencyTitle, restoredTo.networkTitle))) {
+          setFromSlug(restoredFrom.slug);
+          setToSlug(restoredTo.slug);
+          setUrlAssetInitialized(true);
+          return;
+        }
         // Both mode trees remain mounted. Hydrate Convert from its own directed
         // pair catalog once; switching tabs or refreshing config must not reset
         // a visitor's subsequent choice.
@@ -321,7 +334,7 @@ export function QuickexConvertWidget({
     if (!fromOptions.some(item => item.slug === fromSlug)) {
       setFromSlug(fromOptions[0].slug);
     }
-  }, [config.data, cryptoInstruments, fromOptions, fromSlug, searchString, urlAssetInitialized]);
+  }, [config.data, cryptoInstruments, fromOptions, fromSlug, searchString, urlAssetInitialized, draft]);
 
   useEffect(() => {
     if (!marketRequest || !fromOptions.length) return;
@@ -445,8 +458,17 @@ export function QuickexConvertWidget({
       return;
     }
     setQuoteExpired(false);
+    const checkRestoredQuote = () => {
+      if (Date.now() >= new Date(quote.expiresAt).getTime()) setQuoteExpired(true);
+    };
     const timeout = window.setTimeout(() => setQuoteExpired(true), remaining + 50);
-    return () => window.clearTimeout(timeout);
+    window.addEventListener('pageshow', checkRestoredQuote);
+    document.addEventListener('visibilitychange', checkRestoredQuote);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener('pageshow', checkRestoredQuote);
+      document.removeEventListener('visibilitychange', checkRestoredQuote);
+    };
   }, [quote]);
 
   useEffect(() => {

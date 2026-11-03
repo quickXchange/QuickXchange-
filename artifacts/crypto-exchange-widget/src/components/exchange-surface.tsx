@@ -3,6 +3,7 @@ import { formatAmountInputValue, formatDisplayAmount } from '@workspace/amount-f
 import { PaymentMethodLogo } from '@/components/payment-method-logo';
 import './swap-followup.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { readExchangeDraft, saveExchangeDraft, useExchangeDraft } from '@/hooks/use-exchange-draft';
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
@@ -832,8 +833,9 @@ export function ManualSwapWidget({
     setQuotePreview(null);
   };
 
-  const [fromId, setFromId] = useState('');
-  const [toId, setToId] = useState('');
+  const [draft] = useState(() => readExchangeDraft('swap'));
+  const [fromId, setFromId] = useState(draft.fromId || '');
+  const [toId, setToId] = useState(draft.toId || '');
   const [initialSelectionApplied, setInitialSelectionApplied] = useState(false);
   const [marketSwapRequest, setMarketSwapRequest] = useState<MarketSwapSelection | null>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -843,9 +845,10 @@ export function ManualSwapWidget({
       ? { sourceSettlementOptionId, targetSettlementOptionId }
       : null;
   });
-  const [amount, setAmount] = useState('');
-  const [desiredReceiveAmount, setDesiredReceiveAmount] = useState('');
-  const [activeAmountSide, setActiveAmountSide] = useState<'send' | 'receive'>('send');
+  const [amount, setAmount] = useState(draft.amount || '');
+  const [desiredReceiveAmount, setDesiredReceiveAmount] = useState(draft.desiredReceiveAmount || '');
+  const [activeAmountSide, setActiveAmountSide] = useState<'send' | 'receive'>(draft.activeAmountSide === 'receive' ? 'receive' : 'send');
+  useExchangeDraft('swap', { fromId, toId, amount, desiredReceiveAmount, activeAmountSide });
   const [focusedAmountSide, setFocusedAmountSide] = useState<'send' | 'receive' | null>(null);
   const [fromSelectorOpen, setFromSelectorOpen] = useState(false);
   const [toSelectorOpen, setToSelectorOpen] = useState(false);
@@ -982,8 +985,10 @@ export function ManualSwapWidget({
   }, [availableManualRoutes, config.data, marketSwapRequest]);
   useEffect(() => {
     if (!config.data || initialSelectionApplied || marketSwapRequest) return;
+    const restoredPair = availableManualRoutes.find(route =>
+      route.sourceSettlementOptionId === draft.fromId && route.targetSettlementOptionId === draft.toId);
     const configured = config.data.defaultSwapPair;
-    const initialPair = availableManualRoutes.find(route =>
+    const initialPair = restoredPair || availableManualRoutes.find(route =>
       route.sourceSettlementOptionId === configured?.sourceSettlementOptionId &&
       route.targetSettlementOptionId === configured?.targetSettlementOptionId
     ) || availableManualRoutes[0];
@@ -991,7 +996,7 @@ export function ManualSwapWidget({
     setFromId(initialPair.sourceSettlementOptionId);
     setToId(initialPair.targetSettlementOptionId);
     setInitialSelectionApplied(true);
-  }, [config.data, availableManualRoutes, initialSelectionApplied, marketSwapRequest]);
+  }, [config.data, availableManualRoutes, initialSelectionApplied, marketSwapRequest, draft]);
   const availableSourceIds = useMemo(
     () => new Set(availableManualRoutes.map(route => route.sourceSettlementOptionId)),
     [availableManualRoutes],
@@ -1110,13 +1115,22 @@ export function ManualSwapWidget({
 
   useEffect(() => {
     if (step === 1 || !currentQuote?.expiresAt) return;
+    const checkRestoredQuote = () => {
+      if (Date.now() >= new Date(currentQuote.expiresAt!).getTime()) handleQuoteExpire();
+    };
     const remaining = new Date(currentQuote.expiresAt).getTime() - Date.now();
     if (remaining <= 0) {
       handleQuoteExpire();
       return;
     }
     const timeout = window.setTimeout(handleQuoteExpire, remaining + 25);
-    return () => window.clearTimeout(timeout);
+    window.addEventListener('pageshow', checkRestoredQuote);
+    document.addEventListener('visibilitychange', checkRestoredQuote);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener('pageshow', checkRestoredQuote);
+      document.removeEventListener('visibilitychange', checkRestoredQuote);
+    };
   }, [step, currentQuote?.expiresAt, handleQuoteExpire]);
 
   const invalidateQuote = () => {
@@ -1945,7 +1959,13 @@ function WidgetNavigationScreen({
 }
 
 
-export function ExchangeModeSwitcher({ onModeChange, initialMode = 'swap' }: { onModeChange?: (mode: 'swap' | 'convert') => void; initialMode?: 'swap' | 'convert' }) {
+export function ExchangeModeSwitcher({ onModeChange, initialMode: requestedMode = 'swap' }: { onModeChange?: (mode: 'swap' | 'convert') => void; initialMode?: 'swap' | 'convert' }) {
+  // Explicit /swap and /convert routes win over the homepage's saved tab.
+  const [initialMode] = useState<'swap' | 'convert'>(() => {
+    const route = window.location.pathname.replace(/\/$/, '');
+    if (route.endsWith('/swap') || route.endsWith('/convert')) return requestedMode;
+    return readExchangeDraft('mode').value === 'convert' ? 'convert' : requestedMode;
+  });
   const { t: uiT, tx: uiText } = useCustomerI18n();
 
   const { t } = useI18n();
@@ -2000,6 +2020,7 @@ export function ExchangeModeSwitcher({ onModeChange, initialMode = 'swap' }: { o
     swapLayerRef.current?.setAttribute('aria-hidden', String(convertActive));
     swapLayerRef.current?.toggleAttribute('inert', convertActive);
     activeModeRef.current = nextProduct;
+    saveExchangeDraft('mode', { value: nextProduct });
     viewportRef.current?.closest('.exchange-wrapper')?.setAttribute('data-exchange-mode', nextProduct);
     syncModeTestIds(nextProduct);
     if (onModeChange) onModeChange(nextProduct);

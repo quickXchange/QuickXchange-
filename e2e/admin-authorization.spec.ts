@@ -101,7 +101,7 @@ test('an authenticated approved operator reaches the admin desk', async ({ page 
   expect(authorizationStatuses).not.toContain(502);
 });
 
-test('a genuine operator denial is presented as access denied', async ({ page }) => {
+test('a genuine operator denial stays on the requested admin route with an authorization error', async ({ page }) => {
   await page.route('**/api/admin/operators**', (route) => route.fulfill({
     status: 403,
     contentType: 'application/json',
@@ -126,9 +126,8 @@ test('a genuine operator denial is presented as access denied', async ({ page })
 
   await page.goto('/admin');
 
-  await expect(page).toHaveURL('/');
-  await expect(page.getByTestId('operator-access-denied')).toHaveCount(0);
-  await expect(page.getByTestId('operator-access-unavailable')).toHaveCount(0);
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByTestId('owner-access-unavailable')).toBeVisible();
 });
 
 test('authorization backend failures are not presented as operator denials', async ({ page }) => {
