@@ -6,8 +6,10 @@ import pinoHttp from "pino-http";
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { db, pool, operatorsTable, ordersTable, quickexOrdersTable, profitRecordsTable, profitRatesTable, orderAuditLogsTable } from "@workspace/db";
-import { calculateProfit, sum } from "../src/lib/order-profit-math";
+import { calculateProfit, calculateTradeProfit, sum } from "../src/lib/order-profit-math";
+import { ProfitTradeBasisInput, ProfitTradeRecordInput, type ProfitTradeBasis } from "@workspace/api-zod";
 import { profitReport } from "../src/lib/order-profit";
+import { profitPeriods } from "../src/lib/order-profit-periods";
 import router from "../src/routes/order-profit";
 import { adminPolicy } from "../src/lib/admin-policy";
 import { configureOperatorAuthorizationForTests } from "../src/lib/operator-auth";
@@ -84,6 +86,8 @@ test("only completed orders count; missing costs stay unavailable; canonical Con
   });
   const report = await profitReport({ page: 1 }, true);
   assert.equal(report.completedOrders, 2); assert.equal(report.missingCosts, 2);
+  assert.equal(report.rows.length, 6, "Non-completed Swaps are visible without contributing profit");
+  assert.equal(report.rows.filter(r => r.state === "not_completed").length, 4);
   assert.equal(report.rows.filter(r => r.id === "PROFIT-CONVERT").length, 1);
   assert.equal(report.rows.find(r => r.id === "PROFIT-CONVERT")?.type, "Convert");
   assert.equal(report.summary.length, 0);
@@ -213,4 +217,117 @@ test("cost effective timestamps preserve PostgreSQL microseconds, not rounded Ja
   const report = await profitReport({ page: 1, search: "MICRO-" }, true);
   assert.equal(report.rows.find(r => r.id === "MICRO-BEFORE")?.netProfit, null);
   assert.equal(report.rows.find(r => r.id === "MICRO-AFTER")?.netProfit, "4.5");
+});
+
+const trade: ProfitTradeBasis = {
+  calculation: "trade", currency: "EUR", quantitySide: "source",
+  buyMode: "unit", sellMode: "unit", buyValue: "60000", sellValue: "61000",
+  buyCurrency: "EUR", sellCurrency: "EUR", buyFx: "1", sellFx: "1",
+  commission1Percent: "0", receivingCommissionPercent: "0", additionalFixedFee: "0",
+  evidence: "Synthetic verified purchase and sale receipts", costsVerified: true,
+};
+
+test("per-order BTC, ETH, Buy/Sell, partial execution and tiny quantities use one exact arithmetic engine", () => {
+  assert.equal(calculateTradeProfit("1", "61000", trade).grossSpread, "1000");
+  assert.equal(calculateTradeProfit("15000", "0.25", { ...trade, quantitySide: "target" }).netProfit, "250");
+  assert.equal(calculateTradeProfit("1.5", "2850", { ...trade, buyValue: "2000", sellValue: "1900", additionalFixedFee: "2" }).netProfit, "-152");
+  assert.equal(calculateTradeProfit("0.00000001", "0.00061", trade).netProfit, "0.00001");
+  assert.equal(calculateTradeProfit("1000", "898", { ...trade, buyValue: "0.890", sellValue: "0.898" }).netProfit, "8");
+  assert.equal(calculateTradeProfit("0.25", "15250", { ...trade, buyMode: "total", sellMode: "total", buyValue: "15000", sellValue: "15250" }).netProfit, "250");
+});
+
+test("commissions use independent disclosed bases and fixed fees are deducted exactly once", () => {
+  const result = calculateTradeProfit("1", "61000", {
+    ...trade, commission1Percent: "1", receivingCommissionPercent: "0.5", additionalFixedFee: "10",
+  });
+  assert.equal(result.commission1, "600"); assert.equal(result.receivingCommission, "305");
+  assert.equal(result.fees, "915"); assert.equal(result.netProfit, "85");
+  assert.equal(calculateTradeProfit("1", "61000", { ...trade, commission1Percent: "100" }).netProfit, "-59000");
+  assert(!ProfitTradeBasisInput.safeParse({ ...trade, commission1Percent: "100.000000000000000001" }).success);
+  assert(!ProfitTradeBasisInput.safeParse({ ...trade, commission1Percent: "abc" }).success);
+  assert(!ProfitTradeBasisInput.safeParse({ ...trade, receivingCommissionPercent: "-1" }).success);
+});
+
+test("foreign-currency rates require explicit historical FX; no guessed conversions or missing buy/sell values", () => {
+  const input = { ...trade, buyCurrency: "USD", buyValue: "60000", buyFx: "0.9", sellValue: "55000" };
+  assert.equal(calculateTradeProfit("1", "55000", input).netProfit, "1000");
+  const parsed = ProfitTradeBasisInput.parse({ ...trade, currency: "USD", buyCurrency: "EUR", sellCurrency: "USD", buyFx: "1.1", buyValue: "60000", sellValue: "67000" });
+  assert.equal(calculateTradeProfit("1", "67000", parsed).netProfit, "1000");
+  assert(!ProfitTradeBasisInput.safeParse({ ...input, buyFx: undefined }).success);
+  assert(!ProfitTradeBasisInput.safeParse({ ...trade, sellFx: "0.9" }).success);
+  assert(!ProfitTradeRecordInput.safeParse({ ...trade, buyValue: "", requestId: randomUUID() }).success);
+  assert(!ProfitTradeRecordInput.safeParse({ ...trade, sellValue: "0", requestId: randomUUID() }).success);
+  assert(!ProfitTradeRecordInput.safeParse({ ...trade, requestId: randomUUID(), quantity: "999" }).success);
+});
+
+test("all Swap currencies/networks are discovered and individual trades persist without changing order snapshots", async () => {
+  for (const [id, source, target, qty] of [
+    ["TRADE-BTC", "BTC", "EUR", "1"], ["TRADE-FUTURE", "NEWCOIN", "USD", "0.25"],
+  ]) await seed(id, { fromAsset: source, fromNetwork: "Any future network", toAsset: target, amount: qty, receiveAmount: "61000" });
+  const beforeOrder = (await db.select().from(ordersTable).where(eq(ordersTable.id, "TRADE-BTC")))[0];
+  const input = { ...trade, requestId: randomUUID() };
+  const saves = await Promise.all(Array.from({ length: 4 }, () => request("/orders/Swap/TRADE-BTC/trade", input)));
+  assert(saves.every(r => r.ok));
+  assert.equal((await request("/orders/Swap/TRADE-BTC/trade", { ...input, sellValue: "62000" })).status, 409);
+  assert.equal((await db.select().from(profitRecordsTable).where(eq(profitRecordsTable.orderKey, "Swap:TRADE-BTC"))).length, 1);
+  let report = await profitReport({ page: 1, search: "TRADE-" }, true);
+  assert(report.currencies.includes("NEWCOIN"));
+  assert.equal(report.rows.find(r => r.id === "TRADE-FUTURE")?.netProfit, null);
+  assert.equal(report.rows.find(r => r.id === "TRADE-BTC")?.netProfit, "1000");
+  assert.equal(report.rows.find(r => r.id === "TRADE-BTC")?.tradeDetails?.quantity, "1");
+  assert((await request("/orders/Swap/TRADE-FUTURE/trade", { ...trade, currency: "USD", buyCurrency: "USD", sellCurrency: "USD", buyValue: "100", sellValue: "120", requestId: randomUUID() })).ok);
+  report = await profitReport({ page: 1, search: "TRADE-" }, true);
+  assert.equal(report.rows.find(r => r.id === "TRADE-FUTURE")?.netProfit, "5");
+  assert.equal(report.summary.find(s => s.currency === "EUR")?.profit, "1000");
+  assert.equal(report.summary.find(s => s.currency === "USD")?.profit, "5");
+  assert.deepEqual((await db.select().from(ordersTable).where(eq(ordersTable.id, "TRADE-BTC")))[0], beforeOrder);
+});
+
+test("new trade basis replaces old fees, preserves history, and keeps existing same-currency adjustments once", async () => {
+  await seed("TRADE-REPLACE", { fromAsset: "BTC", amount: "1", receiveAmount: "61000", toAsset: "EUR" });
+  assert((await request("/orders/Swap/TRADE-REPLACE/basis", { ...basis, sourceUnitValue: "61000", targetUnitCost: "1", requestId: randomUUID() })).ok);
+  assert((await request("/orders/Swap/TRADE-REPLACE/adjustments", { currency: "EUR", amount: "-2", reason: "Verified adjustment evidence", requestId: randomUUID() })).ok);
+  assert((await request("/orders/Swap/TRADE-REPLACE/trade", { ...trade, additionalFixedFee: "10", requestId: randomUUID() })).ok);
+  const report = await profitReport({ page: 1, search: "TRADE-REPLACE" }, true);
+  assert.equal(report.rows[0].fees, "10");
+  assert.equal(report.rows[0].netProfit, "988", "1000 spread less new 10 fee and existing 2 adjustment, never old fees");
+  assert.equal(report.rows[0].audit.length, 3);
+  assert.equal((await request("/orders/Swap/TRADE-REPLACE/trade", { ...trade, currency: "USD", buyCurrency: "USD", sellCurrency: "USD", requestId: randomUUID() })).status, 409);
+  await db.update(ordersTable).set({ status: "processing" }).where(eq(ordersTable.id, "TRADE-REPLACE"));
+  assert.equal((await profitReport({ page: 1, search: "TRADE-REPLACE" }, true)).rows[0].netProfit, null);
+});
+
+test("new per-order accounting is Owner-only, completed Swap-only, with clear validation failures", async () => {
+  assert.equal((await request("/orders/Swap/TRADE-BTC/trade", { ...trade, requestId: randomUUID() }, "profit-viewer")).status, 403);
+  assert.equal((await request("/orders/Swap/EXCLUDE-pending/trade", { ...trade, requestId: randomUUID() })).status, 409);
+  assert.equal((await request("/orders/Convert/PROFIT-CONVERT/trade", { ...trade, requestId: randomUUID() })).status, 409);
+  assert.equal((await request("/orders/Swap/TRADE-BTC/trade", { ...trade, buyFx: "0.9", requestId: randomUUID() })).status, 400);
+  const csv = await (await request(".csv?search=TRADE-BTC")).text();
+  assert(csv.includes('"Commission 1 %"')); assert(csv.includes('"60000"')); assert(csv.includes('"1000"'));
+});
+
+test("UTC daily, ISO-week, month and total summaries exclude uncompleted and missing-cost orders without currency conversion", async () => {
+  const now = new Date("2026-11-04T12:00:00.000Z");
+  const templates = (await profitReport({ page: 1, search: "TRADE-BTC" }, true)).rows[0];
+  const row = (createdAt: string, netProfit: string | null, currency = "EUR", status = "completed") =>
+    ({ ...templates, createdAt, netProfit, status, basis: { ...trade, currency } });
+  const periods = profitPeriods([
+    row("2026-11-04T00:00:00.000Z", "1000"),
+    row("2026-11-03T23:59:59.999Z", "-100"),
+    row("2026-11-01T12:00:00.000Z", "50"),
+    row("2026-10-31T12:00:00.000Z", "25"),
+    row("2026-11-04T01:00:00.000Z", "9999", "EUR", "pending"),
+    row("2026-11-04T02:00:00.000Z", null),
+    row("2026-11-04T03:00:00.000Z", "5", "USD"),
+    row("2026-11-04T04:00:00.000Z", "8888", "EUR", "cancelled"),
+  ], now);
+  assert.equal(periods.daily.find(r => r.currency === "EUR")?.profit, "1000");
+  assert.equal(periods.weekly.find(r => r.currency === "EUR")?.profit, "900");
+  assert.equal(periods.monthly.find(r => r.currency === "EUR")?.profit, "950");
+  assert.equal(periods.total.find(r => r.currency === "EUR")?.profit, "975");
+  assert.equal(periods.total.find(r => r.currency === "USD")?.profit, "5");
+  assert.equal(periods.total.find(r => r.currency === "EUR")?.orders, 4);
+  assert.equal(periods.timeZone, "UTC");
+  const endpoint = await (await request("?search=TRADE-BTC")).json();
+  assert.equal(endpoint.periods.total[0].profit, "1000");
 });

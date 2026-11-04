@@ -38,7 +38,7 @@ const AUTHENTICATED: AdminRoutePolicy = { authenticatedOnly: true };
 const POLICY_MATCHERS: readonly PolicyMatcher[] = [
   { method: "GET", pattern: /^\/admin\/profit-dashboard$/, policy: P("statistics.view") },
   { method: "GET", pattern: /^\/admin\/profit-dashboard\.csv$/, policy: P("statistics.export") },
-  { method: "POST", pattern: /^\/admin\/profit-dashboard\/(?:rates|orders\/(?:Swap|Convert)\/[^/]+\/(?:basis|adjustments))$/, policy: { ownerOnly: true } },
+  { method: "POST", pattern: /^\/admin\/profit-dashboard\/(?:rates|orders\/(?:Swap|Convert)\/[^/]+\/(?:basis|trade|adjustments))$/, policy: { ownerOnly: true } },
   { method: "GET", pattern: /^\/admin\/languages(?:\/dictionaries\/[^/]+)?$/, policy: P("languages.view") },
   { method: "PUT", pattern: /^\/admin\/languages(?:\/dictionaries\/[^/]+)?$/, policy: P("languages.manage") },
   { method: "GET", pattern: /^\/admin\/build-info$/, policy: AUTHENTICATED },

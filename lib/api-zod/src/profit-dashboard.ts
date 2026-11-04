@@ -28,7 +28,43 @@ export const ProfitAdjustmentInput = z.object({
   reason: z.string().trim().min(8).max(2000),
   requestId: z.string().uuid(),
 }).strict();
-export type ProfitBasis = z.infer<typeof ProfitBasisInput>;
+export type LegacyProfitBasis = z.infer<typeof ProfitBasisInput>;
+const positiveDecimal = ProfitDecimal.refine(v => /[1-9]/.test(v), "Must be greater than zero.");
+const percentage = ProfitDecimal.refine(v => {
+  if (!ProfitDecimal.safeParse(v).success) return false;
+  const [whole, fraction = ""] = v.split(".");
+  return BigInt(whole) < 100n || BigInt(whole) === 100n && !/[1-9]/.test(fraction);
+}, "Percentage must be between 0 and 100.");
+const tradeFields = {
+  calculation: z.literal("trade"),
+  currency: symbol,
+  quantitySide: z.enum(["source", "target"]),
+  buyMode: z.enum(["unit", "total"]),
+  sellMode: z.enum(["unit", "total"]),
+  buyValue: positiveDecimal,
+  sellValue: positiveDecimal,
+  buyCurrency: symbol,
+  sellCurrency: symbol,
+  buyFx: positiveDecimal,
+  sellFx: positiveDecimal,
+  commission1Percent: percentage.optional().default("0"),
+  receivingCommissionPercent: percentage.optional().default("0"),
+  additionalFixedFee: ProfitDecimal.optional().default("0"),
+  evidence: z.string().trim().min(8).max(2000),
+  costsVerified: z.literal(true),
+};
+const validateTradeFx = (v: { currency: string; buyCurrency: string; sellCurrency: string; buyFx: string; sellFx: string }, ctx: z.RefinementCtx) => {
+  for (const side of ["buy", "sell"] as const) {
+    if (v[`${side}Currency`] === v.currency && !/^1(?:\.0+)?$/.test(v[`${side}Fx`])) {
+      ctx.addIssue({ code: "custom", path: [`${side}Fx`], message: "Conversion within the accounting currency must be exactly 1." });
+    }
+  }
+};
+export const ProfitTradeBasisInput = z.object(tradeFields).strict().superRefine(validateTradeFx);
+export const ProfitTradeRecordInput = z.object({ ...tradeFields, requestId: z.string().uuid() }).strict().superRefine(validateTradeFx);
+export const ProfitAccountingBasisInput = z.union([ProfitBasisInput, ProfitTradeBasisInput]);
+export type ProfitTradeBasis = z.infer<typeof ProfitTradeBasisInput>;
+export type ProfitBasis = z.infer<typeof ProfitAccountingBasisInput>;
 export type ProfitRate = z.infer<typeof ProfitRateInput> & { id: string; effectiveAt: string };
 export type ProfitRow = {
   key: string; id: string; type: "Swap" | "Convert"; createdAt: string; completedAt: string | null;
@@ -37,7 +73,11 @@ export type ProfitRow = {
   customerRate: string | null; basis: ProfitBasis | null; basisId: string | null;
   revenue: string | null; acquisitionCost: string | null; fees: string | null;
   grossSpread: string | null; netProfit: string | null; adjustments: string;
-  state: "verified" | "missing" | "reversed"; href: string;
+  state: "verified" | "missing" | "reversed" | "not_completed"; href: string;
+  tradeDetails?: {
+    asset: string; quantity: string; buyTotal: string; sellTotal: string;
+    commission1: string; receivingCommission: string; additionalFixedFee: string;
+  } | null;
   audit: { id: string; kind: string; currency: string; amount: string | null; reason: string; createdAt: string }[];
 };
 export type ProfitReport = {
@@ -47,4 +87,10 @@ export type ProfitReport = {
   summary: { currency: string; revenue: string; acquisitionCost: string; fees: string; costs: string; profit: string; adjustments: string; valued: number }[];
   completedOrders: number; missingCosts: number;
   volume: { currency: string; amount: string }[];
+  assetKinds?: Record<string, "crypto" | "fiat">;
+  periods?: {
+    asOf: string; timeZone: "UTC"; dateBasis: "order_creation";
+    daily: ProfitPeriodTotal[]; weekly: ProfitPeriodTotal[]; monthly: ProfitPeriodTotal[]; total: ProfitPeriodTotal[];
+  };
 };
+export type ProfitPeriodTotal = { currency: string; profit: string; orders: number };

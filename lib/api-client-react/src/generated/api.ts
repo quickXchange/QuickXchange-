@@ -219,6 +219,7 @@ import type {
   OrderProfitAdjustmentConfig,
   OrderProfitAttestationConfig,
   OrderProfitRouteConfig,
+  OrderProfitTradeConfig,
   OrderReconciliationAttemptList,
   OrderReconciliationRequest,
   OrderReconciliationResult,
@@ -656,6 +657,80 @@ export const useRecordOrderProfitBasis = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRecordOrderProfitBasisMutationOptions(options));
+    }
+
+export const getRecordOrderProfitTradeUrl = (type: 'Swap',
+    id: string,) => {
+
+
+
+
+  return `/api/admin/profit-dashboard/orders/${type}/${id}/trade`
+}
+
+/**
+ * @summary Owner-only completed Swap acquisition and sale accounting; no order or payout mutation
+ */
+export const recordOrderProfitTrade = async (type: 'Swap',
+    id: string,
+    orderProfitTradeConfig: OrderProfitTradeConfig, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRecordOrderProfitTradeUrl(type,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(orderProfitTradeConfig)
+  }
+);}
+
+
+
+
+
+export const getRecordOrderProfitTradeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitTrade>>, TError,{type: 'Swap';id: string;data: BodyType<OrderProfitTradeConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitTrade>>, TError,{type: 'Swap';id: string;data: BodyType<OrderProfitTradeConfig>}, TContext> => {
+
+const mutationKey = ['recordOrderProfitTrade'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordOrderProfitTrade>>, {type: 'Swap';id: string;data: BodyType<OrderProfitTradeConfig>}> = (props) => {
+          const {type,id,data} = props ?? {};
+
+          return  recordOrderProfitTrade(type,id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordOrderProfitTradeMutationResult = NonNullable<Awaited<ReturnType<typeof recordOrderProfitTrade>>>
+    export type RecordOrderProfitTradeMutationBody = BodyType<OrderProfitTradeConfig>
+    export type RecordOrderProfitTradeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Owner-only completed Swap acquisition and sale accounting; no order or payout mutation
+ */
+export const useRecordOrderProfitTrade = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitTrade>>, TError,{type: 'Swap';id: string;data: BodyType<OrderProfitTradeConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordOrderProfitTrade>>,
+        TError,
+        {type: 'Swap';id: string;data: BodyType<OrderProfitTradeConfig>},
+        TContext
+      > => {
+      return useMutation(getRecordOrderProfitTradeMutationOptions(options));
     }
 
 export const getRecordOrderProfitAdjustmentUrl = (type: 'Swap' | 'Convert',

@@ -2,11 +2,11 @@ import { Router } from "express";
 import { z } from "zod";
 import { db, profitRatesTable, profitRecordsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
-import { ProfitAdjustmentInput, ProfitBasisRecordInput, ProfitRateInput } from "@workspace/api-zod";
+import { ProfitAdjustmentInput, ProfitBasisRecordInput, ProfitRateInput, ProfitTradeRecordInput } from "@workspace/api-zod";
 import { requireOwner, type OperatorAuthorization } from "../lib/operator-auth";
 import { ApiError } from "../lib/api-error";
 import { profitExecutions, profitReport } from "../lib/order-profit";
-import { calculateProfit } from "../lib/order-profit-math";
+import { calculateProfit, calculateTradeProfit, positive } from "../lib/order-profit-math";
 
 const router = Router();
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v);
@@ -36,13 +36,20 @@ const canonical = (value: Record<string, unknown>) => JSON.stringify(Object.entr
 router.get("/admin/profit-dashboard.csv", async (req, res): Promise<void> => {
   res.set("Cache-Control", "private, no-store");
   const report = await profitReport(parse(filterSchema, req.query), false, true);
-  const headers = ["Order ID", "Created at", "Type", "Status", "Source asset", "Source network", "Target asset", "Target network", "Payment method", "Executed source", "Executed payout", "Customer rate (target/source)", "Accounting currency", "Source proceeds/unit", "Payout acquisition/unit", "Gross revenue", "Acquisition cost", "Provider fee", "Network fee", "Bank fee", "Other fee", "Total fees", "Gross spread", "Adjustments", "Net profit", "Valuation", "Evidence"];
-  const lines = report.rows.map(r => [
+  const headers = ["Order ID", "Created at", "Type", "Status", "Source asset", "Source network", "Target asset", "Target network", "Payment method", "Executed source", "Executed payout", "Customer rate (target/source)", "Accounting currency", "Source proceeds/unit", "Payout acquisition/unit", "Gross revenue", "Acquisition cost", "Provider fee", "Network fee", "Bank fee", "Other fee", "Total fees", "Gross spread", "Adjustments", "Net profit", "Valuation", "Evidence", "Trade asset", "Trade quantity", "Buy mode", "Buy input", "Buy currency", "Buy FX", "Sell mode", "Sell input", "Sell currency", "Sell FX", "Commission 1 %", "Commission 1 amount", "Receiving commission %", "Receiving commission amount", "Additional fixed fee"];
+  const lines = report.rows.map(r => {
+    const legacy = r.basis && !("calculation" in r.basis) ? r.basis : null;
+    const trade = r.basis && "calculation" in r.basis ? r.basis : null;
+    return [
     r.id, r.createdAt, r.type, r.status, r.fromAsset, r.fromNetwork, r.toAsset, r.toNetwork, r.paymentMethod, r.amount, r.receiveAmount,
-    r.customerRate, r.basis?.currency, r.basis?.sourceUnitValue, r.basis?.targetUnitCost, r.revenue, r.acquisitionCost,
-    r.basis?.providerFee, r.basis?.networkFee, r.basis?.bankFee, r.basis?.otherFee, r.fees, r.grossSpread, r.adjustments, r.netProfit,
-    r.state === "missing" ? "Cost missing / Profit unavailable" : r.state, r.basis?.evidence,
-  ].map(cell).join(","));
+    r.customerRate, r.basis?.currency, legacy?.sourceUnitValue, legacy?.targetUnitCost, r.revenue, r.acquisitionCost,
+    legacy?.providerFee, legacy?.networkFee, legacy?.bankFee, legacy?.otherFee, r.fees, r.grossSpread, r.adjustments, r.netProfit,
+    r.netProfit === null ? "Profit unavailable" : r.state, r.basis?.evidence,
+    r.tradeDetails?.asset, r.tradeDetails?.quantity, trade?.buyMode, trade?.buyValue, trade?.buyCurrency, trade?.buyFx,
+    trade?.sellMode, trade?.sellValue, trade?.sellCurrency, trade?.sellFx,
+    trade?.commission1Percent, r.tradeDetails?.commission1, trade?.receivingCommissionPercent, r.tradeDetails?.receivingCommission,
+    trade?.additionalFixedFee,
+  ].map(cell).join(","); });
   res.set("Content-Type", "text/csv; charset=utf-8");
   res.set("Content-Disposition", 'attachment; filename="quickxchange-order-profit.csv"');
   res.send("\uFEFF" + [headers.map(cell).join(","), ...lines].join("\r\n"));
@@ -64,10 +71,12 @@ router.post("/admin/profit-dashboard/rates", requireOwner, async (req, res): Pro
 });
 
 const orderParams = z.object({ type: z.enum(["Swap", "Convert"]), id: z.string().min(1).max(160) });
-for (const action of ["basis", "adjustments"] as const) {
+for (const action of ["basis", "trade", "adjustments"] as const) {
   router.post(`/admin/profit-dashboard/orders/:type/:id/${action}`, requireOwner, async (req, res): Promise<void> => {
     const params = parse(orderParams, req.params);
-    const input = action === "basis" ? parse(ProfitBasisRecordInput, req.body) : parse(ProfitAdjustmentInput, req.body);
+    const input = action === "basis" ? parse(ProfitBasisRecordInput, req.body)
+      : action === "trade" ? parse(ProfitTradeRecordInput, req.body) : parse(ProfitAdjustmentInput, req.body);
+    const isBasis = action !== "adjustments";
     const orderKey = `${params.type}:${params.id}`;
     const { requestId, ...value } = input;
     const result = await db.transaction(async tx => {
@@ -75,8 +84,8 @@ for (const action of ["basis", "adjustments"] as const) {
     // locks, state transitions or financial writes are performed.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${orderKey}, 0))`);
     const matches = (record: typeof profitRecordsTable.$inferSelect) =>
-      record.orderKey === orderKey && record.kind === (action === "basis" ? "basis" : "adjustment") &&
-      record.currency === value.currency && ("sourceUnitValue" in value
+      record.orderKey === orderKey && record.kind === (isBasis ? "basis" : "adjustment") &&
+      record.currency === value.currency && (!("amount" in value)
         ? canonical(record.basis || {}) === canonical(value)
         : record.amount === value.amount && record.reason === value.reason);
     const [replay] = await tx.select().from(profitRecordsTable).where(eq(profitRecordsTable.requestId, input.requestId));
@@ -88,8 +97,19 @@ for (const action of ["basis", "adjustments"] as const) {
     }
     const order = (await profitExecutions()).find(o => o.type === params.type && o.id === params.id);
     if (!order) throw new ApiError("PROFIT_ORDER_NOT_FOUND", "Only completed orders or recorded reversals can be accounted for.", 404);
-    if ("sourceUnitValue" in value) {
-      checkUnits(value, order);
+    if (isBasis) {
+      if (!["completed", "refunded", "reversed"].includes(order.status)) {
+        throw new ApiError("PROFIT_ORDER_NOT_COMPLETED", "Profit inputs can only be saved for completed orders.", 409);
+      }
+      if ("calculation" in value) {
+        if (order.type !== "Swap" || order.status !== "completed") {
+          throw new ApiError("PROFIT_TRADE_SWAP_ONLY", "Per-order buy/sell accounting is available only for completed Swap orders.", 409);
+        }
+        if (!positive(value.quantitySide === "source" ? order.amount : order.receiveAmount)) {
+          throw new ApiError("INVALID_EXECUTED_QUANTITY", "This order has no positive saved execution quantity for the selected asset.", 400);
+        }
+        calculateTradeProfit(order.amount, order.receiveAmount, value);
+      } else if ("sourceUnitValue" in value) checkUnits(value, order);
       const previous = await tx.select().from(profitRecordsTable).where(eq(profitRecordsTable.orderKey, orderKey));
       if (previous.some(r => r.kind === "adjustment" && r.currency !== value.currency)) {
         throw new ApiError("PROFIT_CURRENCY_LOCKED", "Existing adjustments lock this order's accounting currency.", 409);
@@ -103,12 +123,13 @@ for (const action of ["basis", "adjustments"] as const) {
       }
     }
     const [saved] = await tx.insert(profitRecordsTable).values({
-      orderKey, kind: action === "basis" ? "basis" : "adjustment", currency: value.currency,
-      basis: "sourceUnitValue" in value ? value : null,
-      execution: "sourceUnitValue" in value ? { amount: order.amount, receiveAmount: order.receiveAmount } : null,
+      orderKey, kind: isBasis ? "basis" : "adjustment", currency: value.currency,
+      basis: isBasis ? value : null,
+      execution: isBasis ? { amount: order.amount, receiveAmount: order.receiveAmount } : null,
       amount: "amount" in value ? value.amount : null,
       reason: "evidence" in value ? value.evidence : value.reason,
       requestId, actorId: res.locals.operator.id,
+      createdAt: sql`clock_timestamp()`,
     }).onConflictDoNothing({ target: profitRecordsTable.requestId }).returning();
     const record = saved ?? (await tx.select().from(profitRecordsTable).where(eq(profitRecordsTable.requestId, requestId)))[0];
     if (!record || !matches(record)) throw new ApiError("PROFIT_IDEMPOTENCY_CONFLICT", "Concurrent request used a different accounting payload.", 409);

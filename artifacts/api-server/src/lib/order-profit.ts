@@ -1,7 +1,8 @@
 import { db, profitRatesTable, profitRecordsTable, cryptoAssetsTable, fiatCurrenciesTable, orderAuditLogsTable } from "@workspace/db";
 import { desc, eq, sql, inArray, getTableColumns } from "drizzle-orm";
-import { ProfitBasisInput, ProfitRateInput, type ProfitReport, type ProfitRow, type ProfitRate } from "@workspace/api-zod";
-import { calculateProfit, divide, negative, positive, sum, negate } from "./order-profit-math";
+import { ProfitAccountingBasisInput, ProfitBasisInput, ProfitRateInput, type ProfitReport, type ProfitRow, type ProfitRate } from "@workspace/api-zod";
+import { calculateAccountingProfit, divide, negative, positive, sum, negate } from "./order-profit-math";
+import { profitPeriods } from "./order-profit-periods";
 
 export type ProfitFilters = {
   from?: string; to?: string; search?: string; currency?: string; paymentMethod?: string;
@@ -34,7 +35,7 @@ export async function profitExecutions(): Promise<Execution[]> {
       (type = 'manual') AS "executionVerified",
       (extract(epoch from created_at) * 1000000)::bigint::text AS "createdMicros"
     FROM exchange_orders e
-    WHERE status IN ('completed', 'refunded', 'reversed') AND is_test = false
+    WHERE (type = 'manual' OR status IN ('completed', 'refunded', 'reversed')) AND is_test = false
       AND (type = 'manual' OR NOT EXISTS (SELECT 1 FROM quickex_orders q WHERE q.legacy_order_id = e.id))
     UNION ALL
     SELECT legacy_order_id, 'Convert', status, created_at,
@@ -57,13 +58,13 @@ export async function profitReport(filters: ProfitFilters, owner: boolean, allRo
       effectiveMicros: sql<string>`(extract(epoch from ${profitRatesTable.effectiveAt}) * 1000000)::bigint::text`,
     }).from(profitRatesTable).orderBy(desc(profitRatesTable.effectiveAt), desc(profitRatesTable.id)),
     db.select().from(profitRecordsTable).orderBy(desc(profitRecordsTable.createdAt), desc(profitRecordsTable.id)),
-    db.select({ code: cryptoAssetsTable.code }).from(cryptoAssetsTable).where(eq(cryptoAssetsTable.enabled, true)),
-    db.select({ code: fiatCurrenciesTable.code }).from(fiatCurrenciesTable).where(eq(fiatCurrenciesTable.enabled, true)),
+    db.select({ code: cryptoAssetsTable.code }).from(cryptoAssetsTable),
+    db.select({ code: fiatCurrenciesTable.code }).from(fiatCurrenciesTable),
   ]);
   const rules: ProfitRate[] = storedRates.map(r => ({
     ...ProfitRateInput.parse(r.config), id: r.id, effectiveAt: r.effectiveAt.toISOString(),
   }));
-  const reversedIds = executions.filter(e => e.status !== "completed").map(e => e.id);
+  const reversedIds = executions.filter(e => ["refunded", "reversed"].includes(e.status)).map(e => e.id);
   const lifecycle = reversedIds.length ? await db.select({
     id: orderAuditLogsTable.id, orderId: orderAuditLogsTable.orderId, action: orderAuditLogsTable.action,
     details: orderAuditLogsTable.details, createdAt: orderAuditLogsTable.createdAt,
@@ -98,7 +99,7 @@ export async function profitReport(filters: ProfitFilters, owner: boolean, allRo
       (!r.toOptionId || r.toOptionId === order.toOptionId)
     ).sort((a, b) => Number(!!b.fromOptionId) + Number(!!b.toOptionId) - Number(!!a.fromOptionId) - Number(!!a.toOptionId))[0];
     // Historical execution attestation always wins; later rules never backfill.
-    const basis = record ? ProfitBasisInput.parse(record.basis) : rule ? ProfitBasisInput.parse({
+    const basis = record ? ProfitAccountingBasisInput.parse(record.basis) : rule ? ProfitBasisInput.parse({
       currency: rule.currency, sourceUnitValue: rule.sourceUnitValue, targetUnitCost: rule.targetUnitCost,
       providerFee: rule.providerFee, networkFee: rule.networkFee, bankFee: rule.bankFee, otherFee: rule.otherFee,
       evidence: rule.evidence, costsVerified: rule.costsVerified,
@@ -109,19 +110,25 @@ export async function profitReport(filters: ProfitFilters, owner: boolean, allRo
         sum(record.execution.amount, negate(order.amount)) === "0" &&
         sum(record.execution.receiveAmount, negate(order.receiveAmount)) === "0";
     } catch { /* A changed/malformed execution cannot reuse an attested basis. */ }
-    let values: ReturnType<typeof calculateProfit> | null = null;
+    const eligible = ["completed", "refunded", "reversed"].includes(order.status);
+    let values: ReturnType<typeof calculateAccountingProfit> | null = null;
     try {
-      if (basis && executionMatches && (order.executionVerified || record)) values = calculateProfit(order.amount, order.receiveAmount, basis);
+      if (eligible && basis && executionMatches && (order.executionVerified || record)) values = calculateAccountingProfit(order.amount, order.receiveAmount, basis);
     } catch { /* Malformed legacy execution is unavailable, never invented. */ }
     const adjustments = sum(...audit.filter(r => r.kind === "adjustment" && r.currency === basis?.currency).map(r => r.amount || "0"));
-    const reversed = order.status !== "completed";
+    const reversed = ["refunded", "reversed"].includes(order.status);
     rows.push({
       ...order, key, completedAt: null, basis, basisId: record?.id || rule?.id || null,
       customerRate: (() => { try { return divide(order.receiveAmount, order.amount); } catch { return null; } })(),
       revenue: values?.revenue ?? null, acquisitionCost: values?.acquisitionCost ?? null, fees: values?.fees ?? null,
       grossSpread: values?.grossSpread ?? null,
       netProfit: values ? reversed ? adjustments : sum(values.netProfit, adjustments) : null,
-      adjustments, state: reversed ? "reversed" : values ? "verified" : "missing",
+      adjustments, state: reversed ? "reversed" : !eligible ? "not_completed" : values ? "verified" : "missing",
+      tradeDetails: values && "commission1" in values && basis && "calculation" in basis ? {
+        asset: basis.quantitySide === "source" ? order.fromAsset : order.toAsset, quantity: values.quantity,
+        buyTotal: values.acquisitionCost, sellTotal: values.revenue, commission1: values.commission1,
+        receivingCommission: values.receivingCommission, additionalFixedFee: values.additionalFixedFee,
+      } : null,
       href: `/admin/orders/${encodeURIComponent(order.id)}?type=${order.type === "Convert" ? "instant" : "manual"}`,
       audit: [
         ...audit.map(r => ({ id: r.id, kind: r.kind, currency: r.currency, amount: r.amount, reason: r.reason, createdAt: r.createdAt.toISOString() })),
@@ -169,11 +176,15 @@ export async function profitReport(filters: ProfitFilters, owner: boolean, allRo
   return {
     rows: allRows ? filtered : filtered.slice((page - 1) * pageSize, page * pageSize),
     total: filtered.length, page, pageSize, owner,
-    currencies: [...new Set(["EUR", ...assets.map(a => a.code), ...fiat.map(f => f.code), ...rules.map(r => r.currency), ...executions.flatMap(r => [r.fromAsset, r.toAsset])])].sort(),
+    currencies: [...new Set(["EUR", ...assets.map(a => a.code), ...fiat.map(f => f.code), ...rules.map(r => r.currency),
+      ...records.map(r => r.currency), ...rows.flatMap(r => r.basis && "calculation" in r.basis ? [r.basis.buyCurrency, r.basis.sellCurrency] : []),
+      ...executions.flatMap(r => [r.fromAsset, r.toAsset])])].sort(),
     routes: [...routes.values()], methods: [...new Set([...methods, ...executions.flatMap(r => [r.fromNetwork, r.toNetwork])])].filter(Boolean).sort(),
     rules, summary: [...summaries.values()].sort((a, b) => a.currency === "EUR" ? -1 : b.currency === "EUR" ? 1 : a.currency.localeCompare(b.currency)),
     completedOrders: filtered.filter(r => r.status === "completed").length,
     missingCosts: filtered.filter(r => r.status === "completed" && r.state === "missing").length,
     volume: [...volume].map(([currency, amount]) => ({ currency, amount })),
+    assetKinds: Object.fromEntries([...assets.map(a => [a.code, "crypto"] as const), ...fiat.map(f => [f.code, "fiat"] as const)]),
+    periods: profitPeriods(filtered),
   };
 }

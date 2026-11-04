@@ -3,6 +3,35 @@
 Development implementation at **Admin → Revenue** (`/admin/revenue`).
 This page is an accounting read model, not customer pricing or a settlement engine.
 
+## Additive per-order buy/sell accounting
+
+All non-test Swap orders are now visible, including unfinished orders and historical/future assets, networks and payment methods. Non-completed orders are read-only and show **Profit unavailable**; they never contribute realized profit. Existing Convert inclusion, route Cost Basis versions, legacy cost forms, adjustment history and legacy calculations are retained.
+
+On a **completed Swap**, the Owner can open **Actual buy / sell accounting** alongside the existing cost editor:
+
+1. Choose the saved source or payout asset quantity. The quantity is read-only and never submitted as an override. Catalog asset types choose the crypto leg initially where applicable.
+2. Enter actual acquisition and sale values as either **unit rates** or **total costs/proceeds**. Both modes use the chosen executed quantity, including fractional amounts.
+3. Choose each value's currency. If different from accounting currency, enter a positive, evidenced historical conversion: **accounting units per one rate-currency unit**. Same-currency conversion is exactly `1`. Changing either currency clears obsolete cross-currency FX.
+4. Optionally enter Commission 1 (percentage of converted acquisition cost), Receiving Commission (percentage of converted sale proceeds), and an additional fixed accounting-currency fee. Omitted fees default to zero. Percentages must be between 0 and 100.
+5. Review the live preview, supply evidence, and confirm the actual figures before saving.
+
+```
+Acquisition = (quantity × buy rate OR entered acquisition total) × buy FX
+Proceeds    = (quantity × sell rate OR entered proceeds total) × sell FX
+Gross      = proceeds − acquisition
+Commission 1         = acquisition × entered percentage / 100
+Receiving commission = proceeds × entered percentage / 100
+Net = gross − commission 1 − receiving commission − fixed fee + existing adjustments
+```
+
+For `1 BTC`, buy `60000 EUR` and sell `61000 EUR` gives `1000 EUR` gross. With `1%` purchase commission (`600`), `0.5%` receiving commission (`305`) and `10 EUR` fixed fees, net is `85 EUR`.
+
+The new trade is a **replacement current accounting basis for that order**, not an extra fee layer. Older provider/network/bank fees are **not** added again; history remains immutable. Existing same-currency adjustments apply once. Each order has independent inputs, and the single shared exact-arithmetic implementation powers both preview and server.
+
+`POST /api/admin/profit-dashboard/orders/Swap/{id}/trade` is Owner-only and requires the strict shared `ProfitTradeRecordInput`, including a UUID request ID. It appends to the existing accounting table using the existing `basis` kind; no new database migration is needed. Duplicate requests replay, while reused IDs with different payloads fail clearly. No customer/order/pricing/payout record is updated.
+
+The new **Today / This week / This month / All time** summaries update on saves and report each accounting currency independently. Periods use **UTC order creation dates**, matching existing Revenue filters; weeks start Monday. No unverified completion timestamp or live currency conversion is invented. Only completed orders with verified profit enter these new period summaries. The pre-existing summary's auditable reversal-adjustment behavior is unchanged.
+
 ## What counts
 
 - Completed canonical Swap and Convert orders appear automatically.

@@ -93,6 +93,45 @@ export const RecordOrderProfitBasisResponse = zod.unknown()
 
 
 /**
+ * @summary Owner-only completed Swap acquisition and sale accounting; no order or payout mutation
+ */
+export const RecordOrderProfitTradeParams = zod.object({
+  "type": zod.enum(['Swap']),
+  "id": zod.coerce.string()
+})
+
+export const recordOrderProfitTradeBodyCommission1PercentDefault = `0`;
+export const recordOrderProfitTradeBodyReceivingCommissionPercentDefault = `0`;
+export const recordOrderProfitTradeBodyAdditionalFixedFeeDefault = `0`;
+export const recordOrderProfitTradeBodyEvidenceMin = 8;
+export const recordOrderProfitTradeBodyEvidenceMax = 2000;
+
+
+
+export const RecordOrderProfitTradeBody = zod.object({
+  "calculation": zod.enum(['trade']),
+  "currency": zod.string().describe('Accounting currency'),
+  "quantitySide": zod.enum(['source', 'target']).describe('Selects saved executed quantity; not an editable amount'),
+  "buyMode": zod.enum(['unit', 'total']),
+  "sellMode": zod.enum(['unit', 'total']),
+  "buyValue": zod.string().describe('Actual unit buy rate or total acquisition cost'),
+  "sellValue": zod.string().describe('Actual unit sell rate or total proceeds'),
+  "buyCurrency": zod.string(),
+  "sellCurrency": zod.string(),
+  "buyFx": zod.string().describe('Verified accounting units per one buy currency unit; exactly 1 for same currency'),
+  "sellFx": zod.string().describe('Verified accounting units per one sale currency unit; exactly 1 for same currency'),
+  "commission1Percent": zod.string().default(recordOrderProfitTradeBodyCommission1PercentDefault).describe('Percentage of converted acquisition cost'),
+  "receivingCommissionPercent": zod.string().default(recordOrderProfitTradeBodyReceivingCommissionPercentDefault).describe('Percentage of converted selling proceeds'),
+  "additionalFixedFee": zod.string().default(recordOrderProfitTradeBodyAdditionalFixedFeeDefault).describe('Additional fee in accounting currency; not added to old snapshot fees'),
+  "evidence": zod.string().min(recordOrderProfitTradeBodyEvidenceMin).max(recordOrderProfitTradeBodyEvidenceMax),
+  "costsVerified": zod.literal(true),
+  "requestId": zod.string().uuid()
+})
+
+export const RecordOrderProfitTradeResponse = zod.unknown()
+
+
+/**
  * @summary Owner-only signed accounting correction or residual refund cost; no movement of funds
  */
 export const RecordOrderProfitAdjustmentParams = zod.object({

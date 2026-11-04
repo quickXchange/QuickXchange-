@@ -5,6 +5,73 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type OrderProfitTradeConfigCalculation = typeof OrderProfitTradeConfigCalculation[keyof typeof OrderProfitTradeConfigCalculation];
+
+
+export const OrderProfitTradeConfigCalculation = {
+  trade: 'trade',
+} as const;
+
+/**
+ * Selects saved executed quantity; not an editable amount
+ */
+export type OrderProfitTradeConfigQuantitySide = typeof OrderProfitTradeConfigQuantitySide[keyof typeof OrderProfitTradeConfigQuantitySide];
+
+
+export const OrderProfitTradeConfigQuantitySide = {
+  source: 'source',
+  target: 'target',
+} as const;
+
+export type OrderProfitTradeConfigBuyMode = typeof OrderProfitTradeConfigBuyMode[keyof typeof OrderProfitTradeConfigBuyMode];
+
+
+export const OrderProfitTradeConfigBuyMode = {
+  unit: 'unit',
+  total: 'total',
+} as const;
+
+export type OrderProfitTradeConfigSellMode = typeof OrderProfitTradeConfigSellMode[keyof typeof OrderProfitTradeConfigSellMode];
+
+
+export const OrderProfitTradeConfigSellMode = {
+  unit: 'unit',
+  total: 'total',
+} as const;
+
+export interface OrderProfitTradeConfig {
+  calculation: OrderProfitTradeConfigCalculation;
+  /** Accounting currency */
+  currency: string;
+  /** Selects saved executed quantity; not an editable amount */
+  quantitySide: OrderProfitTradeConfigQuantitySide;
+  buyMode: OrderProfitTradeConfigBuyMode;
+  sellMode: OrderProfitTradeConfigSellMode;
+  /** Actual unit buy rate or total acquisition cost */
+  buyValue: string;
+  /** Actual unit sell rate or total proceeds */
+  sellValue: string;
+  buyCurrency: string;
+  sellCurrency: string;
+  /** Verified accounting units per one buy currency unit; exactly 1 for same currency */
+  buyFx: string;
+  /** Verified accounting units per one sale currency unit; exactly 1 for same currency */
+  sellFx: string;
+  /** Percentage of converted acquisition cost */
+  commission1Percent?: string;
+  /** Percentage of converted selling proceeds */
+  receivingCommissionPercent?: string;
+  /** Additional fee in accounting currency; not added to old snapshot fees */
+  additionalFixedFee?: string;
+  /**
+     * @minLength 8
+     * @maxLength 2000
+     */
+  evidence: string;
+  costsVerified: true;
+  requestId: string;
+}
+
 export interface OrderProfitCostConfig {
   currency: string;
   /** Verified proceeds per source unit */

@@ -14,3 +14,9 @@ Future cost settings become effective by order creation time, not completion tim
 **Why:** Applying newly entered costs to older or already-active orders would silently invent historical economics. Convert customer funds can belong to provider custody, not exchange revenue.
 
 **How to apply:** Preserve old order snapshots and audit trails. Keep corrections append-only and require explicit evidence for actual proceeds/costs. Retain accounting history during application rollback.
+
+Per-order actual buy/sell accounting is additive to existing route Cost Basis settings, not a replacement for those controls. Commission 1 uses acquisition cost; Receiving Commission uses sale proceeds, both after explicit historical FX into the accounting currency.
+
+**Why:** The Owner requested independent buy/sell rates and optional commissions for every Swap while preserving all existing Revenue features. Fee bases must be explicit to avoid inconsistent previews or double-counting older fees.
+
+**How to apply:** Never stack a new trade basis's fees on the previous basis. Retain old evidence and existing auditable adjustments. Different currencies require evidenced conversion rates; period summaries explicitly use UTC order-creation dates, not invented completion times.

@@ -84,6 +84,22 @@ paths:
       responses:
         "201": { description: Recorded basis with frozen execution quantities }
         "200": { description: Idempotent replay }
+  /admin/profit-dashboard/orders/{type}/{id}/trade:
+    post:
+      operationId: recordOrderProfitTrade
+      summary: Owner-only completed Swap acquisition and sale accounting; no order or payout mutation
+      parameters:
+        - { name: type, in: path, required: true, schema: { type: string, enum: [Swap] } }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderProfitTradeConfig"
+      responses:
+        "201": { description: Immutable per-order trade accounting snapshot }
+        "200": { description: Idempotent replay }
   /admin/profit-dashboard/orders/{type}/{id}/adjustments:
     post:
       operationId: recordOrderProfitAdjustment
@@ -4998,6 +5014,27 @@ components:
       name: __session
       description: Clerk owner session. The authenticated user must match the single active owner account in the server-side operator registry.
   schemas:
+    OrderProfitTradeConfig:
+      type: object
+      required: [calculation, currency, quantitySide, buyMode, sellMode, buyValue, sellValue, buyCurrency, sellCurrency, buyFx, sellFx, evidence, costsVerified, requestId]
+      properties:
+        calculation: { type: string, enum: [trade] }
+        currency: { type: string, description: Accounting currency }
+        quantitySide: { type: string, enum: [source, target], description: Selects saved executed quantity; not an editable amount }
+        buyMode: { type: string, enum: [unit, total] }
+        sellMode: { type: string, enum: [unit, total] }
+        buyValue: { type: string, description: Actual unit buy rate or total acquisition cost }
+        sellValue: { type: string, description: Actual unit sell rate or total proceeds }
+        buyCurrency: { type: string }
+        sellCurrency: { type: string }
+        buyFx: { type: string, description: Verified accounting units per one buy currency unit; exactly 1 for same currency }
+        sellFx: { type: string, description: Verified accounting units per one sale currency unit; exactly 1 for same currency }
+        commission1Percent: { type: string, default: "0", description: Percentage of converted acquisition cost, between 0 and 100 }
+        receivingCommissionPercent: { type: string, default: "0", description: Percentage of converted selling proceeds, between 0 and 100 }
+        additionalFixedFee: { type: string, default: "0", description: Additional fee in accounting currency; not added to old snapshot fees }
+        evidence: { type: string, minLength: 8, maxLength: 2000 }
+        costsVerified: { type: boolean, enum: [true] }
+        requestId: { type: string, format: uuid }
     OrderProfitCostConfig:
       type: object
       required: [currency, sourceUnitValue, targetUnitCost, providerFee, networkFee, bankFee, otherFee, evidence, costsVerified]

@@ -81,3 +81,35 @@
 .pd-audit li p { flex-basis: 100%; margin: 0; color: hsl(var(--muted-foreground)); white-space: pre-wrap; }
 .pd-audit-kind { font-weight: 750; text-transform: capitalize; }
 .pd-audit-when { color: hsl(var(--muted-foreground)); font-size: 11px; }
+
+.pd-trade-cta { display: grid; gap: 8px; justify-items: start; }
+.pd-trade { border-top-color: hsl(var(--primary) / .4); }
+.pd-trade-warn { display: flex; gap: 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid hsl(38 92% 50% / .4); background: hsl(38 92% 50% / .08); font-size: 12px; color: hsl(32 80% 32%); }
+.dark .pd-trade-warn { color: hsl(38 90% 70%); }
+.pd-trade-warn svg { flex: none; margin-top: 2px; }
+.pd-trade-leg { display: grid; gap: 8px; margin: 0; padding: 10px 12px 12px; border: 1px solid hsl(var(--border)); border-radius: 10px; }
+.pd-trade-leg legend { padding: 0 6px; font-size: 12px; font-weight: 750; }
+.pd-seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 3px; border: 1px solid hsl(var(--border)); border-radius: 9px; background: hsl(var(--muted) / .4); justify-self: start; }
+.pd-seg button { border: 0; background: transparent; padding: 5px 10px; border-radius: 6px; font-size: 12px; color: hsl(var(--muted-foreground)); cursor: pointer; overflow-wrap: anywhere; min-width: 0; }
+.pd-seg button.is-on { background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: 0 1px 2px hsl(var(--foreground) / .12); }
+.pd-seg b { font-family: var(--font-mono); font-weight: 650; }
+.pd-trade-preview { padding: 12px; border-radius: 10px; border: 1px dashed hsl(var(--primary) / .45); background: hsl(var(--primary) / .04); }
+.pd-trade-preview-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; font-size: 13px; }
+.pd-trade-preview-head small { color: hsl(var(--muted-foreground)); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.pd-trade-preview dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 14px; margin: 0; }
+.pd-trade-preview dt { color: hsl(var(--muted-foreground)); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.pd-trade-preview dd { margin: 2px 0 0; font-family: var(--font-mono); font-size: 12.5px; overflow-wrap: anywhere; }
+.pd-trade-preview .is-final { grid-column: 1 / -1; padding-top: 8px; border-top: 1px solid hsl(var(--border)); }
+.pd-trade-preview .is-final dd { font-size: 16px; font-weight: 800; }
+.pd-trade-preview .is-profit, .pd-period-row .is-profit { color: hsl(152 62% 32%); }
+.pd-trade-preview .is-loss { color: hsl(var(--destructive)); }
+.dark .pd-trade-preview .is-profit { color: hsl(150 60% 58%); }
+.pd-periods { display: grid; gap: 10px; }
+.pd-periods-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; align-items: baseline; font-size: 13px; }
+.pd-periods-head small { color: hsl(var(--muted-foreground)); font-size: 11px; }
+.pd-periods-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.pd-periods-grid > div { display: grid; gap: 4px; align-content: start; padding: 10px; border-radius: 10px; background: hsl(var(--muted) / .35); }
+.pd-periods-grid > div > span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: hsl(var(--muted-foreground)); }
+.pd-period-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.pd-period-row small { color: hsl(var(--muted-foreground)); font-size: 11px; }
+@media (max-width: 767px) { .pd-periods-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

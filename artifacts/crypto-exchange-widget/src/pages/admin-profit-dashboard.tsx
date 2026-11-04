@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { customFetch } from '@workspace/api-client-react';
 import { formatDisplayAmount } from '@workspace/amount-format';
-import type { ProfitReport, ProfitRow, ProfitBasis } from '@workspace/api-zod';
+import type { ProfitReport, ProfitRow, LegacyProfitBasis } from '@workspace/api-zod';
+import { TradeEditor, PeriodSummary } from './revenue-trade-editor';
 import { Download, Loader2, Search, X, ShieldCheck, AlertTriangle, Undo2, Plus, ExternalLink } from 'lucide-react';
 import { ErrorState, InlineNotice, LoadingBlock } from '../components/shared-app-ui';
 import './admin-profit-dashboard.css';
@@ -38,6 +39,7 @@ function Money({ value, currency }: { value: string | null | undefined; currency
 function StateTag({ state }: { state: ProfitRow['state'] }) {
   if (state === 'verified') return <span className="pd-tag is-verified"><ShieldCheck size={12} />Verified</span>;
   if (state === 'reversed') return <span className="pd-tag is-reversed"><Undo2 size={12} />Reversed</span>;
+  if (state === 'not_completed') return <span className="pd-tag is-reversed">Not completed</span>;
   return <span className="pd-tag is-missing"><AlertTriangle size={12} />Cost missing</span>;
 }
 
@@ -52,7 +54,7 @@ function basisErrors(b: BasisForm) {
   if (!b.costsVerified) e.push('Confirm all costs and fees are verified.');
   return e;
 }
-function basisPayload(b: BasisForm): ProfitBasis {
+function basisPayload(b: BasisForm): LegacyProfitBasis {
   return { currency: b.currency.trim().toUpperCase(), sourceUnitValue: b.sourceUnitValue, targetUnitCost: b.targetUnitCost, providerFee: b.providerFee, networkFee: b.networkFee, bankFee: b.bankFee, otherFee: b.otherFee, evidence: b.evidence.trim(), costsVerified: true };
 }
 
@@ -95,6 +97,10 @@ function RowDetail({ row, report, onClose }: { row: ProfitRow; report: ProfitRep
   const bErr = basisErrors(basis);
   const adjValid = SIGNED.test(adj.amount) && adj.reason.trim().length >= 8 && !!adj.currency.trim();
   const cur = row.basis?.currency ?? '';
+  const legacy = row.basis && !('calculation' in row.basis) ? row.basis : null;
+  const trade = row.basis && 'calculation' in row.basis ? row.basis : null;
+  const td = row.tradeDetails;
+  const notDone = row.state === 'not_completed';
   return <div className="pd-detail panel" data-testid="profit-row-detail">
     <div className="pd-detail-head">
       <div><span className="section-kicker">{row.type} order</span><h2>{row.id}</h2><small>{row.fromAsset}{row.fromNetwork ? ` (${row.fromNetwork})` : ''} → {row.toAsset}{row.toNetwork ? ` (${row.toNetwork})` : ''} · {row.paymentMethod || 'No method'}</small></div>
@@ -111,12 +117,14 @@ function RowDetail({ row, report, onClose }: { row: ProfitRow; report: ProfitRep
       <div><dt>Adjustments (net)</dt><dd><Money value={row.adjustments} currency={cur} /></dd></div>
       <div><dt>Net profit</dt><dd>{row.netProfit == null ? <span className="pd-unavailable">Profit unavailable</span> : <Money value={row.netProfit} currency={cur} />}</dd></div>
     </dl>
-    {row.basis && <div className="pd-basis-box"><strong>Cost basis {row.basisId ? <small>#{row.basisId}</small> : null}</strong><p>Source value {fmt(row.basis.sourceUnitValue)} {row.basis.currency}/{row.fromAsset} · Target cost {fmt(row.basis.targetUnitCost)} {row.basis.currency}/{row.toAsset} · Provider {fmt(row.basis.providerFee)} · Network {fmt(row.basis.networkFee)} · Bank {fmt(row.basis.bankFee)} · Other {fmt(row.basis.otherFee)}</p><p className="pd-evidence">{row.basis.evidence}</p></div>}
+    {legacy && <div className="pd-basis-box"><strong>Cost basis {row.basisId ? <small>#{row.basisId}</small> : null}</strong><p>Source value {fmt(legacy.sourceUnitValue)} {legacy.currency}/{row.fromAsset} · Target cost {fmt(legacy.targetUnitCost)} {legacy.currency}/{row.toAsset} · Provider {fmt(legacy.providerFee)} · Network {fmt(legacy.networkFee)} · Bank {fmt(legacy.bankFee)} · Other {fmt(legacy.otherFee)}</p><p className="pd-evidence">{legacy.evidence}</p></div>}
+    {trade && <div className="pd-basis-box" data-testid="trade-basis-details"><strong>Actual trade basis {row.basisId ? <small>#{row.basisId}</small> : null}</strong>{td ? <p>{fmt(td.quantity)} {td.asset} · Buy {fmt(td.buyTotal)} · Sell {fmt(td.sellTotal)} · Commission 1 {fmt(td.commission1)} · Receiving commission {fmt(td.receivingCommission)} · Fixed fee {fmt(td.additionalFixedFee)} {trade.currency}</p> : <p>Buy {trade.buyMode} {fmt(trade.buyValue)} {trade.buyCurrency} · Sell {trade.sellMode} {fmt(trade.sellValue)} {trade.sellCurrency} · Commission 1 {fmt(trade.commission1Percent)}% · Receiving {fmt(trade.receivingCommissionPercent)}% · Fixed {fmt(trade.additionalFixedFee)} {trade.currency}</p>}<p className="pd-evidence">{trade.evidence}</p></div>}
+    {notDone && <p className="pd-note">Order is not completed ({row.status}). Profit is unavailable and no costs can be recorded until it completes.</p>}
     {row.state === 'reversed' && <p className="pd-note">Reversed order: the base spread is excluded. Net profit reflects only explicit residual-cost adjustments.</p>}
     {row.state === 'missing' && row.type === 'Convert' && <p className="pd-note">Payout facts stay unvalued until the Owner attests verified evidence.</p>}
     <div className="pd-audit"><strong>Immutable history</strong>{row.audit.length === 0 ? <p className="pd-note">No basis records or adjustments yet.</p> :
       <ol>{row.audit.map(a => <li key={a.id}><span className="pd-audit-kind">{a.kind}</span><span className="pd-audit-when">{new Date(a.createdAt).toLocaleString()}</span>{a.amount != null && <Money value={a.amount} currency={a.currency} />}{a.amount == null && <small>{a.currency}</small>}<p>{a.reason}</p></li>)}</ol>}</div>
-    {report.owner && row.state !== 'reversed' && (showBasis ? <form className="pd-subform" onSubmit={e => { e.preventDefault(); if (!bErr.length) recordBasis.mutate(); }}>
+    {report.owner && !notDone && row.state !== 'reversed' && (showBasis ? <form className="pd-subform" onSubmit={e => { e.preventDefault(); if (!bErr.length) recordBasis.mutate(); }}>
       <h3>{row.basis ? 'Record corrective basis' : 'Record verified historical costs'}</h3>
       {row.basis && <p className="pd-note">Appends a new basis version for this order. Earlier records stay in history; the order itself is not changed.</p>}
       <BasisFields value={lockCurrency ? { ...basis, currency: lockCurrency } : basis} onChange={setBasis} currencies={report.currencies} sourceLabel={row.fromAsset} targetLabel={row.toAsset} lockCurrency={lockCurrency} />
@@ -124,7 +132,8 @@ function RowDetail({ row, report, onClose }: { row: ProfitRow; report: ProfitRep
       <div className="pd-form-actions"><button type="button" className="button button-secondary" onClick={() => setShowBasis(false)}>Cancel</button><button className="button button-primary" disabled={!!bErr.length || recordBasis.isPending}>{recordBasis.isPending && <Loader2 className="spin" size={14} />}Save basis</button></div>
       {!!bErr.length && <small className="pd-hint">{bErr[0]}</small>}
     </form> : <button type="button" className="button button-primary" onClick={() => setShowBasis(true)} data-testid="button-record-costs">{row.basis ? 'Record corrective basis' : 'Record verified costs'}</button>)}
-    {report.owner && <form className="pd-subform" onSubmit={e => { e.preventDefault(); if (adjValid) addAdj.mutate(); }}>
+    {report.owner && !notDone && <TradeEditor row={row} report={report} accountingCurrency={lockCurrency ?? row.basis?.currency ?? (report.currencies.includes('EUR') ? 'EUR' : report.currencies[0] ?? 'EUR')} />}
+    {report.owner && !notDone && <form className="pd-subform" onSubmit={e => { e.preventDefault(); if (adjValid) addAdj.mutate(); }}>
       <h3>Append adjustment</h3>
       <div className="pd-form-grid">
         <label><span className="field-label">Currency</span><select value={adj.currency} onChange={e => setAdj({ ...adj, currency: e.target.value })}>{(report.currencies.includes(adj.currency) ? report.currencies : [adj.currency, ...report.currencies]).map(c => <option key={c}>{c}</option>)}</select></label>
@@ -220,6 +229,7 @@ export function ProfitDashboard() {
           <div className="pd-card-grid"><div><small>Gross revenue (valued proceeds)</small><Money value={s.revenue} /></div><div><small>Total costs</small><Money value={s.costs} /></div><div><small>Acquisition</small><Money value={s.acquisitionCost} /></div><div><small>Fees</small><Money value={s.fees} /></div><div><small>Adjustments</small><Money value={s.adjustments} /></div></div>
         </div>)}
       </section>
+      <PeriodSummary periods={data.periods} />
       {!!data.volume.length && <p className="pd-volume">Customer volume (not revenue): {data.volume.map(v => `${fmt(v.amount)} ${v.currency}`).join(' · ')}</p>}
       <details className="panel pd-formula"><summary>How profit is calculated</summary>
         <p><code>Revenue = customer amount sent × source unit value</code><br /><code>Acquisition cost = amount paid out × target unit cost</code><br /><code>Net profit = Revenue − Acquisition cost − (provider + network + bank + other fees) + adjustments</code></p>
