@@ -40,6 +40,7 @@ paths:
         - { name: type, in: query, schema: { type: string, enum: [all, Swap, Convert] } }
         - { name: profit, in: query, schema: { type: string, enum: [all, profit, loss, missing] } }
         - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: completedOnly, in: query, schema: { type: boolean }, description: Only completed orders contribute to this view and its summaries }
       responses:
         "200":
           description: ProfitReport; strict shared runtime types live in profit-dashboard.ts. All amounts are exact strings.
@@ -84,12 +85,24 @@ paths:
       responses:
         "201": { description: Recorded basis with frozen execution quantities }
         "200": { description: Idempotent replay }
+  /admin/profit-dashboard/my-rates:
+    post:
+      operationId: saveProfitMyRate
+      summary: Owner accounting-only current buy/sell rate; append-only, future completions only
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProfitMyRateConfig" }
+      responses:
+        "201": { description: Saved new current accounting rate }
+        "200": { description: Idempotent replay }
   /admin/profit-dashboard/orders/{type}/{id}/trade:
     post:
       operationId: recordOrderProfitTrade
-      summary: Owner-only completed Swap acquisition and sale accounting; no order or payout mutation
+      summary: Owner-only completed Swap/Convert acquisition and sale accounting; no order or payout mutation
       parameters:
-        - { name: type, in: path, required: true, schema: { type: string, enum: [Swap] } }
+        - { name: type, in: path, required: true, schema: { type: string, enum: [Swap, Convert] } }
         - { name: id, in: path, required: true, schema: { type: string } }
       requestBody:
         required: true
@@ -5014,6 +5027,20 @@ components:
       name: __session
       description: Clerk owner session. The authenticated user must match the single active owner account in the server-side operator registry.
   schemas:
+    ProfitMyRateConfig:
+      type: object
+      required: [kind, asset, currency, buyRate, sellRate, requestId]
+      properties:
+        kind: { type: string, enum: [my_rate] }
+        asset: { type: string }
+        currency: { type: string, description: Quote/accounting currency per one asset unit }
+        network: { type: string, default: "", description: Empty means all networks of this asset }
+        buyRate: { type: string }
+        sellRate: { type: string }
+        partnerFeePercent: { type: string, default: "0" }
+        receivingFeePercent: { type: string, default: "0" }
+        active: { type: boolean, default: true }
+        requestId: { type: string, format: uuid }
     OrderProfitTradeConfig:
       type: object
       required: [calculation, currency, quantitySide, buyMode, sellMode, buyValue, sellValue, buyCurrency, sellCurrency, buyFx, sellFx, evidence, costsVerified, requestId]

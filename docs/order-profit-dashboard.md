@@ -3,7 +3,27 @@
 Development implementation at **Admin → Revenue** (`/admin/revenue`).
 This page is an accounting read model, not customer pricing or a settlement engine.
 
-## Additive per-order buy/sell accounting
+## Current Owner experience: My Rates at completion
+
+Revenue now exposes four summary cards, one compact **My Rates** section and a completed Swap/Convert order list with **Edit** buttons. Earlier Cost Basis Versions screens are no longer exposed, but their backend, records and audit history are retained.
+
+The Owner saves a buy/sell rate per asset and quote currency, optionally for an exact network. Rates are accounting-only and never change customer quotes, fees, payouts or original orders. Partner Fee is a percentage of buy cost; Receiving Fee is a percentage of sale proceeds.
+
+On a real status transition to `completed`, Revenue-only database triggers append the executed quantities and the committed current My Rates versions to immutable accounting metadata. A separate retrying worker normally calculates and saves profit within five seconds. Neither later rate edits nor worker downtime can change the captured versions. A unique completion identity prevents repeated Done saves, re-completion or concurrent workers from duplicating profit.
+
+For 1,000 USDT at `0.890/0.900 EUR`, gross profit is `10 EUR`. A later `0.892/0.905` configuration gives future completions `13 EUR`; it never revalues the earlier order.
+
+Automatic selection uses the crypto leg for fiat/crypto trades and the sending asset for crypto/crypto. Exact network settings outrank All networks, including explicitly paused exact settings. A quote matching the other leg is preferred; otherwise the pair must be unambiguous. No FX, missing rates, quantities or profits are invented. Profit currencies remain separate.
+
+Each completed order can override Buy Rate, Sell Rate, Partner Fee and Receiving Fee. This appends a corrective snapshot, retains fixed costs and adjustments once, and cannot change customer/order data. Existing recorded fees lock their currency; old total-mode or foreign-currency records require explicit verified unit-rate entry rather than a rounded inferred rate.
+
+Completion snapshots permanently store both rates and calculated totals. Missing rates/facts produce **Profit Unavailable** permanently until an explicit Owner correction; adding today's rate cannot backfill them. Legacy completed imports have no invented completion timestamp and are not assigned today's rates. UTC period figures use recorded completion dates; undated legacy profit remains in all-time totals only.
+
+Owner endpoint: `POST /api/admin/profit-dashboard/my-rates`, strict `ProfitMyRateInput` with stable UUID idempotency. `GET /api/admin/profit-dashboard?completedOnly=true` and the CSV equivalent exclude all non-completed orders. Per-order `/trade` now supports both Swap and Convert.
+
+Migration `0153_revenue_completion_snapshots.sql` extends only accounting metadata constraints/indexes and adds two completion-capture triggers. It does not backfill or update operational rows. Preserve records on rollback; disable the two Revenue triggers/worker first and retain a Revenue-compatible reader that ignores `my_rate` configs in legacy rule parsing. Do not delete accounting history to run an older UI.
+
+## Legacy interfaces and earlier internal accounting reference
 
 All non-test Swap orders are now visible, including unfinished orders and historical/future assets, networks and payment methods. Non-completed orders are read-only and show **Profit unavailable**; they never contribute realized profit. Existing Convert inclusion, route Cost Basis versions, legacy cost forms, adjustment history and legacy calculations are retained.
 

@@ -62,6 +62,14 @@ const validateTradeFx = (v: { currency: string; buyCurrency: string; sellCurrenc
 };
 export const ProfitTradeBasisInput = z.object(tradeFields).strict().superRefine(validateTradeFx);
 export const ProfitTradeRecordInput = z.object({ ...tradeFields, requestId: z.string().uuid() }).strict().superRefine(validateTradeFx);
+export const ProfitMyRateInput = z.object({
+  kind: z.literal("my_rate"), asset: symbol, currency: symbol,
+  network: z.string().trim().max(160).default(""),
+  buyRate: positiveDecimal, sellRate: positiveDecimal,
+  partnerFeePercent: percentage.default("0"), receivingFeePercent: percentage.default("0"),
+  active: z.boolean().default(true), requestId: z.string().uuid(),
+}).strict().refine(v => v.asset !== v.currency, "Asset and quote currency must differ.");
+export type ProfitMyRate = z.infer<typeof ProfitMyRateInput> & { id: string; effectiveAt: string };
 export const ProfitAccountingBasisInput = z.union([ProfitBasisInput, ProfitTradeBasisInput]);
 export type ProfitTradeBasis = z.infer<typeof ProfitTradeBasisInput>;
 export type ProfitBasis = z.infer<typeof ProfitAccountingBasisInput>;
@@ -78,6 +86,7 @@ export type ProfitRow = {
     asset: string; quantity: string; buyTotal: string; sellTotal: string;
     commission1: string; receivingCommission: string; additionalFixedFee: string;
   } | null;
+  completion?: { at: string; rateId: string | null; state: "recorded" | "unavailable" | "pending"; reason?: string };
   audit: { id: string; kind: string; currency: string; amount: string | null; reason: string; createdAt: string }[];
 };
 export type ProfitReport = {
@@ -88,8 +97,10 @@ export type ProfitReport = {
   completedOrders: number; missingCosts: number;
   volume: { currency: string; amount: string }[];
   assetKinds?: Record<string, "crypto" | "fiat">;
+  myRates?: ProfitMyRate[];
+  rateNetworks?: string[];
   periods?: {
-    asOf: string; timeZone: "UTC"; dateBasis: "order_creation";
+    asOf: string; timeZone: "UTC"; dateBasis: "order_creation" | "completion";
     daily: ProfitPeriodTotal[]; weekly: ProfitPeriodTotal[]; monthly: ProfitPeriodTotal[]; total: ProfitPeriodTotal[];
   };
 };

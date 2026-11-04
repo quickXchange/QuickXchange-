@@ -20,4 +20,8 @@ profit?: GetOrderProfitDashboardProfit;
  * @minimum 1
  */
 page?: number;
+/**
+ * Only completed orders contribute to this view and its summaries
+ */
+completedOnly?: boolean;
 };

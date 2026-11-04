@@ -16,6 +16,7 @@ import { startConvertXmlPublicationWorker } from "./lib/rates-xml-convert";
 import { startManualXmlPublicationWorker } from "./lib/rates-xml-export";
 import { applyConfiguredCustomerNotificationRecovery } from "./lib/customer-status-notifications";
 import { startTelegramSupportBotWorker } from "./lib/telegram-support-bot-outbox";
+import { startRevenueCompletionWorker } from "./lib/order-profit-automatic";
 
 const rawPort = process.env["PORT"];
 
@@ -70,6 +71,7 @@ async function start() {
   const stopConvertWorker = startConvertReconciliationWorker();
   const stopConvertXmlWorker = startConvertXmlPublicationWorker();
   const stopManualXmlWorker = startManualXmlPublicationWorker();
+  const stopRevenueWorker = startRevenueCompletionWorker();
   const stopNewsletterWorker = startNewsletterWorker();
   const stopTelegramWorker = startTelegramNotificationWorker();
   const stopTelegramNewsWorker = startTelegramNewsWorker();
@@ -118,6 +120,7 @@ async function start() {
   server.on("close", stopConvertWorker);
   server.on("close", stopConvertXmlWorker);
   server.on("close", stopManualXmlWorker);
+  server.on("close", stopRevenueWorker);
   server.on("close", stopQuickexVerification);
 
   let shuttingDown = false;

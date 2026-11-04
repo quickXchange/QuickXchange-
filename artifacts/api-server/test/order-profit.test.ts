@@ -10,6 +10,7 @@ import { calculateProfit, calculateTradeProfit, sum } from "../src/lib/order-pro
 import { ProfitTradeBasisInput, ProfitTradeRecordInput, type ProfitTradeBasis } from "@workspace/api-zod";
 import { profitReport } from "../src/lib/order-profit";
 import { profitPeriods } from "../src/lib/order-profit-periods";
+import { processRevenueCompletions } from "../src/lib/order-profit-automatic";
 import router from "../src/routes/order-profit";
 import { adminPolicy } from "../src/lib/admin-policy";
 import { configureOperatorAuthorizationForTests } from "../src/lib/operator-auth";
@@ -297,10 +298,10 @@ test("new trade basis replaces old fees, preserves history, and keeps existing s
   assert.equal((await profitReport({ page: 1, search: "TRADE-REPLACE" }, true)).rows[0].netProfit, null);
 });
 
-test("new per-order accounting is Owner-only, completed Swap-only, with clear validation failures", async () => {
+test("new per-order accounting is Owner-only, completed Swap/Convert-only, with clear validation failures", async () => {
   assert.equal((await request("/orders/Swap/TRADE-BTC/trade", { ...trade, requestId: randomUUID() }, "profit-viewer")).status, 403);
   assert.equal((await request("/orders/Swap/EXCLUDE-pending/trade", { ...trade, requestId: randomUUID() })).status, 409);
-  assert.equal((await request("/orders/Convert/PROFIT-CONVERT/trade", { ...trade, requestId: randomUUID() })).status, 409);
+  assert.equal((await request("/orders/Convert/PROFIT-CONVERT/trade", { ...trade, requestId: randomUUID() })).status, 201);
   assert.equal((await request("/orders/Swap/TRADE-BTC/trade", { ...trade, buyFx: "0.9", requestId: randomUUID() })).status, 400);
   const csv = await (await request(".csv?search=TRADE-BTC")).text();
   assert(csv.includes('"Commission 1 %"')); assert(csv.includes('"60000"')); assert(csv.includes('"1000"'));
@@ -330,4 +331,157 @@ test("UTC daily, ISO-week, month and total summaries exclude uncompleted and mis
   assert.equal(periods.timeZone, "UTC");
   const endpoint = await (await request("?search=TRADE-BTC")).json();
   assert.equal(endpoint.periods.total[0].profit, "1000");
+});
+
+const myRate = {
+  kind: "my_rate", asset: "USDT", currency: "EUR", network: "",
+  buyRate: "0.890", sellRate: "0.900", partnerFeePercent: "0", receivingFeePercent: "0", active: true,
+};
+async function saveMyRate(values: Partial<typeof myRate> = {}) {
+  const response = await request("/my-rates", { ...myRate, ...values, requestId: randomUUID() });
+  assert.equal(response.status, 201, await response.clone().text());
+  return response.json();
+}
+async function pendingSwap(id: string, values: Partial<typeof ordersTable.$inferInsert> = {}) {
+  await seed(id, { status: "pending", fromAsset: "USDT", fromNetwork: "TRC20",
+    toAsset: "EUR", toNetwork: "SEPA", amount: "1000", receiveAmount: "900", ...values });
+}
+async function completeSwap(id: string) {
+  await db.update(ordersTable).set({ status: "completed" }).where(eq(ordersTable.id, id));
+}
+
+test("My Rates is Owner-only, exact, append-only and idempotent; invalid percentages fail clearly", async () => {
+  const body = { ...myRate, requestId: randomUUID() };
+  assert.equal((await request("/my-rates", body, "profit-viewer")).status, 403);
+  const saves = await Promise.all(Array.from({ length: 4 }, () => request("/my-rates", body)));
+  assert(saves.every(r => r.ok)); assert.equal(saves.filter(r => r.status === 201).length, 1);
+  assert.equal((await request("/my-rates", { ...body, sellRate: "0.901" })).status, 409);
+  assert.equal((await request("/my-rates", { ...body, requestId: randomUUID(), partnerFeePercent: "abc" })).status, 400);
+  assert.equal((await request("/my-rates", { ...body, requestId: randomUUID(), buyRate: "0" })).status, 400);
+  assert.equal((await request("/my-rates", { ...body, requestId: randomUUID(), asset: "EUR" })).status, 400);
+  const report = await profitReport({ page: 1 }, true);
+  assert.equal(report.myRates?.filter(r => r.asset === "USDT").length, 1);
+});
+
+test("completion freezes committed My Rates, not creation time or delayed worker recovery time", async () => {
+  await pendingSwap("AUTO-YESTERDAY");
+  await pendingSwap("AUTO-TOMORROW");
+  await completeSwap("AUTO-YESTERDAY");
+  await saveMyRate({ buyRate: "0.892", sellRate: "0.905" });
+  // Worker intentionally runs AFTER the change: yesterday must still use A.
+  await completeSwap("AUTO-TOMORROW");
+  await Promise.all([processRevenueCompletions(), processRevenueCompletions()]);
+  const report = await profitReport({ page: 1, search: "AUTO-", completedOnly: true }, true);
+  const yesterday = report.rows.find(r => r.id === "AUTO-YESTERDAY")!;
+  const tomorrow = report.rows.find(r => r.id === "AUTO-TOMORROW")!;
+  assert.equal(yesterday.grossSpread, "10"); assert.equal(yesterday.netProfit, "10");
+  assert.equal(tomorrow.netProfit, "13");
+  assert.equal(yesterday.basis && "calculation" in yesterday.basis && yesterday.basis.buyValue, "0.890");
+  assert(yesterday.completedAt); assert.equal(report.periods?.dateBasis, "completion");
+  assert.equal(report.periods?.daily.find(p => p.currency === "EUR")?.profit, "23");
+  const entries = await db.select().from(profitRecordsTable).where(eq(profitRecordsTable.orderKey, "Swap:AUTO-YESTERDAY"));
+  assert.equal(entries.filter(r => r.kind === "basis").length, 1);
+  assert.equal(entries.find(r => r.kind === "basis")?.execution?.profit?.netProfit, "10");
+  await db.update(ordersTable).set({ sentAmountOverride: "2000" }).where(eq(ordersTable.id, "AUTO-YESTERDAY"));
+  const frozen = (await profitReport({ page: 1, search: "AUTO-YESTERDAY" }, true)).rows[0];
+  assert.equal(frozen.amount, "1000"); assert.equal(frozen.netProfit, "10");
+});
+
+test("a concurrent uncommitted My Rates edit cannot be applied retroactively to a completion", async () => {
+  await pendingSwap("AUTO-COMMITTED");
+  await db.transaction(async tx => {
+    await tx.insert(profitRatesTable).values({
+      config: { ...myRate, buyRate: "0.8", sellRate: "1", requestId: randomUUID() },
+      actorId: "profit-owner", effectiveAt: sql`clock_timestamp()`,
+    });
+    await completeSwap("AUTO-COMMITTED");
+  });
+  await processRevenueCompletions();
+  assert.equal((await profitReport({ page: 1, search: "AUTO-COMMITTED" }, true)).rows[0].netProfit, "13");
+});
+
+test("per-order Edit overrides rates and both fees, retains immutable snapshots and cannot duplicate on repeated Done", async () => {
+  await saveMyRate({ partnerFeePercent: "1", receivingFeePercent: "2" });
+  await pendingSwap("AUTO-FEES"); await completeSwap("AUTO-FEES"); await processRevenueCompletions();
+  let row = (await profitReport({ page: 1, search: "AUTO-FEES" }, true)).rows[0];
+  assert.equal(row.tradeDetails?.commission1, "8.9"); assert.equal(row.tradeDetails?.receivingCommission, "18");
+  assert.equal(row.netProfit, "-16.9");
+  const original = (await db.select().from(ordersTable).where(eq(ordersTable.id, "AUTO-FEES")))[0];
+  const edit = { ...trade, buyValue: "0.880", sellValue: "0.910", commission1Percent: "1", receivingCommissionPercent: "1", requestId: randomUUID() };
+  assert((await request("/orders/Swap/AUTO-FEES/trade", edit)).ok);
+  assert((await request("/orders/Swap/AUTO-FEES/trade", edit)).ok);
+  row = (await profitReport({ page: 1, search: "AUTO-FEES" }, true)).rows[0];
+  assert.equal(row.netProfit, "12.1");
+  assert.deepEqual((await db.select().from(ordersTable).where(eq(ordersTable.id, "AUTO-FEES")))[0], original);
+  await db.update(ordersTable).set({ status: "processing" }).where(eq(ordersTable.id, "AUTO-FEES"));
+  await completeSwap("AUTO-FEES"); await completeSwap("AUTO-FEES"); await processRevenueCompletions();
+  const entries = await db.select().from(profitRecordsTable).where(eq(profitRecordsTable.orderKey, "Swap:AUTO-FEES"));
+  assert.equal(entries.filter(r => r.kind === "completion").length, 1);
+  assert.equal(entries.filter(r => r.kind === "basis").length, 2);
+  assert.equal((await profitReport({ page: 1, search: "AUTO-FEES" }, true)).rows[0].netProfit, "12.1");
+});
+
+test("missing rates stay unavailable permanently; disabled exact network does not silently use Any", async () => {
+  await pendingSwap("AUTO-NO-RATE", { fromAsset: "FUTURECOIN" });
+  await completeSwap("AUTO-NO-RATE");
+  await saveMyRate({ asset: "FUTURECOIN", buyRate: "10", sellRate: "11" });
+  await saveMyRate({ network: "BEP20", active: false });
+  await pendingSwap("AUTO-DISABLED", { fromNetwork: "BEP20" }); await completeSwap("AUTO-DISABLED");
+  await processRevenueCompletions(); await processRevenueCompletions();
+  for (const id of ["AUTO-NO-RATE", "AUTO-DISABLED"]) {
+    const row = (await profitReport({ page: 1, search: id }, true)).rows[0];
+    assert.equal(row.netProfit, null); assert.equal(row.completion?.state, "unavailable");
+  }
+  const pending = await db.select().from(profitRecordsTable).where(eq(profitRecordsTable.orderKey, "Swap:AUTO-NO-RATE"));
+  assert.equal(pending.filter(r => r.kind === "unavailable").length, 1);
+});
+
+test("canonical Convert completion uses verified paid quantity, ignores its mirror and supports individual editing", async () => {
+  await saveMyRate();
+  await seed("AUTO-CONVERT", { type: "instant", status: "awaiting funds" });
+  await db.insert(quickexOrdersTable).values({
+    legacyOrderId: "AUTO-CONVERT", status: "awaiting funds", requestFingerprint: "auto-convert", idempotencyKey: "auto-convert",
+    route: { fromAsset: "USDT", fromNetwork: "TRC20", toAsset: "BTC", toNetwork: "BTC" },
+    amounts: { amount: "999", receiveAmount: "0.01" }, addresses: {}, createdAt: new Date(), updatedAt: new Date(),
+  });
+  await db.update(quickexOrdersTable).set({ status: "completed",
+    amounts: { amount: "999", paidAmount: "500", actualReceiveAmount: "0.005" },
+  }).where(eq(quickexOrdersTable.legacyOrderId, "AUTO-CONVERT"));
+  await db.update(ordersTable).set({ status: "completed" }).where(eq(ordersTable.id, "AUTO-CONVERT"));
+  await processRevenueCompletions();
+  let row = (await profitReport({ page: 1, search: "AUTO-CONVERT", completedOnly: true }, true)).rows[0];
+  assert.equal(row.amount, "500"); assert.equal(row.netProfit, "5");
+  assert.equal(row.tradeDetails?.quantity, "500");
+  const entries = await db.select().from(profitRecordsTable).where(eq(profitRecordsTable.orderKey, "Convert:AUTO-CONVERT"));
+  assert.equal(entries.filter(r => r.kind === "completion").length, 1);
+  assert((await request("/orders/Convert/AUTO-CONVERT/trade", { ...trade, buyValue: "0.89", sellValue: "0.91", requestId: randomUUID() })).ok);
+  row = (await profitReport({ page: 1, search: "AUTO-CONVERT" }, true)).rows[0];
+  assert.equal(row.netProfit, "10");
+});
+
+test("completed-only summaries exclude refunds, unfinished orders and unavailable profit", async () => {
+  await db.update(ordersTable).set({ status: "refunded" }).where(eq(ordersTable.id, "AUTO-YESTERDAY"));
+  const report = await profitReport({ page: 1, search: "AUTO-", completedOnly: true }, true);
+  assert(report.rows.every(r => r.status === "completed"));
+  assert(!report.rows.some(r => r.id === "AUTO-YESTERDAY"));
+  assert.equal(report.missingCosts, 2);
+  assert.equal(report.summary.find(s => s.currency === "EUR")?.profit, "48.1");
+});
+
+test("automatic Buy, partial BTC/USD and future asset/network pairs use their own unit and quote currencies", async () => {
+  await saveMyRate({ asset: "BTC", currency: "USD", buyRate: "60000", sellRate: "61000" });
+  await pendingSwap("DYNAMIC-BUY", { fromAsset: "EUR", fromNetwork: "SEPA", toAsset: "USDT",
+    toNetwork: "TRC20", amount: "900", receiveAmount: "1000" });
+  await pendingSwap("DYNAMIC-BTC", { fromAsset: "BTC", fromNetwork: "BTC", toAsset: "USD",
+    amount: "0.25", receiveAmount: "15250" });
+  await pendingSwap("DYNAMIC-FUTURE", { fromAsset: "FUTURECOIN", fromNetwork: "FutureChain", toAsset: "EUR" });
+  for (const id of ["DYNAMIC-BUY", "DYNAMIC-BTC", "DYNAMIC-FUTURE"]) await completeSwap(id);
+  await processRevenueCompletions();
+  const report = await profitReport({ page: 1, search: "DYNAMIC-", completedOnly: true }, true);
+  assert.equal(report.rows.find(r => r.id === "DYNAMIC-BUY")?.tradeDetails?.asset, "USDT");
+  assert.equal(report.rows.find(r => r.id === "DYNAMIC-BUY")?.netProfit, "10");
+  assert.equal(report.rows.find(r => r.id === "DYNAMIC-BTC")?.netProfit, "250");
+  assert.equal(report.rows.find(r => r.id === "DYNAMIC-BTC")?.basis?.currency, "USD");
+  assert.equal(report.rows.find(r => r.id === "DYNAMIC-FUTURE")?.netProfit, "1000");
+  assert.equal(report.summary.length, 2, "EUR and USD profits must remain separate, never silently converted");
 });

@@ -5,6 +5,28 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type ProfitMyRateConfigKind = typeof ProfitMyRateConfigKind[keyof typeof ProfitMyRateConfigKind];
+
+
+export const ProfitMyRateConfigKind = {
+  my_rate: 'my_rate',
+} as const;
+
+export interface ProfitMyRateConfig {
+  kind: ProfitMyRateConfigKind;
+  asset: string;
+  /** Quote/accounting currency per one asset unit */
+  currency: string;
+  /** Empty means all networks of this asset */
+  network?: string;
+  buyRate: string;
+  sellRate: string;
+  partnerFeePercent?: string;
+  receivingFeePercent?: string;
+  active?: boolean;
+  requestId: string;
+}
+
 export type OrderProfitTradeConfigCalculation = typeof OrderProfitTradeConfigCalculation[keyof typeof OrderProfitTradeConfigCalculation];
 
 
@@ -7851,6 +7873,10 @@ profit?: GetOrderProfitDashboardProfit;
  * @minimum 1
  */
 page?: number;
+/**
+ * Only completed orders contribute to this view and its summaries
+ */
+completedOnly?: boolean;
 };
 
 export type GetOrderProfitDashboardType = typeof GetOrderProfitDashboardType[keyof typeof GetOrderProfitDashboardType];

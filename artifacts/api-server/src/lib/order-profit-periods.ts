@@ -3,7 +3,7 @@ import { sum } from "./order-profit-math";
 
 // Additive completed-order summaries use the same UTC order-creation date as
 // the existing Revenue filters. No completion timestamps or FX are invented.
-export function profitPeriods(rows: ProfitRow[], now = new Date()) {
+export function profitPeriods(rows: ProfitRow[], now = new Date(), byCompletion = false) {
   const today = now.toISOString().slice(0, 10);
   const monday = new Date(`${today}T00:00:00.000Z`);
   monday.setUTCDate(monday.getUTCDate() - (monday.getUTCDay() + 6) % 7);
@@ -12,7 +12,8 @@ export function profitPeriods(rows: ProfitRow[], now = new Date()) {
   const aggregate = (from?: string): ProfitPeriodTotal[] => {
     const totals = new Map<string, ProfitPeriodTotal>();
     for (const row of rows) {
-      const date = row.createdAt.slice(0, 10);
+      if (byCompletion && from && !row.completedAt) continue;
+      const date = (byCompletion ? row.completedAt ?? row.createdAt : row.createdAt).slice(0, 10);
       if (row.status !== "completed" || row.netProfit === null || !row.basis ||
         (from && (date < from || date > today))) continue;
       const currency = row.basis.currency;
@@ -23,6 +24,6 @@ export function profitPeriods(rows: ProfitRow[], now = new Date()) {
     }
     return [...totals.values()].sort((a, b) => a.currency.localeCompare(b.currency));
   };
-  return { asOf: now.toISOString(), timeZone: "UTC" as const, dateBasis: "order_creation" as const,
+  return { asOf: now.toISOString(), timeZone: "UTC" as const, dateBasis: byCompletion ? "completion" as const : "order_creation" as const,
     daily: aggregate(today), weekly: aggregate(week), monthly: aggregate(month), total: aggregate() };
 }

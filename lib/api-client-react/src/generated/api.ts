@@ -248,6 +248,7 @@ import type {
   PopularExchangePairs,
   PreviewAdminPartnerLogoParams,
   PreviewAdminSocialTrustIconParams,
+  ProfitMyRateConfig,
   PublicNotificationSettings,
   PublicOrderStatus,
   PublicSiteContent,
@@ -659,7 +660,78 @@ export const useRecordOrderProfitBasis = <TError = ErrorType<unknown>,
       return useMutation(getRecordOrderProfitBasisMutationOptions(options));
     }
 
-export const getRecordOrderProfitTradeUrl = (type: 'Swap',
+export const getSaveProfitMyRateUrl = () => {
+
+
+
+
+  return `/api/admin/profit-dashboard/my-rates`
+}
+
+/**
+ * @summary Owner accounting-only current buy/sell rate; append-only, future completions only
+ */
+export const saveProfitMyRate = async (profitMyRateConfig: ProfitMyRateConfig, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getSaveProfitMyRateUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(profitMyRateConfig)
+  }
+);}
+
+
+
+
+
+export const getSaveProfitMyRateMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveProfitMyRate>>, TError,{data: BodyType<ProfitMyRateConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveProfitMyRate>>, TError,{data: BodyType<ProfitMyRateConfig>}, TContext> => {
+
+const mutationKey = ['saveProfitMyRate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveProfitMyRate>>, {data: BodyType<ProfitMyRateConfig>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveProfitMyRate(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveProfitMyRateMutationResult = NonNullable<Awaited<ReturnType<typeof saveProfitMyRate>>>
+    export type SaveProfitMyRateMutationBody = BodyType<ProfitMyRateConfig>
+    export type SaveProfitMyRateMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Owner accounting-only current buy/sell rate; append-only, future completions only
+ */
+export const useSaveProfitMyRate = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveProfitMyRate>>, TError,{data: BodyType<ProfitMyRateConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveProfitMyRate>>,
+        TError,
+        {data: BodyType<ProfitMyRateConfig>},
+        TContext
+      > => {
+      return useMutation(getSaveProfitMyRateMutationOptions(options));
+    }
+
+export const getRecordOrderProfitTradeUrl = (type: 'Swap' | 'Convert',
     id: string,) => {
 
 
@@ -669,9 +741,9 @@ export const getRecordOrderProfitTradeUrl = (type: 'Swap',
 }
 
 /**
- * @summary Owner-only completed Swap acquisition and sale accounting; no order or payout mutation
+ * @summary Owner-only completed Swap/Convert acquisition and sale accounting; no order or payout mutation
  */
-export const recordOrderProfitTrade = async (type: 'Swap',
+export const recordOrderProfitTrade = async (type: 'Swap' | 'Convert',
     id: string,
     orderProfitTradeConfig: OrderProfitTradeConfig, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
 
@@ -689,8 +761,8 @@ export const recordOrderProfitTrade = async (type: 'Swap',
 
 
 export const getRecordOrderProfitTradeMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitTrade>>, TError,{type: 'Swap';id: string;data: BodyType<OrderProfitTradeConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitTrade>>, TError,{type: 'Swap';id: string;data: BodyType<OrderProfitTradeConfig>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitTrade>>, TError,{type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitTradeConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitTrade>>, TError,{type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitTradeConfig>}, TContext> => {
 
 const mutationKey = ['recordOrderProfitTrade'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -702,7 +774,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordOrderProfitTrade>>, {type: 'Swap';id: string;data: BodyType<OrderProfitTradeConfig>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordOrderProfitTrade>>, {type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitTradeConfig>}> = (props) => {
           const {type,id,data} = props ?? {};
 
           return  recordOrderProfitTrade(type,id,data,requestOptions)
@@ -720,14 +792,14 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RecordOrderProfitTradeMutationError = ErrorType<unknown>
 
     /**
- * @summary Owner-only completed Swap acquisition and sale accounting; no order or payout mutation
+ * @summary Owner-only completed Swap/Convert acquisition and sale accounting; no order or payout mutation
  */
 export const useRecordOrderProfitTrade = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitTrade>>, TError,{type: 'Swap';id: string;data: BodyType<OrderProfitTradeConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitTrade>>, TError,{type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitTradeConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof recordOrderProfitTrade>>,
         TError,
-        {type: 'Swap';id: string;data: BodyType<OrderProfitTradeConfig>},
+        {type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitTradeConfig>},
         TContext
       > => {
       return useMutation(getRecordOrderProfitTradeMutationOptions(options));

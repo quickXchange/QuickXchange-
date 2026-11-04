@@ -522,6 +522,8 @@ export * from './previewAdminSocialTrustIconParams';
 export * from './pricingReferenceLeg';
 export * from './pricingReferenceLegProvider';
 export * from './pricingReferenceLegTimestampKind';
+export * from './profitMyRateConfig';
+export * from './profitMyRateConfigKind';
 export * from './providerFreshness';
 export * from './providerFreshnessState';
 export * from './publicNotificationSettings';

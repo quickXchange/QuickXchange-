@@ -13,7 +13,11 @@ export const profitRecordsTable = pgTable("order_profit_records", {
   orderKey: text("order_key").notNull(),
   kind: text("kind").notNull(),
   basis: jsonb("basis").$type<Record<string, unknown>>(),
-  execution: jsonb("execution").$type<{ amount: string; receiveAmount: string }>(),
+  execution: jsonb("execution").$type<{
+    amount: string; receiveAmount: string;
+    profit?: { revenue: string; acquisitionCost: string; fees: string; grossSpread: string; netProfit: string;
+      quantity: string; commission1: string; receivingCommission: string; additionalFixedFee: string };
+  }>(),
   amount: text("amount"),
   currency: text("currency").notNull(),
   reason: text("reason").notNull(),

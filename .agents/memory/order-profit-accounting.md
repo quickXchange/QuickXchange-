@@ -9,14 +9,14 @@ The Owner's current primary accounting currency is EUR. Revenue reporting is ord
 
 **How to apply:** Keep transaction volume, gross spread and net profit distinct. Never combine currencies without independently evidenced historical conversion. Missing historical acquisition evidence means profit unavailable, never a synthetic zero or today's market price.
 
-Future cost settings become effective by order creation time, not completion time. Historical attestations and corrections are separate Owner-reviewed accounting evidence. A configured provider quote or affiliate markup does not itself prove that commission was received.
+My Rates uses rates applicable at **completion**, not creation or delayed worker processing. Legacy route Cost Basis versions keep their old creation-time semantics for historical compatibility, but must not be exposed as the primary Owner UI.
 
-**Why:** Applying newly entered costs to older or already-active orders would silently invent historical economics. Convert customer funds can belong to provider custody, not exchange revenue.
+**Why:** The Owner explicitly changed the desired behavior: an order completing tomorrow uses tomorrow's configured buy/sell rates, while yesterday's completed orders retain their frozen rates and profit.
 
-**How to apply:** Preserve old order snapshots and audit trails. Keep corrections append-only and require explicit evidence for actual proceeds/costs. Retain accounting history during application rollback.
+**How to apply:** Freeze the committed rate versions and verified executed quantities at the completion boundary. Timestamp-only lookup later is insufficient: an edit may have been uncommitted at completion. Missing or ambiguous rates stay unavailable, even if configured before a delayed worker runs. Keep corrections append-only and retain accounting history during rollback.
 
-Per-order actual buy/sell accounting is additive to existing route Cost Basis settings, not a replacement for those controls. Commission 1 uses acquisition cost; Receiving Commission uses sale proceeds, both after explicit historical FX into the accounting currency.
+The Owner UI must have four summary cards, a compact My Rates section, and completed Swap/Convert orders with simple Edit controls for Buy Rate, Sell Rate, Partner Fee and Receiving Fee. Preserve legacy accounting backend controls/history without exposing complicated Cost Basis Versions screens. Partner Fee uses acquisition cost; Receiving Fee uses sale proceeds.
 
-**Why:** The Owner requested independent buy/sell rates and optional commissions for every Swap while preserving all existing Revenue features. Fee bases must be explicit to avoid inconsistent previews or double-counting older fees.
+**Why:** The Owner explicitly requested a simpler automatic workflow for both Swap and Convert while retaining financial safeguards. Fee bases must be explicit to avoid inconsistent previews or double-counting older fees.
 
-**How to apply:** Never stack a new trade basis's fees on the previous basis. Retain old evidence and existing auditable adjustments. Different currencies require evidenced conversion rates; period summaries explicitly use UTC order-creation dates, not invented completion times.
+**How to apply:** Retain existing fixed costs and auditable adjustments exactly once during per-order edits; never reinterpret their currency. Different currencies require verified conversion. Period totals use recorded UTC completion dates; undated legacy profit belongs only in all-time totals.

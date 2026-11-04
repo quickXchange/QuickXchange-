@@ -22,7 +22,8 @@ export const GetOrderProfitDashboardQueryParams = zod.object({
   "paymentMethod": zod.coerce.string().optional(),
   "type": zod.enum(['all', 'Swap', 'Convert']).optional(),
   "profit": zod.enum(['all', 'profit', 'loss', 'missing']).optional(),
-  "page": zod.coerce.number().int().min(1).optional()
+  "page": zod.coerce.number().int().min(1).optional(),
+  "completedOnly": zod.coerce.boolean().optional().describe('Only completed orders contribute to this view and its summaries')
 })
 
 export const GetOrderProfitDashboardResponse = zod.record(zod.string(), zod.unknown())
@@ -93,10 +94,34 @@ export const RecordOrderProfitBasisResponse = zod.unknown()
 
 
 /**
- * @summary Owner-only completed Swap acquisition and sale accounting; no order or payout mutation
+ * @summary Owner accounting-only current buy/sell rate; append-only, future completions only
+ */
+export const saveProfitMyRateBodyNetworkDefault = ``;
+export const saveProfitMyRateBodyPartnerFeePercentDefault = `0`;
+export const saveProfitMyRateBodyReceivingFeePercentDefault = `0`;
+export const saveProfitMyRateBodyActiveDefault = true;
+
+export const SaveProfitMyRateBody = zod.object({
+  "kind": zod.enum(['my_rate']),
+  "asset": zod.string(),
+  "currency": zod.string().describe('Quote\/accounting currency per one asset unit'),
+  "network": zod.string().default(saveProfitMyRateBodyNetworkDefault).describe('Empty means all networks of this asset'),
+  "buyRate": zod.string(),
+  "sellRate": zod.string(),
+  "partnerFeePercent": zod.string().default(saveProfitMyRateBodyPartnerFeePercentDefault),
+  "receivingFeePercent": zod.string().default(saveProfitMyRateBodyReceivingFeePercentDefault),
+  "active": zod.boolean().default(saveProfitMyRateBodyActiveDefault),
+  "requestId": zod.string().uuid()
+})
+
+export const SaveProfitMyRateResponse = zod.unknown()
+
+
+/**
+ * @summary Owner-only completed Swap/Convert acquisition and sale accounting; no order or payout mutation
  */
 export const RecordOrderProfitTradeParams = zod.object({
-  "type": zod.enum(['Swap']),
+  "type": zod.enum(['Swap', 'Convert']),
   "id": zod.coerce.string()
 })
 

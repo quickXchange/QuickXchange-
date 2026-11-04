@@ -113,3 +113,39 @@
 .pd-period-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
 .pd-period-row small { color: hsl(var(--muted-foreground)); font-size: 11px; }
 @media (max-width: 767px) { .pd-periods-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Revenue simplified */
+.rv-page { overflow-x: hidden; }
+.rv-cards { display: grid; grid-template-columns: 1.6fr repeat(3, minmax(0, 1fr)); gap: 12px; }
+.rv-card { display: grid; gap: 6px; align-content: start; padding: 16px; border: 1px solid hsl(var(--border)); border-radius: 14px; background: hsl(var(--card)); min-width: 0; }
+.rv-card > span { color: hsl(var(--muted-foreground)); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.rv-card > small { color: hsl(var(--muted-foreground)); font-size: 11px; }
+.rv-card.is-hero { border-top: 3px solid hsl(var(--primary)); background: linear-gradient(160deg, hsl(var(--primary) / .07), hsl(var(--card)) 60%); }
+.rv-big { font-family: var(--font-mono); font-size: 26px; font-weight: 800; }
+.rv-lines { display: grid; gap: 2px; }
+.rv-lines > div { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.rv-lines b { font-size: 20px; font-weight: 800; overflow-wrap: anywhere; white-space: normal; }
+.rv-card.is-hero .rv-lines b { font-size: 24px; }
+.rv-lines small { color: hsl(var(--muted-foreground)); font-size: 11px; }
+.rv-periods { display: flex; flex-wrap: wrap; gap: 4px 14px; padding-top: 8px; border-top: 1px solid hsl(var(--border)); font-size: 12px; }
+.rv-periods > div { display: grid; gap: 1px; }
+.rv-periods > div > span, .rv-utc { color: hsl(var(--muted-foreground)); font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; }
+.rv-utc { align-self: end; margin-left: auto; }
+.rv-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rv-head h2 { margin: 0; font-size: 16px; font-weight: 750; }
+.rv-rates { display: grid; gap: 10px; min-width: 0; }
+.rv-rates .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.rv-rate-table { min-width: 640px; width: 100%; font-size: 12.5px; }
+.rv-rate-table td, .rv-rate-table th { padding: 8px 10px; white-space: nowrap; text-align: left; }
+.rv-rate-table td small { display: block; color: hsl(var(--muted-foreground)); font-size: 11px; }
+.rv-rate-table .pd-num { text-align: right; }
+.rv-empty { padding: 10px; border: 1px dashed hsl(var(--border)); border-radius: 10px; }
+.rv-filters { padding: 12px 16px; border-bottom: 1px solid hsl(var(--border)); }
+.rv-table { min-width: 860px; }
+.rv-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.rv-editor { display: grid; gap: 12px; }
+.rv-history summary { cursor: pointer; font-weight: 700; font-size: 13px; }
+.rv-history ol { list-style: none; padding: 0 0 0 10px; margin: 8px 0; border-left: 2px solid hsl(var(--primary) / .35); }
+.rv-adj { margin-top: 8px; }
+@media (max-width: 1023px) { .rv-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rv-card.is-hero { grid-column: 1 / -1; } }
+@media (max-width: 767px) { .rv-cards { grid-template-columns: 1fr; } }

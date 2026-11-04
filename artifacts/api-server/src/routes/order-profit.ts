@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { db, profitRatesTable, profitRecordsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
-import { ProfitAdjustmentInput, ProfitBasisRecordInput, ProfitRateInput, ProfitTradeRecordInput } from "@workspace/api-zod";
+import { ProfitAdjustmentInput, ProfitBasisRecordInput, ProfitRateInput, ProfitTradeRecordInput, ProfitMyRateInput } from "@workspace/api-zod";
 import { requireOwner, type OperatorAuthorization } from "../lib/operator-auth";
 import { ApiError } from "../lib/api-error";
 import { profitExecutions, profitReport } from "../lib/order-profit";
@@ -15,6 +15,7 @@ const filterSchema = z.object({
   currency: z.string().max(32).optional(), paymentMethod: z.string().max(500).optional(),
   type: z.enum(["all", "Swap", "Convert"]).default("all"), profit: z.enum(["all", "profit", "loss", "missing"]).default("all"),
   page: z.coerce.number().int().min(1).max(1000000).default(1),
+  completedOnly: z.enum(["true", "false"]).optional().transform(v => v === "true"),
 }).refine(v => !v.from || !v.to || v.from <= v.to, "From date must not exceed To date.");
 const parse = <S extends z.ZodTypeAny>(schema: S, value: unknown): z.output<S> => {
   const result = schema.safeParse(value);
@@ -69,6 +70,22 @@ router.post("/admin/profit-dashboard/rates", requireOwner, async (req, res): Pro
   const [saved] = await db.insert(profitRatesTable).values({ config, actorId: res.locals.operator.id }).returning();
   res.status(201).json({ ...config, id: saved.id, effectiveAt: saved.effectiveAt.toISOString() });
 });
+router.post("/admin/profit-dashboard/my-rates", requireOwner, async (req, res): Promise<void> => {
+  const config = parse(ProfitMyRateInput, req.body);
+  const result = await db.transaction(async tx => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`my-rate:${config.requestId}`}, 0))`);
+    const [existing] = await tx.select().from(profitRatesTable).where(sql`${profitRatesTable.config}->>'requestId' = ${config.requestId}`);
+    if (existing) {
+      if (canonical(existing.config) !== canonical(config)) throw new ApiError("PROFIT_IDEMPOTENCY_CONFLICT", "This request ID was already used for different rates.", 409);
+      return { record: existing, replay: true };
+    }
+    const [saved] = await tx.insert(profitRatesTable).values({
+      config, actorId: res.locals.operator.id, effectiveAt: sql`clock_timestamp()`,
+    }).returning();
+    return { record: saved, replay: false };
+  });
+  res.status(result.replay ? 200 : 201).json({ ...config, id: result.record.id, effectiveAt: result.record.effectiveAt.toISOString(), replay: result.replay });
+});
 
 const orderParams = z.object({ type: z.enum(["Swap", "Convert"]), id: z.string().min(1).max(160) });
 for (const action of ["basis", "trade", "adjustments"] as const) {
@@ -95,20 +112,26 @@ for (const action of ["basis", "trade", "adjustments"] as const) {
       }
       return { id: replay.id, replay: true, status: 200 };
     }
-    const order = (await profitExecutions()).find(o => o.type === params.type && o.id === params.id);
-    if (!order) throw new ApiError("PROFIT_ORDER_NOT_FOUND", "Only completed orders or recorded reversals can be accounted for.", 404);
+    const liveOrder = (await profitExecutions()).find(o => o.type === params.type && o.id === params.id);
+    if (!liveOrder) throw new ApiError("PROFIT_ORDER_NOT_FOUND", "Only completed orders or recorded reversals can be accounted for.", 404);
+    const [completion] = await tx.select().from(profitRecordsTable).where(sql`
+      ${profitRecordsTable.orderKey} = ${orderKey} AND ${profitRecordsTable.kind} = 'completion'`);
+    const order = completion?.execution ? { ...liveOrder,
+      ...completion.execution, fromAsset: String(completion.basis?.fromAsset), toAsset: String(completion.basis?.toAsset),
+    } : liveOrder;
+    let tradeProfit: ReturnType<typeof calculateTradeProfit> | undefined;
     if (isBasis) {
       if (!["completed", "refunded", "reversed"].includes(order.status)) {
         throw new ApiError("PROFIT_ORDER_NOT_COMPLETED", "Profit inputs can only be saved for completed orders.", 409);
       }
       if ("calculation" in value) {
-        if (order.type !== "Swap" || order.status !== "completed") {
-          throw new ApiError("PROFIT_TRADE_SWAP_ONLY", "Per-order buy/sell accounting is available only for completed Swap orders.", 409);
+        if (order.status !== "completed") {
+          throw new ApiError("PROFIT_TRADE_COMPLETED_ONLY", "Per-order buy/sell accounting is available only for completed orders.", 409);
         }
         if (!positive(value.quantitySide === "source" ? order.amount : order.receiveAmount)) {
           throw new ApiError("INVALID_EXECUTED_QUANTITY", "This order has no positive saved execution quantity for the selected asset.", 400);
         }
-        calculateTradeProfit(order.amount, order.receiveAmount, value);
+        tradeProfit = calculateTradeProfit(order.amount, order.receiveAmount, value);
       } else if ("sourceUnitValue" in value) checkUnits(value, order);
       const previous = await tx.select().from(profitRecordsTable).where(eq(profitRecordsTable.orderKey, orderKey));
       if (previous.some(r => r.kind === "adjustment" && r.currency !== value.currency)) {
@@ -125,7 +148,7 @@ for (const action of ["basis", "trade", "adjustments"] as const) {
     const [saved] = await tx.insert(profitRecordsTable).values({
       orderKey, kind: isBasis ? "basis" : "adjustment", currency: value.currency,
       basis: isBasis ? value : null,
-      execution: isBasis ? { amount: order.amount, receiveAmount: order.receiveAmount } : null,
+      execution: isBasis ? { amount: order.amount, receiveAmount: order.receiveAmount, ...(tradeProfit ? { profit: tradeProfit } : {}) } : null,
       amount: "amount" in value ? value.amount : null,
       reason: "evidence" in value ? value.evidence : value.reason,
       requestId, actorId: res.locals.operator.id,
