@@ -152,3 +152,4 @@
 - [Automatic rates XML](automatic-rates-xml-publication.md) — files-only replacement; no legacy fallback or dynamic order percentages; method codes and staged Perfect Money.
 - [Admin inbox boundaries](admin-inbox-event-boundaries.md) — new-order-only Swap/Convert inbox; retain historical events but exclude them from feed and counts.
 - [Browser restoration safety](browser-restoration-safety.md) — retain routes through auth renewal; restore only safe tab-scoped drafts with fresh quotes and no automatic submission.
+- [Order-profit accounting](order-profit-accounting.md) — EUR primary; realized profit requires executed quantities and verified historical costs, not expected fees or today's rates.

@@ -8,6 +8,112 @@
 import * as zod from 'zod';
 
 
+/**
+ * @summary Currency-separated completed-order profit with verified historical costs
+ */
+
+
+
+export const GetOrderProfitDashboardQueryParams = zod.object({
+  "from": zod.date().optional(),
+  "to": zod.date().optional(),
+  "search": zod.coerce.string().optional(),
+  "currency": zod.coerce.string().optional(),
+  "paymentMethod": zod.coerce.string().optional(),
+  "type": zod.enum(['all', 'Swap', 'Convert']).optional(),
+  "profit": zod.enum(['all', 'profit', 'loss', 'missing']).optional(),
+  "page": zod.coerce.number().int().min(1).optional()
+})
+
+export const GetOrderProfitDashboardResponse = zod.record(zod.string(), zod.unknown())
+
+
+/**
+ * @summary All matching order-profit rows as CSV; same filters as dashboard, no page limit
+ */
+export const ExportOrderProfitDashboardResponse = zod.unknown()
+
+
+/**
+ * @summary Owner-only immutable future-order cost basis, never customer pricing
+ */
+export const createOrderProfitRateBodyOneEvidenceMin = 8;
+
+
+
+export const CreateOrderProfitRateBody = zod.object({
+  "currency": zod.string(),
+  "sourceUnitValue": zod.string().describe('Verified proceeds per source unit'),
+  "targetUnitCost": zod.string().describe('Verified acquisition cost per payout unit'),
+  "providerFee": zod.string(),
+  "networkFee": zod.string(),
+  "bankFee": zod.string(),
+  "otherFee": zod.string(),
+  "evidence": zod.string().min(createOrderProfitRateBodyOneEvidenceMin),
+  "costsVerified": zod.literal(true)
+}).and(zod.object({
+  "fromAsset": zod.string(),
+  "fromNetwork": zod.string(),
+  "toAsset": zod.string(),
+  "toNetwork": zod.string(),
+  "fromOptionId": zod.string().optional().describe('Optional exact saved sending settlement-option ID; empty explicitly means all methods'),
+  "toOptionId": zod.string().optional().describe('Optional exact saved receiving settlement-option ID; empty explicitly means all methods')
+}))
+
+export const CreateOrderProfitRateResponse = zod.void()
+
+
+/**
+ * @summary Owner-only historical cost attestation; append-only, idempotent and no order mutation
+ */
+export const RecordOrderProfitBasisParams = zod.object({
+  "type": zod.enum(['Swap', 'Convert']),
+  "id": zod.coerce.string()
+})
+
+export const recordOrderProfitBasisBodyOneEvidenceMin = 8;
+
+
+
+export const RecordOrderProfitBasisBody = zod.object({
+  "currency": zod.string(),
+  "sourceUnitValue": zod.string().describe('Verified proceeds per source unit'),
+  "targetUnitCost": zod.string().describe('Verified acquisition cost per payout unit'),
+  "providerFee": zod.string(),
+  "networkFee": zod.string(),
+  "bankFee": zod.string(),
+  "otherFee": zod.string(),
+  "evidence": zod.string().min(recordOrderProfitBasisBodyOneEvidenceMin),
+  "costsVerified": zod.literal(true)
+}).and(zod.object({
+  "requestId": zod.string().uuid()
+}))
+
+export const RecordOrderProfitBasisResponse = zod.unknown()
+
+
+/**
+ * @summary Owner-only signed accounting correction or residual refund cost; no movement of funds
+ */
+export const RecordOrderProfitAdjustmentParams = zod.object({
+  "type": zod.enum(['Swap', 'Convert']),
+  "id": zod.coerce.string()
+})
+
+export const recordOrderProfitAdjustmentBodyReasonMin = 8;
+
+
+
+export const RecordOrderProfitAdjustmentBody = zod.object({
+  "currency": zod.string(),
+  "amount": zod.string().describe('Signed exact decimal in the existing accounting currency'),
+  "reason": zod.string().min(recordOrderProfitAdjustmentBodyReasonMin),
+  "requestId": zod.string().uuid()
+})
+
+export const RecordOrderProfitAdjustmentResponse = zod.unknown()
+
+
 export const getAdminInboxQueryFilterDefault = `all`;
 export const getAdminInboxQueryPageDefault = 1;
 

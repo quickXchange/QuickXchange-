@@ -26,7 +26,7 @@ type CreateInput = {
   orderSource?: "website" | "telegram_mini_app" | "telegram_bot" | "unknown";
 };
 type Route = { fromAsset: string; fromNetwork: string; toAsset: string; toNetwork: string; rateMode: QuickexRateMode };
-type Amounts = { amount: string; receiveAmount: string; claimedDepositAmount?: string | null; expectedReceiveAmount?: string | null; paidAmount?: string | null; providerPaidAmount?: string | null };
+type Amounts = { amount: string; receiveAmount: string; actualReceiveAmount?: string | null; claimedDepositAmount?: string | null; expectedReceiveAmount?: string | null; paidAmount?: string | null; providerPaidAmount?: string | null };
 type Addresses = {
   destinationAddress: string; destinationMemo?: string; refundAddress: string; refundMemo?: string;
   depositAddress?: string; depositMemo?: string; depositQrData?: string;
@@ -499,6 +499,9 @@ export async function reconcileQuickexOrder(row: typeof quickexOrdersTable.$infe
         ?? positiveProviderAmount(amounts.expectedReceiveAmount);
        const nextAmounts = {
          ...amounts,
+         // Accounting evidence only; never substitute a quote expectation for
+         // provider-confirmed withdrawal quantity in realized profit.
+         actualReceiveAmount: actualReceiveAmount || amounts.actualReceiveAmount || null,
          receiveAmount: nextStatus === "completed"
            ? actualReceiveAmount || expectedReceiveAmount || amounts.receiveAmount
            : expectedReceiveAmount || amounts.receiveAmount,

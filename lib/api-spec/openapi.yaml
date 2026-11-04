@@ -27,6 +27,79 @@ tags:
   - name: telegram
     description: Shared Telegram customer account linking
 paths:
+  /admin/profit-dashboard:
+    get:
+      operationId: getOrderProfitDashboard
+      summary: Currency-separated completed-order profit with verified historical costs
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: search, in: query, schema: { type: string } }
+        - { name: currency, in: query, schema: { type: string } }
+        - { name: paymentMethod, in: query, schema: { type: string } }
+        - { name: type, in: query, schema: { type: string, enum: [all, Swap, Convert] } }
+        - { name: profit, in: query, schema: { type: string, enum: [all, profit, loss, missing] } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: ProfitReport; strict shared runtime types live in profit-dashboard.ts. All amounts are exact strings.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+  /admin/profit-dashboard.csv:
+    get:
+      operationId: exportOrderProfitDashboard
+      summary: All matching order-profit rows as CSV; same filters as dashboard, no page limit
+      responses:
+        "200":
+          description: Exact decimal accounting CSV
+          content:
+            text/csv:
+              schema: { type: string }
+  /admin/profit-dashboard/rates:
+    post:
+      operationId: createOrderProfitRate
+      summary: Owner-only immutable future-order cost basis, never customer pricing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderProfitRouteConfig"
+      responses:
+        "201": { description: Server-timestamped immutable cost basis version }
+  /admin/profit-dashboard/orders/{type}/{id}/basis:
+    post:
+      operationId: recordOrderProfitBasis
+      summary: Owner-only historical cost attestation; append-only, idempotent and no order mutation
+      parameters:
+        - { name: type, in: path, required: true, schema: { type: string, enum: [Swap, Convert] } }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderProfitAttestationConfig"
+      responses:
+        "201": { description: Recorded basis with frozen execution quantities }
+        "200": { description: Idempotent replay }
+  /admin/profit-dashboard/orders/{type}/{id}/adjustments:
+    post:
+      operationId: recordOrderProfitAdjustment
+      summary: Owner-only signed accounting correction or residual refund cost; no movement of funds
+      parameters:
+        - { name: type, in: path, required: true, schema: { type: string, enum: [Swap, Convert] } }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderProfitAdjustmentConfig"
+      responses:
+        "201": { description: Append-only currency-specific adjustment }
+        "200": { description: Idempotent replay }
   /admin/notifications:
     get:
       operationId: getAdminInbox
@@ -4925,6 +4998,46 @@ components:
       name: __session
       description: Clerk owner session. The authenticated user must match the single active owner account in the server-side operator registry.
   schemas:
+    OrderProfitCostConfig:
+      type: object
+      required: [currency, sourceUnitValue, targetUnitCost, providerFee, networkFee, bankFee, otherFee, evidence, costsVerified]
+      properties:
+        currency: { type: string }
+        sourceUnitValue: { type: string, description: Verified proceeds per source unit }
+        targetUnitCost: { type: string, description: Verified acquisition cost per payout unit }
+        providerFee: { type: string }
+        networkFee: { type: string }
+        bankFee: { type: string }
+        otherFee: { type: string }
+        evidence: { type: string, minLength: 8 }
+        costsVerified: { type: boolean, enum: [true] }
+    OrderProfitRouteConfig:
+      allOf:
+        - $ref: "#/components/schemas/OrderProfitCostConfig"
+        - type: object
+          required: [fromAsset, fromNetwork, toAsset, toNetwork]
+          properties:
+            fromAsset: { type: string }
+            fromNetwork: { type: string }
+            toAsset: { type: string }
+            toNetwork: { type: string }
+            fromOptionId: { type: string, description: Optional exact saved sending settlement-option ID; empty explicitly means all methods }
+            toOptionId: { type: string, description: Optional exact saved receiving settlement-option ID; empty explicitly means all methods }
+    OrderProfitAttestationConfig:
+      allOf:
+        - $ref: "#/components/schemas/OrderProfitCostConfig"
+        - type: object
+          required: [requestId]
+          properties:
+            requestId: { type: string, format: uuid }
+    OrderProfitAdjustmentConfig:
+      type: object
+      required: [currency, amount, reason, requestId]
+      properties:
+        currency: { type: string }
+        amount: { type: string, description: Signed exact decimal in the existing accounting currency }
+        reason: { type: string, minLength: 8 }
+        requestId: { type: string, format: uuid }
     AdminInboxResult:
       type: object
       required: [success]

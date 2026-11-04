@@ -251,6 +251,17 @@ async function mockLayoutApis(page: Page) {
     else if (path === `/api/orders/${orderId}/reconciliation-attempts`) body = { items: [], limit: 50 };
     else if (path === '/api/admin/operators') body = [{ id: 'operator-1', email: 'operator@example.test', role: 'owner', status: 'active', linkedToClerk: true, createdAt: now, updatedAt: now }];
     else if (path === '/api/admin/manual-desk-pricing-rules') body = pricingRules;
+    else if (path === '/api/admin/profit-dashboard') body = {
+      rows: [{
+        key: `Swap:${orderId}`, id: orderId, type: 'Swap', createdAt: now, completedAt: null,
+        status: 'completed', fromAsset: 'EUR', fromNetwork: 'SEPA', toAsset: 'USDT', toNetwork: 'TRC20',
+        amount: '100', receiveAmount: '110', paymentMethod: 'SEPA', customerRate: '1.1',
+        basis: null, basisId: null, revenue: null, acquisitionCost: null, fees: null, grossSpread: null,
+        netProfit: null, adjustments: '0', state: 'missing', href: `/admin/orders/${orderId}?type=manual`, audit: [],
+      }],
+      total: 1, page: 1, pageSize: 25, owner: true, currencies: ['EUR', 'USDT'], routes: [], methods: ['SEPA'],
+      rules: [], summary: [], completedOrders: 1, missingCosts: 1, volume: [{ currency: 'EUR', amount: '100' }],
+    };
     else if (path === '/api/admin/manual-desk-revenue') body = {
       from: now,
       to: now,
@@ -759,7 +770,7 @@ test('admin data views remain usable on phones', async ({ page }) => {
     { path: '/admin', selector: '[data-testid="table-recent-orders"]', label: 'Recent orders' },
     { path: '/admin/affiliates', selector: '.affiliate-table', label: 'Affiliates' },
     { path: '/admin/payouts', selector: '.payout-queue-table', label: 'Payout queue' },
-    { path: '/admin/revenue', selector: '[data-testid="table-revenue"]', label: 'Revenue' },
+    { path: '/admin/revenue', selector: '[data-testid="table-profit"]', label: 'Profit dashboard' },
   ] as const;
 
   for (const table of tables) {
@@ -1053,7 +1064,7 @@ test('every top-level Admin route uses the shared logo section and title header'
   const headers = [
     ['/admin', 'OPERATIONS / COMMAND CENTER', 'Overview'],
     ['/admin/orders', 'OPERATIONS / ORDERS', 'Orders'],
-    ['/admin/revenue', 'FINANCE / REVENUE', 'Revenue'],
+    ['/admin/revenue', 'FINANCE', 'Profit dashboard'],
     ['/admin/customers', 'USER MANAGEMENT', 'Users'],
     ['/admin/affiliates', 'AFFILIATE PROGRAM', 'Affiliates'],
     ['/admin/payouts', 'FINANCE / PAYOUTS', 'Payouts'],
@@ -1124,8 +1135,8 @@ test('every top-level Admin route uses the shared logo section and title header'
   for (const width of [390, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/admin/revenue');
-    await expect(page.locator('header [data-testid="button-export-revenue"]')).toHaveCount(0);
-    await expect(page.locator('.revenue-filter-panel').getByTestId('button-export-revenue')).toBeVisible();
+    await expect(page.locator('header [data-testid="button-export-profit"]')).toHaveCount(0);
+    await expect(page.locator('.pd-filters').getByTestId('button-export-profit')).toBeVisible();
     await expectNoDocumentOverflow(page, `${width}px revenue export controls`);
   }
 

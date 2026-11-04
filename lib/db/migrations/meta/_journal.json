@@ -1051,6 +1051,13 @@
       "when": 1792333072452,
       "tag": "0151_confused_crusher_hogan",
       "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1793826507602,
+      "tag": "0152_lean_warhawk",
+      "breakpoints": true
     }
   ]
 }

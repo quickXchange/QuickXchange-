@@ -141,6 +141,8 @@ import type {
   GetCustomersParams,
   GetExchangeRoutePricingParams,
   GetManualDeskRevenueParams,
+  GetOrderProfitDashboard200,
+  GetOrderProfitDashboardParams,
   GetOrdersParams,
   GetPublicOrderStatusParams,
   GetQuickexOrderStatusParams,
@@ -214,6 +216,9 @@ import type {
   OrderBulkStatusInput,
   OrderInput,
   OrderPage,
+  OrderProfitAdjustmentConfig,
+  OrderProfitAttestationConfig,
+  OrderProfitRouteConfig,
   OrderReconciliationAttemptList,
   OrderReconciliationRequest,
   OrderReconciliationResult,
@@ -346,6 +351,386 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetOrderProfitDashboardUrl = (params?: GetOrderProfitDashboardParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/profit-dashboard?${stringifiedParams}` : `/api/admin/profit-dashboard`
+}
+
+/**
+ * @summary Currency-separated completed-order profit with verified historical costs
+ */
+export const getOrderProfitDashboard = async (params?: GetOrderProfitDashboardParams, options?: Parameters<typeof customFetch>[1]): Promise<GetOrderProfitDashboard200> => {
+
+  return customFetch<GetOrderProfitDashboard200>(getGetOrderProfitDashboardUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOrderProfitDashboardQueryKey = (params?: GetOrderProfitDashboardParams,) => {
+    return [
+    `/api/admin/profit-dashboard`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetOrderProfitDashboardQueryOptions = <TData = Awaited<ReturnType<typeof getOrderProfitDashboard>>, TError = ErrorType<unknown>>(params?: GetOrderProfitDashboardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrderProfitDashboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOrderProfitDashboardQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrderProfitDashboard>>> = ({ signal }) => getOrderProfitDashboard(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOrderProfitDashboard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOrderProfitDashboardQueryResult = NonNullable<Awaited<ReturnType<typeof getOrderProfitDashboard>>>
+export type GetOrderProfitDashboardQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Currency-separated completed-order profit with verified historical costs
+ */
+
+export function useGetOrderProfitDashboard<TData = Awaited<ReturnType<typeof getOrderProfitDashboard>>, TError = ErrorType<unknown>>(
+ params?: GetOrderProfitDashboardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrderProfitDashboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOrderProfitDashboardQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getExportOrderProfitDashboardUrl = () => {
+
+
+
+
+  return `/api/admin/profit-dashboard.csv`
+}
+
+/**
+ * @summary All matching order-profit rows as CSV; same filters as dashboard, no page limit
+ */
+export const exportOrderProfitDashboard = async ( options?: Parameters<typeof customFetch>[1]): Promise<string> => {
+
+  return customFetch<string>(getExportOrderProfitDashboardUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getExportOrderProfitDashboardQueryKey = () => {
+    return [
+    `/api/admin/profit-dashboard.csv`
+    ] as const;
+    }
+
+
+export const getExportOrderProfitDashboardQueryOptions = <TData = Awaited<ReturnType<typeof exportOrderProfitDashboard>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportOrderProfitDashboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getExportOrderProfitDashboardQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportOrderProfitDashboard>>> = ({ signal }) => exportOrderProfitDashboard({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof exportOrderProfitDashboard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ExportOrderProfitDashboardQueryResult = NonNullable<Awaited<ReturnType<typeof exportOrderProfitDashboard>>>
+export type ExportOrderProfitDashboardQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary All matching order-profit rows as CSV; same filters as dashboard, no page limit
+ */
+
+export function useExportOrderProfitDashboard<TData = Awaited<ReturnType<typeof exportOrderProfitDashboard>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportOrderProfitDashboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getExportOrderProfitDashboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateOrderProfitRateUrl = () => {
+
+
+
+
+  return `/api/admin/profit-dashboard/rates`
+}
+
+/**
+ * @summary Owner-only immutable future-order cost basis, never customer pricing
+ */
+export const createOrderProfitRate = async (orderProfitRouteConfig: OrderProfitRouteConfig, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getCreateOrderProfitRateUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(orderProfitRouteConfig)
+  }
+);}
+
+
+
+
+
+export const getCreateOrderProfitRateMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOrderProfitRate>>, TError,{data: BodyType<OrderProfitRouteConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createOrderProfitRate>>, TError,{data: BodyType<OrderProfitRouteConfig>}, TContext> => {
+
+const mutationKey = ['createOrderProfitRate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createOrderProfitRate>>, {data: BodyType<OrderProfitRouteConfig>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createOrderProfitRate(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateOrderProfitRateMutationResult = NonNullable<Awaited<ReturnType<typeof createOrderProfitRate>>>
+    export type CreateOrderProfitRateMutationBody = BodyType<OrderProfitRouteConfig>
+    export type CreateOrderProfitRateMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Owner-only immutable future-order cost basis, never customer pricing
+ */
+export const useCreateOrderProfitRate = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOrderProfitRate>>, TError,{data: BodyType<OrderProfitRouteConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createOrderProfitRate>>,
+        TError,
+        {data: BodyType<OrderProfitRouteConfig>},
+        TContext
+      > => {
+      return useMutation(getCreateOrderProfitRateMutationOptions(options));
+    }
+
+export const getRecordOrderProfitBasisUrl = (type: 'Swap' | 'Convert',
+    id: string,) => {
+
+
+
+
+  return `/api/admin/profit-dashboard/orders/${type}/${id}/basis`
+}
+
+/**
+ * @summary Owner-only historical cost attestation; append-only, idempotent and no order mutation
+ */
+export const recordOrderProfitBasis = async (type: 'Swap' | 'Convert',
+    id: string,
+    orderProfitAttestationConfig: OrderProfitAttestationConfig, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRecordOrderProfitBasisUrl(type,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(orderProfitAttestationConfig)
+  }
+);}
+
+
+
+
+
+export const getRecordOrderProfitBasisMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitBasis>>, TError,{type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitAttestationConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitBasis>>, TError,{type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitAttestationConfig>}, TContext> => {
+
+const mutationKey = ['recordOrderProfitBasis'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordOrderProfitBasis>>, {type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitAttestationConfig>}> = (props) => {
+          const {type,id,data} = props ?? {};
+
+          return  recordOrderProfitBasis(type,id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordOrderProfitBasisMutationResult = NonNullable<Awaited<ReturnType<typeof recordOrderProfitBasis>>>
+    export type RecordOrderProfitBasisMutationBody = BodyType<OrderProfitAttestationConfig>
+    export type RecordOrderProfitBasisMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Owner-only historical cost attestation; append-only, idempotent and no order mutation
+ */
+export const useRecordOrderProfitBasis = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitBasis>>, TError,{type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitAttestationConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordOrderProfitBasis>>,
+        TError,
+        {type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitAttestationConfig>},
+        TContext
+      > => {
+      return useMutation(getRecordOrderProfitBasisMutationOptions(options));
+    }
+
+export const getRecordOrderProfitAdjustmentUrl = (type: 'Swap' | 'Convert',
+    id: string,) => {
+
+
+
+
+  return `/api/admin/profit-dashboard/orders/${type}/${id}/adjustments`
+}
+
+/**
+ * @summary Owner-only signed accounting correction or residual refund cost; no movement of funds
+ */
+export const recordOrderProfitAdjustment = async (type: 'Swap' | 'Convert',
+    id: string,
+    orderProfitAdjustmentConfig: OrderProfitAdjustmentConfig, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRecordOrderProfitAdjustmentUrl(type,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(orderProfitAdjustmentConfig)
+  }
+);}
+
+
+
+
+
+export const getRecordOrderProfitAdjustmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitAdjustment>>, TError,{type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitAdjustmentConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitAdjustment>>, TError,{type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitAdjustmentConfig>}, TContext> => {
+
+const mutationKey = ['recordOrderProfitAdjustment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordOrderProfitAdjustment>>, {type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitAdjustmentConfig>}> = (props) => {
+          const {type,id,data} = props ?? {};
+
+          return  recordOrderProfitAdjustment(type,id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordOrderProfitAdjustmentMutationResult = NonNullable<Awaited<ReturnType<typeof recordOrderProfitAdjustment>>>
+    export type RecordOrderProfitAdjustmentMutationBody = BodyType<OrderProfitAdjustmentConfig>
+    export type RecordOrderProfitAdjustmentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Owner-only signed accounting correction or residual refund cost; no movement of funds
+ */
+export const useRecordOrderProfitAdjustment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordOrderProfitAdjustment>>, TError,{type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitAdjustmentConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordOrderProfitAdjustment>>,
+        TError,
+        {type: 'Swap' | 'Convert';id: string;data: BodyType<OrderProfitAdjustmentConfig>},
+        TContext
+      > => {
+      return useMutation(getRecordOrderProfitAdjustmentMutationOptions(options));
+    }
 
 export const getGetAdminInboxUrl = (params?: GetAdminInboxParams,) => {
   const normalizedParams = new URLSearchParams();

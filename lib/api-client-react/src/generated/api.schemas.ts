@@ -5,6 +5,45 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface OrderProfitCostConfig {
+  currency: string;
+  /** Verified proceeds per source unit */
+  sourceUnitValue: string;
+  /** Verified acquisition cost per payout unit */
+  targetUnitCost: string;
+  providerFee: string;
+  networkFee: string;
+  bankFee: string;
+  otherFee: string;
+  /** @minLength 8 */
+  evidence: string;
+  costsVerified: true;
+}
+
+export type OrderProfitRouteConfig = OrderProfitCostConfig & {
+  fromAsset: string;
+  fromNetwork: string;
+  toAsset: string;
+  toNetwork: string;
+  /** Optional exact saved sending settlement-option ID; empty explicitly means all methods */
+  fromOptionId?: string;
+  /** Optional exact saved receiving settlement-option ID; empty explicitly means all methods */
+  toOptionId?: string;
+};
+
+export type OrderProfitAttestationConfig = OrderProfitCostConfig & {
+  requestId: string;
+};
+
+export interface OrderProfitAdjustmentConfig {
+  currency: string;
+  /** Signed exact decimal in the existing accounting currency */
+  amount: string;
+  /** @minLength 8 */
+  reason: string;
+  requestId: string;
+}
+
 export interface AdminInboxResult {
   success: boolean;
 }
@@ -7732,6 +7771,41 @@ export const RevenueGroupByParameter = {
  * Currency for historical normalized values. USD is always available; another currency must be present in every included order's immutable reference snapshot.
  */
 export type RevenueReportingCurrencyParameter = string;
+
+export type GetOrderProfitDashboardParams = {
+from?: string;
+to?: string;
+search?: string;
+currency?: string;
+paymentMethod?: string;
+type?: GetOrderProfitDashboardType;
+profit?: GetOrderProfitDashboardProfit;
+/**
+ * @minimum 1
+ */
+page?: number;
+};
+
+export type GetOrderProfitDashboardType = typeof GetOrderProfitDashboardType[keyof typeof GetOrderProfitDashboardType];
+
+
+export const GetOrderProfitDashboardType = {
+  all: 'all',
+  Swap: 'Swap',
+  Convert: 'Convert',
+} as const;
+
+export type GetOrderProfitDashboardProfit = typeof GetOrderProfitDashboardProfit[keyof typeof GetOrderProfitDashboardProfit];
+
+
+export const GetOrderProfitDashboardProfit = {
+  all: 'all',
+  profit: 'profit',
+  loss: 'loss',
+  missing: 'missing',
+} as const;
+
+export type GetOrderProfitDashboard200 = { [key: string]: unknown };
 
 export type GetAdminInboxParams = {
 filter?: GetAdminInboxFilter;
