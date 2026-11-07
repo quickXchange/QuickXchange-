@@ -16,9 +16,9 @@ export const modules: ModuleMap = {
   "./components/mockups/swap-convert-redesign/ExchangeRailway.tsx": () => import("../components/mockups/swap-convert-redesign/ExchangeRailway.tsx"),
   "./components/mockups/swap-convert-redesign/Redesigned.tsx": () => import("../components/mockups/swap-convert-redesign/Redesigned.tsx"),
   "./components/mockups/swap-convert-redesign/StructuralReview.tsx": () => import("../components/mockups/swap-convert-redesign/StructuralReview.tsx"),
-  "./components/mockups/widget-step-two/ConvertCurrent.tsx": () => import("../components/mockups/widget-step-two/ConvertCurrent.tsx"),
-  "./components/mockups/widget-step-two/SwapCurrent.tsx": () => import("../components/mockups/widget-step-two/SwapCurrent.tsx"),
   "./components/mockups/site-content-overhaul/After.tsx": () => import("../components/mockups/site-content-overhaul/After.tsx"),
   "./components/mockups/site-content-overhaul/Current.tsx": () => import("../components/mockups/site-content-overhaul/Current.tsx"),
+  "./components/mockups/widget-step-two/ConvertCurrent.tsx": () => import("../components/mockups/widget-step-two/ConvertCurrent.tsx"),
+  "./components/mockups/widget-step-two/SwapCurrent.tsx": () => import("../components/mockups/widget-step-two/SwapCurrent.tsx"),
   "./components/mockups/templates/ArtDecoKeynotePoster--xOhV7/App.tsx": () => import("../components/mockups/templates/ArtDecoKeynotePoster--xOhV7/App.tsx")
 };
