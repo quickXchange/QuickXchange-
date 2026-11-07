@@ -476,3 +476,17 @@ mtime_ms = 1792187879704
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/e41e8a27-75f1-4cc0-85fc-714fe5518efc/ae41b0e3-e3f1-4c25-a306-d997e85725aa"
 storage_version_token = "1792187911161815"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "HVYVyr2O0imU6pFoHBXSJ"
+uri = "file://docs/QUICKCHANGE_PARTNER_DEMO_PLAN.md"
+type = "text"
+title = "QuickChange Partner Demo — Implementation Plan"
+description = "Architecture findings, separate-project deployment boundary, simulation and visitor-isolation design, feature checklist, reset behavior, Vynox embedding and acceptance tests."
+logical_id = "08305273-65ab-4901-8184-f8c45f7fc588"
+content_hash = "sha256:69c55305b1d86b6a75aeea6bbb74522b9802d8cbb5b9705005c79d61d57693ac"
+size = 12344
+mtime_ms = 1794065433044
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/08305273-65ab-4901-8184-f8c45f7fc588/468e05d8-b65d-4d61-b5b2-4800298cb4bd"
+storage_version_token = "1794065451751067"
+content_type = "text/markdown"
