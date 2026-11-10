@@ -188,6 +188,60 @@ test("reverse quote deadline and attempt budgets fail explicitly", async () => {
   );
 });
 
+test("USDT/TRC20 to EUR receive 2078 converges across a rounded-price plateau within 44 probes", async () => {
+  // Regression: the old quantum step advanced low by ~one ULP on every
+  // probe, exhausting 44 attempts in milliseconds, not a provider timeout.
+  const referenceRate = 0.8499279386;
+  let probes = 0;
+  const solution = await solveManualReceiveQuote({
+    desiredReceiveAmount: 2078,
+    minAmount: 1e-12,
+    initialUpperAmount: 2078 / referenceRate,
+    receiveQuantum: 0.01,
+    maxAttempts: 44,
+    quote: async amount => {
+      probes++;
+      return Math.floor(amount * referenceRate * 100) / 100;
+    },
+  });
+  assert.ok(solution);
+  assert.equal(solution.receiveAmount, 2078);
+  assert.ok(solution.amount > 2400);
+  assert.ok(probes <= 44);
+});
+
+test("rounded reverse quotes converge for multiple targets without extending the attempt budget", async () => {
+  for (const rate of [0.8499279386, 0.93, 1.07]) {
+    for (const target of [1, 100, 2078, 10000.01]) {
+      const solution = await solveManualReceiveQuote({
+        desiredReceiveAmount: target,
+        minAmount: 1e-12,
+        initialUpperAmount: target / rate,
+        receiveQuantum: 0.01,
+        maxAttempts: 44,
+        quote: async amount => Math.floor(amount * rate * 100) / 100,
+      });
+      assert.ok(solution, `${rate}: ${target}`);
+      assert.ok(solution.receiveAmount >= target);
+      assert.ok(solution.receiveAmount < target + 0.01);
+    }
+  }
+});
+
+test("receive search propagates a provider failure once without retrying or returning a candidate", async () => {
+  let calls = 0;
+  const failure = Object.assign(new Error("reference provider unavailable"), { code: "REFERENCE_UNAVAILABLE" });
+  await assert.rejects(solveManualReceiveQuote({
+    desiredReceiveAmount: 2078,
+    minAmount: 1e-12,
+    initialUpperAmount: 2500,
+    receiveQuantum: 0.01,
+    maxAttempts: 44,
+    quote: async () => { calls++; throw failure; },
+  }), error => error === failure);
+  assert.equal(calls, 1);
+});
+
 test("Manual receive inversion applies source minimums and source maximum feasibility", async () => {
   const atMinimum = await solveManualReceiveQuote({
     desiredReceiveAmount: 5,

@@ -1,6 +1,7 @@
 import type { TranslationDictionary } from '../types';
 
 const en = {
+  quoteErrors: { temporary: 'We could not confirm the current quote. Please try again. You can continue only after a new quote is confirmed.' },
   policyAcceptance: { text: 'I accept the {terms} and the {aml}.', terms: 'Terms & Conditions', aml: 'AML/KYC Policy' },
   ...{ public: {
     paymentMethod:'Payment Method', openNavigation:'Open navigation menu', closeNavigation:'Close navigation menu', mobileNav:'Mobile navigation',

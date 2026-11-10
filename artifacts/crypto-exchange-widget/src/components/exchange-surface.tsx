@@ -1,4 +1,4 @@
-import { useI18n as useCustomerI18n } from "@workspace/i18n";
+import { quoteErrorTranslationKey, useI18n as useCustomerI18n } from "@workspace/i18n";
 import { formatAmountInputValue, formatDisplayAmount } from '@workspace/amount-format';
 import { PaymentMethodLogo } from '@/components/payment-method-logo';
 import './swap-followup.css';
@@ -1114,7 +1114,7 @@ export function ManualSwapWidget({
     : activeAmountSide === 'receive' ? desiredReceiveAmount : '';
 
   useEffect(() => {
-    if (step === 1 || !currentQuote?.expiresAt) return;
+    if (!currentQuote?.expiresAt) return;
     const checkRestoredQuote = () => {
       if (Date.now() >= new Date(currentQuote.expiresAt!).getTime()) handleQuoteExpire();
     };
@@ -1182,7 +1182,8 @@ export function ManualSwapWidget({
       onError: error => {
         setQuotePreview(null);
         setQuoteStatus('error');
-        setQuoteError(publicApiErrorText(error, t('swap.quoteUnavailable'), t));
+        const errorKey = quoteErrorTranslationKey(error);
+        setQuoteError(errorKey ? uiT(errorKey) : publicApiErrorText(error, t('swap.quoteUnavailable'), t));
         trackEvent('quote_failed', { mode: 'swap' });
       },
       run: signal => activeAmountSide === 'receive'

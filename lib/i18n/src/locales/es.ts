@@ -1,5 +1,6 @@
 import type { TranslationDictionary } from '../types';
 const es = {
+  quoteErrors: { temporary: 'No pudimos confirmar la cotización actual. Inténtalo de nuevo. Solo podrás continuar cuando se confirme una nueva cotización.' },
   policyAcceptance: { text: 'Acepto los {terms} y la {aml}.', terms: 'Términos y condiciones', aml: 'Política AML/KYC' },
   ...{ public: {
     paymentMethod:'Método de pago', openNavigation:'Abrir menú de navegación', closeNavigation:'Cerrar menú de navegación',

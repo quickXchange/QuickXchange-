@@ -490,3 +490,17 @@ mtime_ms = 1794065433044
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/08305273-65ab-4901-8184-f8c45f7fc588/468e05d8-b65d-4d61-b5b2-4800298cb4bd"
 storage_version_token = "1794065451751067"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "GMYETMqz8_eqGfyqIPvY4"
+uri = "file://docs/SWAP_RECEIVE_QUOTE_503_REPORT.md"
+type = "text"
+title = "Swap HTTP 503 — Root Cause and Verification Report"
+description = "Production evidence, exact files changed, Development measurements, focused regression results and remaining release actions."
+logical_id = "e65b94bd-0332-48f6-bc19-dd524c01b4f9"
+content_hash = "sha256:a55406bbd478c3113ca832d172e81b45acfb95a0bcd0c33fcce237c221e85771"
+size = 7807
+mtime_ms = 1794348291806
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/e65b94bd-0332-48f6-bc19-dd524c01b4f9/c8e7a1d1-b33c-421f-b4b5-f67ceef0864b"
+storage_version_token = "1794348355098867"
+content_type = "text/markdown"

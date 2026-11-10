@@ -194,6 +194,7 @@ import { normalizePaymentMethodReserve, savePaymentMethodReserves, validateCurre
 import { notifyRatesXmlChange } from "../lib/rates-xml-cache";
 import {
   beforeManualReceiveDeadline,
+  ManualReceiveQuoteBudgetError,
   effectiveManualReceiveTarget,
   solveManualReceiveQuote,
 } from "../lib/manual-receive-quote";
@@ -1824,6 +1825,8 @@ router.post("/exchange/quote-by-receive", (req, res, next) =>
       : undefined,
     async () => {
       const disconnectedRequest = Symbol("reverse quote request disconnected");
+      const startedAt = Date.now();
+      let pricingStage = "validation";
       const ensureClientConnected = () => {
         if (req.aborted || res.destroyed) throw disconnectedRequest;
       };
@@ -1853,10 +1856,12 @@ router.post("/exchange/quote-by-receive", (req, res, next) =>
       selectedAddOnKeys: input.selectedAddOnKeys,
     });
     ensureClientConnected();
+    pricingStage = "route_normalization";
     const route = await timeStage("route_normalization", () =>
       beforeManualReceiveDeadline(normalizeExchangeRoute(forwardInput), deadlineAt),
     );
     ensureClientConnected();
+    pricingStage = "route_config_prep";
     const routePricing = await timeStage(
       "route_config_prep",
       async () => {
@@ -1929,6 +1934,7 @@ router.post("/exchange/quote-by-receive", (req, res, next) =>
         ].map((currency) => currency.toUpperCase()))]
       : [];
     ensureClientConnected();
+    pricingStage = "pricing_reference_basis";
     const referenceBasis = await timeStage("pricing_reference_basis", async () => {
       const referenceContext = createManualDeskEstimateReferenceContext();
       return beforeManualReceiveDeadline(referenceContext.resolve({
@@ -1954,6 +1960,7 @@ router.post("/exchange/quote-by-receive", (req, res, next) =>
     );
     const forwardTickets = new Map<number, { ticket: QuoteTicket; quotedAt: number }>();
     ensureClientConnected();
+    pricingStage = "solver";
     const solution = await timeStage("solver", () =>
       solveManualReceiveQuote({
         desiredReceiveAmount: requiredReceiveAmount,
@@ -2049,6 +2056,15 @@ router.post("/exchange/quote-by-receive", (req, res, next) =>
     });
       } catch (error) {
         if (error === disconnectedRequest || req.aborted || res.destroyed) return;
+        if (error instanceof ManualReceiveQuoteBudgetError) {
+          req.log.warn({
+            event: "manual_receive_quote_budget_exceeded",
+            stage: pricingStage,
+            budgetReason: error.budgetReason,
+            attempts: error.attempts,
+            elapsedMs: Date.now() - startedAt,
+          }, "Reverse quote exhausted its bounded pricing budget");
+        }
         completeTiming();
         next(error);
       }

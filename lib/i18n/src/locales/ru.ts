@@ -1,5 +1,6 @@
 import type { TranslationDictionary } from '../types';
 const ru = {
+  quoteErrors: { temporary: 'Не удалось подтвердить текущую котировку. Повторите попытку. Продолжить можно только после подтверждения новой котировки.' },
   policyAcceptance: { text: 'Я принимаю {terms} и {aml}.', terms: 'Условия и положения', aml: 'Политику AML/KYC' },
   ...{ public: {
     paymentMethod:'Способ оплаты', openNavigation:'Открыть меню навигации', closeNavigation:'Закрыть меню навигации',

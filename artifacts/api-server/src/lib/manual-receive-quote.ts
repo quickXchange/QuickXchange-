@@ -18,12 +18,25 @@ const MAX_UNBOUNDED_EXPANSIONS = 24;
 const SOURCE_RELATIVE_TOLERANCE = 1e-9;
 const SOURCE_ABSOLUTE_TOLERANCE = 1e-12;
 
-function budgetExceeded(): ApiError {
-  return new ApiError(
-    "MANUAL_RECEIVE_QUOTE_BUDGET_EXCEEDED",
-    "The receive quote could not be solved within the bounded pricing time and attempt budget. Please try again.",
-    503,
-  );
+export class ManualReceiveQuoteBudgetError extends ApiError {
+  constructor(
+    public readonly budgetReason: "deadline" | "attempts" | "expansions",
+    public readonly attempts?: number,
+  ) {
+    super(
+      "MANUAL_RECEIVE_QUOTE_BUDGET_EXCEEDED",
+      "The receive quote could not be solved within the bounded pricing time and attempt budget. Please try again.",
+      503,
+      true,
+    );
+  }
+}
+
+function budgetExceeded(
+  reason: "deadline" | "attempts" | "expansions" = "deadline",
+  attempts?: number,
+): ApiError {
+  return new ManualReceiveQuoteBudgetError(reason, attempts);
 }
 
 export async function beforeManualReceiveDeadline<T>(
@@ -104,9 +117,8 @@ export async function solveManualReceiveQuote(
   const evaluate = async (amount: number): Promise<number> => {
     const cached = cache.get(amount);
     if (cached !== undefined) return cached;
-    if (attempts >= maxAttempts || Date.now() >= deadlineAt) {
-      throw budgetExceeded();
-    }
+    if (Date.now() >= deadlineAt) throw budgetExceeded("deadline", attempts);
+    if (attempts >= maxAttempts) throw budgetExceeded("attempts", attempts);
     attempts++;
     const result = await beforeManualReceiveDeadline(input.quote(amount), deadlineAt);
     if (!Number.isFinite(result)) {
@@ -168,6 +180,14 @@ export async function solveManualReceiveQuote(
         }
         candidate = low + (high - low) * fractionSafe;
       }
+      // Rounded forward amounts form plateaus. Subtracting one receive
+      // quantum can land only one floating-point step above low, repeatedly,
+      // without narrowing the bracket. Safeguard this branch too, not just
+      // false-position interpolation. Never change the forward pricing oracle.
+      const width = high - low;
+      if (candidate - low < width * 0.05 || high - candidate < width * 0.05) {
+        candidate = low + width / 2;
+      }
       if (candidate <= low || candidate >= high) {
         return { amount: high, receiveAmount: highValue };
       }
@@ -197,7 +217,7 @@ export async function solveManualReceiveQuote(
     if (high - low <= sourceTolerance(high)) {
       return { amount: high, receiveAmount: highValue };
     }
-    throw budgetExceeded();
+    throw budgetExceeded("attempts", attempts);
   };
 
   const searchInterior = async (
@@ -252,7 +272,7 @@ export async function solveManualReceiveQuote(
         bracketLow = next;
         bracketLowReceive = nextReceive;
       }
-      if (bracketLow < high) throw budgetExceeded();
+      if (bracketLow < high) throw budgetExceeded("expansions", attempts);
       return undefined;
     }
 
@@ -277,7 +297,7 @@ export async function solveManualReceiveQuote(
     }
     // Expansion exhaustion may conceal a feasible route, so it is a budget
     // failure, not a false assertion that the target is impossible.
-    throw budgetExceeded();
+    throw budgetExceeded("expansions", attempts);
   };
 
   const boundaries = [...new Set(input.tierBoundaries ?? [])]

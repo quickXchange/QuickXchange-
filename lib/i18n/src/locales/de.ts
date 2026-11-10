@@ -1,5 +1,6 @@
 import type { TranslationDictionary } from '../types';
 const de = {
+  quoteErrors: { temporary: 'Das aktuelle Kursangebot konnte nicht bestätigt werden. Bitte versuchen Sie es erneut. Sie können erst nach Bestätigung eines neuen Angebots fortfahren.' },
   policyAcceptance: { text: 'Ich akzeptiere die {terms} und die {aml}.', terms: 'Allgemeinen Geschäftsbedingungen', aml: 'AML/KYC-Richtlinie' },
   ...{ public: {
     paymentMethod:'Zahlungsmethode', openNavigation:'Navigationsmenü öffnen', closeNavigation:'Navigationsmenü schließen',

@@ -8,6 +8,7 @@ import adminPricing from './uk-admin/adminPricing';
 import adminStaff from './uk-admin/adminStaff';
 
 const uk = {
+  quoteErrors: { temporary: 'Не вдалося підтвердити поточну котировку. Спробуйте ще раз. Продовжити можна лише після підтвердження нової котировки.' },
   policyAcceptance: { text: 'Я приймаю {terms} та {aml}.', terms: 'Умови та положення', aml: 'Політику AML/KYC' },
   ...{ public: {
     paymentMethod:'Спосіб оплати', openNavigation:'Відкрити меню навігації', closeNavigation:'Закрити меню навігації',

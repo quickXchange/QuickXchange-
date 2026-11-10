@@ -169,18 +169,18 @@ test('live canonical USDT TRC20 to SEPA Instant EUR reverse quote populates send
     if (!response.url().endsWith('/api/exchange/quote-by-receive')) return false;
     const body = response.request().postDataJSON();
     return body.sourceSettlementOptionId === source.id &&
-      body.targetSettlementOptionId === target.id && body.desiredReceiveAmount === 1000;
+      body.targetSettlementOptionId === target.id && body.desiredReceiveAmount === 2078;
   });
-  await page.getByTestId('input-receive-amount').fill('1000');
+  await page.getByTestId('input-receive-amount').fill('2078');
   const response = await reverseResponse;
   expect(response.status(), 'The real reverse solver must return a quote, not exhaust its budget').toBe(200);
   const serverQuote = await response.json();
   expect(Number.isFinite(serverQuote.amount) && serverQuote.amount > 0).toBe(true);
-  expect(serverQuote.receiveAmount).toBeGreaterThanOrEqual(1000);
+  expect(serverQuote.receiveAmount).toBeGreaterThanOrEqual(2078);
   expect(serverQuote.sourceSettlementOptionId).toBe(source.id);
   expect(serverQuote.targetSettlementOptionId).toBe(target.id);
   await expect(page.getByTestId('input-send-amount')).toHaveValue(formatDisplayAmount(serverQuote.amount));
-  await expect(page.getByTestId('input-receive-amount')).toHaveValue('1000');
+  await expect(page.getByTestId('input-receive-amount')).toHaveValue('2078');
   await expect(page.getByTestId('text-exchange-rate')).toHaveText(`1 USDT = ${formatDisplayAmount(serverQuote.rate)} EUR`);
   await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeEnabled();
   await expect(page.getByText('Processing...', { exact: true })).toHaveCount(0);
@@ -221,17 +221,80 @@ test('Swap stalled transport and real-shaped budget errors both end quote loadin
   await page.clock.runFor(250);
   await requestStarted;
   await page.clock.runFor(20_100);
-  await expect(page.getByText('The quote request timed out. Please try again.')).toBeVisible();
+  await expect(page.getByText('We could not confirm the current quote. Please try again. You can continue only after a new quote is confirmed.')).toBeVisible();
   await expect(page.getByTestId('text-exchange-rate')).toHaveText('Rate unavailable');
   await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
   await expect(page.getByText('Processing...', { exact: true })).toHaveCount(0);
 
   await page.getByTestId('input-receive-amount').fill('1001');
   await page.clock.runFor(250);
-  await expect(page.getByText(/could not be solved within the bounded pricing time/)).toBeVisible();
+  await expect(page.getByText('We could not confirm the current quote. Please try again. You can continue only after a new quote is confirmed.')).toBeVisible();
+  await expect(page.getByText(/HTTP 503|bounded pricing time/)).toHaveCount(0);
   await expect(page.getByTestId('text-exchange-rate')).toHaveText('Rate unavailable');
   await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
   await expect(page.getByText('Processing...', { exact: true })).toHaveCount(0);
+  expect(requests).toBe(2);
+});
+
+test('USDT TRC20 SEPA Instant Russian receive failure clears stale send display and recovers safely', async ({ page }) => {
+  await mockTelegramSession(page);
+  await page.addInitScript(() => localStorage.setItem('qx-locale', 'ru'));
+  const source = {
+    id: 'crypto:usdt-trc20', assetId: 'usdt', assetCode: 'USDT', routeNetwork: 'TRC20',
+    kind: 'crypto-network', title: 'Tether TRC20', direction: 'both',
+  };
+  const target = {
+    id: 'fiat:eur:sepa-instant', assetId: 'eur', assetCode: 'EUR', routeNetwork: 'SEPA',
+    kind: 'fiat-payment-method', title: 'SEPA Instant', paymentMethodId: 'sepa-instant', direction: 'both',
+  };
+  await page.route('**/api/exchange/config', route => route.fulfill({ json: {
+    assets: [], fiatCurrencies: ['EUR'], settlementOptions: [source, target],
+    manualSettlementOptions: [source, target], providers: [], feePercent: 0,
+    manualRouteAvailability: { available: true, routes: [
+      { sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id },
+    ] },
+  } }));
+  await page.route('**/api/exchange/manual-swap-addons', route => route.fulfill({ json: { items: [] } }));
+  await page.route('**/api/exchange/route-pricing**', route => route.fulfill({ json: {
+    sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id,
+    fromAsset: 'USDT', toAsset: 'EUR', rate: 0.85, pricingRuleName: 'UI fixture only',
+  } }));
+  const base = {
+    ...quote('swap'), fromAsset: 'USDT', toAsset: 'EUR', toNetwork: 'SEPA',
+    sourceSettlementOptionId: source.id, targetSettlementOptionId: target.id,
+  };
+  await page.route('**/api/exchange/quote', route => route.fulfill({ json: {
+    ...base, amount: 1117.192, receiveAmount: 949.52, rate: 949.52 / 1117.192,
+  } }));
+  let fail = true;
+  let requests = 0;
+  await page.route('**/api/exchange/quote-by-receive', route => {
+    requests++;
+    expect(route.request().postDataJSON()).toMatchObject({
+      fromAsset: 'USDT', fromNetwork: 'TRC20', toAsset: 'EUR', toNetwork: 'SEPA',
+      desiredReceiveAmount: fail ? 2078 : 2079,
+    });
+    return fail ? route.fulfill({ status: 503, json: {
+      code: 'MANUAL_RECEIVE_QUOTE_BUDGET_EXCEEDED', error: 'Internal solver budget diagnostics',
+    } }) : route.fulfill({ json: {
+      ...base, quoteId: 'recovered-reverse-ui-fixture', amount: 2446.08, receiveAmount: 2079,
+      rate: 2079 / 2446.08,
+    } });
+  });
+  await page.goto(`${miniApp}/exchange?mode=swap`);
+  await page.getByTestId('input-send-amount').fill('1117.192');
+  const proceed = page.getByRole('button', { name: 'Продолжить', exact: true });
+  await expect(proceed).toBeEnabled();
+  await page.getByTestId('input-receive-amount').fill('2078');
+  await expect(page.getByText(/Не удалось подтвердить текущую котировку/)).toBeVisible();
+  await expect(page.getByTestId('input-send-amount')).toHaveValue('');
+  await expect(page.getByTestId('input-receive-amount')).toHaveValue('2078');
+  await expect(proceed).toBeDisabled();
+  await expect(page.getByText(/HTTP 503|Internal solver/)).toHaveCount(0);
+  fail = false;
+  await page.getByTestId('input-receive-amount').fill('2079');
+  await expect(proceed).toBeEnabled();
+  await expect(page.getByTestId('input-send-amount')).toHaveValue('2446.08');
   expect(requests).toBe(2);
 });
 

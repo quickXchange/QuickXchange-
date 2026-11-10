@@ -1,5 +1,6 @@
 import type { TranslationDictionary } from '../types';
 const fr = {
+  quoteErrors: { temporary: 'Impossible de confirmer le devis actuel. Veuillez réessayer. Vous pourrez continuer après confirmation d’un nouveau devis.' },
   policyAcceptance: { text: 'J’accepte les {terms} et la {aml}.', terms: 'Conditions générales', aml: 'Politique AML/KYC' },
   ...{ public: {
     paymentMethod:'Mode de paiement', openNavigation:'Ouvrir le menu de navigation', closeNavigation:'Fermer le menu de navigation',

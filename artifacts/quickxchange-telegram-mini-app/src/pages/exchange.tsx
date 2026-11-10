@@ -1,4 +1,4 @@
-import { useI18n as useCustomerI18n, type Locale } from "@workspace/i18n";
+import { quoteErrorTranslationKey, useI18n as useCustomerI18n, type Locale } from "@workspace/i18n";
 import { formatAmountInputValue, formatDisplayAmount } from '@workspace/amount-format';
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
@@ -886,7 +886,9 @@ export default function Exchange() {
               (controller?.signal.aborted && !(err instanceof SwapQuoteTimeoutError))) return;
           timing?.responseReceived();
           timing?.finish('error');
-          setErrorMsg(err.message || 'Failed to get quote');
+          const errorKey = quoteErrorTranslationKey(err);
+          // Never render raw HTTP/provider diagnostics as customer copy.
+          setErrorMsg(errorKey ? uiT(errorKey) : uiT('swap.quoteUnavailable'));
           setQuoteData(null);
         } finally {
           if (quoteRequestVersionRef.current === requestVersion) {
@@ -1431,7 +1433,8 @@ export default function Exchange() {
                 aria-label={uiT("customer.m59ce39c2257b")}
                 type="text"
                 inputMode="decimal"
-                value={formatAmountInputValue(amount, editingAmountSide === 'send')}
+                value={formatAmountInputValue(mode === 'swap' && activeAmountSide === 'receive' &&
+                  (!quoteMatchesCurrentSelection || quoteExpired) ? '' : amount, editingAmountSide === 'send')}
                 onFocus={() => setEditingAmountSide('send')}
                 onBlur={() => setEditingAmountSide(null)}
                 disabled={!exchangeRouteReady || createOutcomeUncertain}
@@ -1499,7 +1502,8 @@ export default function Exchange() {
                 aria-label={uiT("customer.m5fc013f5c6f4")}
                 type="text"
                 inputMode="decimal"
-                value={formatAmountInputValue(desiredReceiveAmount, editingAmountSide === 'receive')}
+                value={formatAmountInputValue(mode === 'swap' && activeAmountSide === 'send' &&
+                  (!quoteMatchesCurrentSelection || quoteExpired) ? '' : desiredReceiveAmount, editingAmountSide === 'receive')}
                 onFocus={() => setEditingAmountSide('receive')}
                 onBlur={() => setEditingAmountSide(null)}
                 onChange={(e) => editAmount('receive', e.target.value)}

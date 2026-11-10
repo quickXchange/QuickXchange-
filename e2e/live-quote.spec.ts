@@ -928,8 +928,8 @@ test('previews a manual quote and handles cleared and failed quotes without subm
   await expect(receive).toHaveAttribute('placeholder', '0');
   await expect(receive).toHaveValue('');
   await expect(receive).toHaveAttribute('placeholder', '0');
-  await expect(page.getByTestId('form-exchange').locator('.quote-error')).toHaveText('Quote unavailable');
-  await expect(page.getByTestId('swap-addons-quote-status')).toContainText('Quote unavailable');
+  await expect(page.getByTestId('form-exchange').locator('.quote-error')).toHaveText('We could not confirm the current quote. Please try again. You can continue only after a new quote is confirmed.');
+  await expect(page.getByTestId('swap-addons-quote-status')).toContainText('We could not confirm the current quote.');
   await expect(page.getByTestId('button-swap-continue')).toBeDisabled();
   await expect(page.getByTestId('button-exchange')).toHaveCount(0);
   expect(quoteRequests).toBe(3);
@@ -2277,6 +2277,71 @@ test('keeps compact exchange widgets and asset menus usable across viewport size
   expect(convertFulfillmentGeometry.destination.cssHeight).toBeGreaterThanOrEqual(40);
   expect(convertFulfillmentGeometry.destination.height).toBeGreaterThanOrEqual(40);
   expect(convertFulfillmentGeometry.documentOverflow).toBe(0);
+});
+
+test('USDT TRC20 to SEPA Instant receive failure is localized and cannot reuse a forward quote', async ({ page }) => {
+  await page.addInitScript(() => {
+    // The public shell's one-time preview migration otherwise clears qx-locale.
+    localStorage.setItem('qx-preview-parity-v1', 'complete');
+    localStorage.setItem('qx-locale', 'ru');
+  });
+  const sepaConfig = {
+    ...exchangeConfig,
+    manualSettlementOptions: exchangeConfig.manualSettlementOptions.map(option =>
+      option.id === 'eur-fiat' ? { ...option, title: 'SEPA Instant' } : option),
+  };
+  await page.route('**/api/exchange/config', route => route.fulfill({ json: sepaConfig }));
+  await page.route('**/api/exchange/manual-swap-addons', route => route.fulfill({
+    status: 200, json: { items: [] },
+  }));
+  await page.route('**/api/exchange/route-pricing**', route => {
+    const params = new URL(route.request().url()).searchParams;
+    const sourceSettlementOptionId = params.get('sourceSettlementOptionId')!;
+    const targetSettlementOptionId = params.get('targetSettlementOptionId')!;
+    return route.fulfill({ status: 200, json: {
+      sourceSettlementOptionId, targetSettlementOptionId,
+      fromAsset: sourceSettlementOptionId === 'usdt-trc20' ? 'USDT' : 'USD',
+      toAsset: 'EUR', rate: 0.85, pricingRuleName: 'UI fixture only',
+    } });
+  });
+  const base = {
+    type: 'manual', fromAsset: 'USDT', fromNetwork: 'TRC20',
+    toAsset: 'EUR', toNetwork: 'SEPA transfer', sourceSettlementOptionId: 'usdt-trc20',
+    targetSettlementOptionId: 'eur-fiat', selectedAddOnKeys: [], fee: 0,
+    manualSwapFees: zeroAdditionalFees,
+  };
+  let fail = true;
+  await page.route('**/api/exchange/quote', route => route.fulfill({
+    json: { ...base, quoteId: 'forward-ui-fixture', amount: 1117.192, receiveAmount: 949.52,
+      rate: 949.52 / 1117.192, expiresAt: new Date(Date.now() + 120000).toISOString() },
+  }));
+  await page.route('**/api/exchange/quote-by-receive', route => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      fromAsset: 'USDT', fromNetwork: 'TRC20', desiredReceiveAmount: fail ? 2078 : 2079,
+    });
+    return fail ? route.fulfill({ status: 503, json: {
+      code: 'MANUAL_RECEIVE_QUOTE_BUDGET_EXCEEDED', error: 'Internal solver budget diagnostics',
+    } }) : route.fulfill({ json: {
+      ...base, quoteId: 'recovered-ui-fixture', amount: 2446.08, receiveAmount: 2079,
+      rate: 2079 / 2446.08, expiresAt: new Date(Date.now() + 120000).toISOString(),
+    } });
+  });
+  await page.goto('/');
+  // Selectors use stable identifiers; labels are deliberately localized.
+  await chooseAsset(page, 'select-from-asset', 'usdt-trc20', 'USDT');
+  await chooseAsset(page, 'select-to-asset', 'eur-fiat', 'EUR');
+  await page.getByTestId('input-amount').fill('1117.192');
+  await expect(page.getByTestId('button-swap-continue')).toBeEnabled();
+  await page.getByTestId('input-receive-amount').fill('2078');
+  await expect(page.locator('.field-hint.quote-error'))
+    .toContainText(/Не удалось подтвердить текущую котировку/);
+  await expect(page.getByTestId('button-swap-continue')).toBeDisabled();
+  await expect(page.getByTestId('input-amount')).toHaveValue('');
+  await expect(page.getByText(/HTTP 503|Internal solver/)).toHaveCount(0);
+  fail = false;
+  await page.getByTestId('input-receive-amount').fill('2079');
+  await expect(page.getByTestId('button-swap-continue')).toBeEnabled();
+  await expect(page.getByTestId('input-amount')).toHaveValue('2446.08');
 });
 
 test('tracking clears stale results and keeps failures customer-safe', async ({ page }) => {

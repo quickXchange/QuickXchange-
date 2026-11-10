@@ -1,5 +1,6 @@
 import type { TranslationDictionary } from '../types';
 const ko = {
+  quoteErrors: { temporary: '현재 견적을 확인하지 못했습니다. 다시 시도해 주세요. 새 견적이 확인된 후에만 계속할 수 있습니다.' },
   policyAcceptance: { text: '저는 {terms} 및 {aml}에 동의합니다.', terms: '이용약관', aml: 'AML/KYC 정책' },
   ...{ public: {
     paymentMethod:'결제 수단', openNavigation:'탐색 메뉴 열기', closeNavigation:'탐색 메뉴 닫기',

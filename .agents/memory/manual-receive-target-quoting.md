@@ -20,3 +20,9 @@ Use semantic quote identities rather than refreshed option-object identity, and 
 **Why:** Catalog refreshes can abort unchanged in-flight quotes, masking backend failures through repeated loading. A pre-amount rate intentionally excludes fixed fees, so rate equality alone does not prove financial configuration equality.
 
 **How to apply:** Fence edits synchronously, cancel superseded requests, and bound browser settlement independently of transport abort behavior. Identical polls must retain identity; fee-only and tier-only edits must change it.
+
+Safeguard every numeric refinement branch against negligible bracket progress, including steps that subtract one receive quantum.
+
+**Why:** Quantized fiat pricing can place that subtraction only one floating-point step above the lower bracket. Repeating it exhausts the attempt budget almost instantly despite a healthy provider and a feasible target. A budget error therefore does not, by itself, establish a network timeout.
+
+**How to apply:** Fall back to a midpoint when a candidate is too close to either bracket endpoint. Keep canonical forward evaluation and existing budgets; distinguish attempt exhaustion from deadline expiry in sanitized diagnostics.
