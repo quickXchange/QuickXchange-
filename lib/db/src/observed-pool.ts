@@ -1,6 +1,7 @@
 import pg from "pg";
 import { monitorEventLoopDelay, performance } from "node:perf_hooks";
 import { classifyDatabasePoolError, isTransientConnectionAcquisitionError } from "./pool-telemetry";
+import { databaseOperationContext } from "./operation-context";
 
 type ConnectCallback = (error: Error | undefined, client: pg.PoolClient | undefined, release: (error?: Error | boolean) => void) => void;
 
@@ -17,11 +18,20 @@ export class ObservedPool extends pg.Pool {
   private recoveredAcquisitions = 0;
   private lastAcquisitionMs = 0;
   private maxAcquisitionMs = 0;
+  private maxClientHoldMs = 0;
+  private held = new Map<pg.PoolClient, { startedAt: number; component: string }>();
+  private loopWindowStartedAt = Date.now();
+  private loopWindowTimer: ReturnType<typeof setInterval>;
   private loop = monitorEventLoopDelay({ resolution: 20 });
 
   constructor(options: pg.PoolConfig) {
     super(options);
     this.loop.enable();
+    this.loopWindowTimer = setInterval(() => {
+      this.loop.reset();
+      this.loopWindowStartedAt = Date.now();
+    }, 60_000);
+    this.loopWindowTimer.unref();
   }
 
   metrics() {
@@ -33,6 +43,11 @@ export class ObservedPool extends pg.Pool {
       recoveredAcquisitions: this.recoveredAcquisitions,
       lastAcquisitionMs: this.lastAcquisitionMs,
       maxAcquisitionMs: this.maxAcquisitionMs,
+      maxClientHoldMs: this.maxClientHoldMs,
+      checkedOutClients: [...this.held.values()].map(({ startedAt, component }) => ({
+        component, heldMs: Math.round(performance.now() - startedAt),
+      })),
+      eventLoopWindowStartedAt: new Date(this.loopWindowStartedAt).toISOString(),
       eventLoopDelayP99Ms: Number.isFinite(this.loop.percentile(99))
         ? Math.round(this.loop.percentile(99) / 1e6) : 0,
       eventLoopDelayMaxMs: Number.isFinite(this.loop.max) ? Math.round(this.loop.max / 1e6) : 0,
@@ -43,6 +58,7 @@ export class ObservedPool extends pg.Pool {
   connect(callback: ConnectCallback): void;
   connect(callback?: ConnectCallback): Promise<pg.PoolClient> | void {
     const start = performance.now();
+    const component = databaseOperationContext.getStore() ?? "unclassified";
     const startCounts = {
       totalCount: this.totalCount, idleCount: this.idleCount, waitingCount: this.waitingCount,
     };
@@ -55,7 +71,7 @@ export class ObservedPool extends pg.Pool {
       if (durationMs >= 2_000) {
         this.slowAcquisitions++;
         console.warn("Slow PostgreSQL connection acquisition", {
-          durationMs, startCounts,
+          durationMs, component, startCounts,
           endCounts: { totalCount: this.totalCount, idleCount: this.idleCount, waitingCount: this.waitingCount },
           outcome: error ? classifyDatabasePoolError(error) : "success",
           ...this.metrics(),
@@ -84,7 +100,29 @@ export class ObservedPool extends pg.Pool {
           }
           if (!error && retried) this.recoveredAcquisitions++;
           record(error);
-          done(error, client, release);
+          if (!error && client) {
+            const startedAt = performance.now();
+            const checkout = { startedAt, component };
+            this.held.set(client, checkout);
+            const observedRelease: typeof release = (releaseError) => {
+              if (this.held.get(client) === checkout) {
+                this.held.delete(client);
+                const heldMs = Math.round(performance.now() - startedAt);
+                this.maxClientHoldMs = Math.max(this.maxClientHoldMs, heldMs);
+                if (heldMs >= 2_000) {
+                  console.warn("Long PostgreSQL client checkout", {
+                    component, heldMs, ...this.metrics(),
+                  });
+                }
+              }
+              // Preserve pg's double-release guard and error/removal semantics.
+              release(releaseError);
+            };
+            client.release = observedRelease;
+            done(error, client, observedRelease);
+          } else {
+            done(error, client, release);
+          }
         });
       };
       attempt();
@@ -102,6 +140,7 @@ export class ObservedPool extends pg.Pool {
   end(callback: () => void): void;
   end(callback?: () => void): Promise<void> | void {
     this.loop.disable();
+    clearInterval(this.loopWindowTimer);
     if (callback) return super.end(callback);
     return super.end();
   }

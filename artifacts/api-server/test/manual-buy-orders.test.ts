@@ -10,6 +10,7 @@ import {
   paymentMethodsTable, manualDeskPricingRulesTable, ordersTable,
   cryptoAssetsTable, cryptoAssetNetworksTable, operatorsTable,
   adminInboxTable,
+  blockchainMonitorRegistrationGapsTable,
 } from "@workspace/db";
 import exchangeRouter from "../src/routes/exchange";
 import exchangeConfigRouter from "../src/routes/exchange-config";
@@ -107,6 +108,16 @@ test(`EUR ${methodName} BUY → ${destination.id} preserves the quote and is vis
   };
   const quote = await json("/exchange/quote", route);
   assert.equal(quote.status, 200, JSON.stringify(quote.body));
+  const reverseQuote = await json("/exchange/quote-by-receive", {
+    ...route, desiredReceiveAmount: quote.body.receiveAmount,
+  });
+  assert.equal(reverseQuote.status, 200, JSON.stringify(reverseQuote.body));
+  assert.ok(reverseQuote.body.quoteId, "Reverse quoting must return its canonical signed ticket");
+  assert.equal(reverseQuote.body.sourceSettlementOptionId, source.id);
+  assert.equal(reverseQuote.body.targetSettlementOptionId, target.id);
+  assert.ok(reverseQuote.body.receiveAmount >= quote.body.receiveAmount);
+  assert.ok(Math.abs(reverseQuote.body.amount - route.amount) <= 0.01,
+    "Reverse quoting must recover the same fiat source amount within its precision");
   const input = {
     ...route, quoteId: quote.body.quoteId, clientRequestId: randomUUID(),
     customerEmail: "synthetic-buy@example.test",
@@ -152,10 +163,15 @@ test(`EUR ${methodName} BUY → ${destination.id} preserves the quote and is vis
   assert.equal(tracking.body.status, "awaiting funds");
   assert.equal(String(tracking.body.receiveAmount), saved.receiveAmount);
   assert.equal(saved.manualSettlementState, "awaiting_funds");
+  const gaps = await db.select().from(blockchainMonitorRegistrationGapsTable)
+    .where(eq(blockchainMonitorRegistrationGapsTable.orderId, saved.id));
+  assert.equal(gaps.length, 0, "A fiat deposit is not a missing blockchain watch");
   const changed = await db.transaction(tx => updateOrderAndQueueStatusNotificationTx(tx, saved, { status: "processing" }));
   assert.equal(changed?.status, "processing");
   const statusEvents = await db.select().from(adminInboxTable).where(eq(adminInboxTable.orderId, saved.id));
-  assert.equal(statusEvents.filter(event => event.kind === "status_change").length, 1);
+  assert.equal(statusEvents.filter(event => event.kind === "status_change").length, 0,
+    "The Admin inbox intentionally contains new orders only, not status updates");
+  assert.equal(statusEvents.filter(event => event.kind === "new_order").length, 1);
   assert.equal(statusEvents.filter(event => event.kind === "deposit").length, 0, "Status alone must not claim payment evidence");
 });
 }

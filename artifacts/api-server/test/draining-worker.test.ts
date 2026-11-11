@@ -2,6 +2,27 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { startDrainingWorker } from "../src/lib/draining-worker";
 import { XmlQuoteRefresh } from "../src/lib/rates-xml-refresh";
+import { databaseOperationContext } from "@workspace/db/operation-context";
+
+test("delayed workers retain their schedule, component identity and single-flight recovery", async () => {
+  let cycles = 0, active = 0, maximum = 0;
+  let release!: () => void;
+  const stop = startDrainingWorker(async () => {
+    assert.equal(databaseOperationContext.getStore(), "synthetic-newsletter");
+    cycles++; active++; maximum = Math.max(maximum, active);
+    await new Promise<void>(resolve => { release = resolve; });
+    active--;
+  }, 10, () => {}, { startImmediately: false, component: "synthetic-newsletter" });
+  await Promise.resolve();
+  assert.equal(cycles, 0);
+  await new Promise(resolve => setTimeout(resolve, 45));
+  assert.equal(cycles, 1);
+  assert.equal(maximum, 1);
+  const drained = stop();
+  release(); await drained;
+  await new Promise(resolve => setTimeout(resolve, 15));
+  assert.equal(cycles, 1);
+});
 
 test("worker stop waits for lease cleanup before database shutdown and prevents overlapping ticks", async () => {
   const events: string[] = [];

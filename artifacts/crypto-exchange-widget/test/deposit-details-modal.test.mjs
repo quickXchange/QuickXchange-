@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
+import { assertCustomerCopy } from './customer-copy-assertion.mjs';
 
 const [page, modal, styles] = await Promise.all([
   readFile(new URL('../src/pages/order-confirmation.tsx', import.meta.url), 'utf8'),
@@ -36,10 +37,11 @@ test('Convert keeps its existing inline QR toggle rather than opening the Swap m
 
 test('only the X closes crypto deposit details; detection remains automatic', () => {
   assert.match(modal, /<Dialog\.Close asChild>/);
-  assert.match(modal, /aria-label="Close deposit details"/);
+  assertCustomerCopy(modal, 'Close deposit details');
+  assert.match(modal, /aria-label=\{uiT\(/);
   assert.match(modal, /onEscapeKeyDown=\{\(event\) => event\.preventDefault\(\)\}/);
   assert.match(modal, /onInteractOutside=\{\(event\) => event\.preventDefault\(\)\}/);
-  assert.match(modal, /Blockchain payment detection is automatic/);
+  assertCustomerCopy(modal, 'Blockchain payment detection is automatic');
   assert.doesNotMatch(modal, /Mark as Paid|Cancel|onMarkPaid|markPaidMutation/);
 });
 

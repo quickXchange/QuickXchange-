@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
+import { loadDictionary, translate } from '../lib/i18n/src/runtime';
+import type { Locale } from '../lib/i18n/src/types';
 import { mockLanguageBootstrap } from './language-bootstrap';
 
 test.beforeEach(async ({ page }) => mockLanguageBootstrap(page));
@@ -164,6 +166,90 @@ function makeSwapConfig() {
     feePercent: 0,
   };
 }
+
+test('all seven Mini App languages persist and render translated Swap/Convert UI in light and dark', async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  const unexpectedApiRequests: string[] = [];
+  const unexpectedWrites: string[] = [];
+  page.on('request', request => {
+    const url = new URL(request.url());
+    if (url.pathname.startsWith('/api/')
+      && request.method() !== 'GET'
+      && url.pathname !== '/api/telegram/mini-app/session') {
+      unexpectedWrites.push(`${request.method()} ${url.pathname}`);
+    }
+  });
+
+  // Isolate every API request. Language bootstrap falls back to the shared
+  // mockLanguageBootstrap route; no production API or financial write is used.
+  await page.route('**/api/**', async route => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path === '/api/languages' || path.startsWith('/api/languages/dictionaries/')) {
+      return route.fallback();
+    }
+    if (path === '/api/exchange/config') return route.fulfill({ status: 200, json: makeSwapConfig() });
+    if (path === '/api/quickex/config') return route.fulfill({ status: 200, json: quickexConfig });
+    if (path === '/api/exchange/route-pricing') {
+      return route.fulfill({ status: 200, json: { rate: 1, minAmount: 1, maxAmount: 10000 } });
+    }
+    if (path === '/api/exchange/manual-swap-addons') {
+      return route.fulfill({ status: 200, json: { items: [] } });
+    }
+    unexpectedApiRequests.push(`${request.method()} ${path}`);
+    return route.fulfill({ status: 501, json: { error: 'Unexpected request blocked by Mini App language fixture' } });
+  });
+  await mockAuthenticatedTelegram(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const locales = ['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk'] as const;
+  const assertModeText = async (locale: typeof locales[number], mode: 'swap' | 'convert') => {
+    const dictionary = await loadDictionary(locale as Locale);
+    const expectedSwap = translate(dictionary, 'customer.m6ec282d40a8a');
+    const expectedConvert = translate(dictionary, 'customer.m5cd425f518c2');
+    const expectedSendAmount = translate(dictionary, 'customer.m59ce39c2257b');
+    const expectedReceiveAmount = translate(dictionary, 'customer.m5fc013f5c6f4');
+    const expectedHeading = mode === 'swap' ? expectedSwap : expectedConvert;
+    await expect(page.locator('.qx-exchange-heading')).toHaveText(expectedHeading);
+    await expect(page.locator('.qx-exchange-tabs')).toContainText(expectedSwap);
+    await expect(page.locator('.qx-exchange-tabs')).toContainText(expectedConvert);
+    await expect(page.getByTestId('input-send-amount')).toHaveAttribute('aria-label', expectedSendAmount);
+    await expect(page.getByTestId('input-receive-amount')).toHaveAttribute('aria-label', expectedReceiveAmount);
+  };
+
+  for (const dark of [false, true]) {
+    await page.goto(`${base}/exchange?mode=swap`);
+    await page.evaluate(isDark => document.documentElement.classList.toggle('dark', isDark), dark);
+    await expect(page.getByTestId('mini-app-language-selector')).toBeVisible();
+    for (const locale of locales) {
+      const selector = page.getByTestId('mini-app-language-selector');
+      await expect(selector).toBeEnabled();
+      await selector.selectOption(locale);
+      await expect.poll(() => page.evaluate(() => localStorage.getItem('qx-locale'))).toBe(locale);
+      await assertModeText(locale, 'swap');
+
+      const dictionary = await loadDictionary(locale as Locale);
+      const expectedSwap = translate(dictionary, 'customer.m6ec282d40a8a');
+      const expectedConvert = translate(dictionary, 'customer.m5cd425f518c2');
+      await page.getByRole('button', { name: expectedConvert, exact: true }).click();
+      await expect(page).toHaveURL(/mode=convert/);
+      await assertModeText(locale, 'convert');
+
+      await page.reload();
+      await expect(page.getByTestId('mini-app-language-selector')).toHaveValue(locale);
+      await expect.poll(() => page.evaluate(() => localStorage.getItem('qx-locale'))).toBe(locale);
+      await page.evaluate(isDark => document.documentElement.classList.toggle('dark', isDark), dark);
+      await assertModeText(locale, 'convert');
+      await page.getByRole('button', { name: expectedSwap, exact: true }).click();
+      await expect(page).toHaveURL(/mode=swap/);
+      await assertModeText(locale, 'swap');
+    }
+    await page.screenshot({ path: testInfo.outputPath(`mini-language-${dark ? 'dark' : 'light'}.png`), fullPage: true });
+    expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(dark);
+  }
+  expect(unexpectedApiRequests).toEqual([]);
+  expect(unexpectedWrites).toEqual([]);
+});
 
 test('authenticated Convert and Swap selectors search normalized aliases and network codes', async ({ page }, testInfo) => {
   const authenticatedRequests = await mockAuthenticatedTelegram(page);

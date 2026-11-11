@@ -504,3 +504,17 @@ mtime_ms = 1794348291806
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/e65b94bd-0332-48f6-bc19-dd524c01b4f9/c8e7a1d1-b33c-421f-b4b5-f67ceef0864b"
 storage_version_token = "1794348355098867"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "ql6iClhtdmpbn6K3MDRVV"
+uri = "file://docs/QUICKXCHANGE_STABILIZATION_RELEASE_REPORT.md"
+type = "text"
+title = "QuickXchange stabilization and release report"
+description = "Fixes, measured timings, test results, remaining Production blockers and code-only release/rollback procedure."
+logical_id = "31a695d0-89cf-492e-ba01-662a83144dd0"
+content_hash = "sha256:55dd095ecb6c3be460269914d60d1587d6c2cf07e31afc1dc21c1cd326b53b39"
+size = 17155
+mtime_ms = 1794389859959
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/31a695d0-89cf-492e-ba01-662a83144dd0/1227fe8f-20db-4b69-84af-4756ac5c9d4b"
+storage_version_token = "1794389909336533"
+content_type = "text/markdown"

@@ -104,8 +104,12 @@ const object = (value: unknown): JsonObject =>
   value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
 const text = (value: unknown): string => typeof value === "string" ? value.trim() : "";
 export function isManualWalletTrackingEnabledForOrder(
-  order: Pick<typeof ordersTable.$inferSelect, "fundingDetailsSnapshot">,
+  order: Pick<typeof ordersTable.$inferSelect, "fundingDetailsSnapshot"> &
+    Partial<Pick<typeof ordersTable.$inferSelect, "settlementSnapshot">>,
 ): boolean {
+  // Only an explicit frozen fiat source is exempt. Historical crypto orders
+  // without a source snapshot retain their existing monitoring policy.
+  if (object(object(order.settlementSnapshot).source).kind === "fiat-payment-method") return false;
   return object(order.fundingDetailsSnapshot).manualWalletTrackingEnabled !== false;
 }
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];

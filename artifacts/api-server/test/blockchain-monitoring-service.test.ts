@@ -65,6 +65,17 @@ test("Manual monitoring enforces chain timestamp boundary and actual memo", () =
 
 test("watch registration policy is frozen on the order funding snapshot", () => {
   assert.equal(isManualWalletTrackingEnabledForOrder({
+    fundingDetailsSnapshot: null,
+    settlementSnapshot: { source: { kind: "fiat-payment-method" } },
+  } as never), false, "EUR Buy orders must not create blockchain registration gaps");
+  assert.equal(isManualWalletTrackingEnabledForOrder({
+    fundingDetailsSnapshot: null,
+    settlementSnapshot: { source: { kind: "crypto-network" } },
+  } as never), true, "Crypto obligations must retain monitoring");
+  assert.equal(isManualWalletTrackingEnabledForOrder({
+    fundingDetailsSnapshot: null,
+  } as never), true, "Missing historical provenance must not disable monitoring");
+  assert.equal(isManualWalletTrackingEnabledForOrder({
     fundingDetailsSnapshot: { manualWalletTrackingEnabled: false },
   } as never), false);
   assert.equal(isManualWalletTrackingEnabledForOrder({

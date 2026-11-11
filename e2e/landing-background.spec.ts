@@ -288,6 +288,8 @@ test('landing artwork stays editable while the live exchange remains clean', asy
     ]) {
       await page.setViewportSize(viewport);
       await page.goto('/');
+      await page.getByTestId('button-mode-select-manual').click();
+      await expect(page.getByTestId('button-mode-select-manual')).toHaveAttribute('aria-pressed', 'true');
       await expect(page.getByTestId('live-landing-background-root')).toBeVisible();
       await expect(page.getByTestId('landing-background-image')).toHaveCount(0);
       await expect(page.getByTestId('landing-background-layer')).toHaveCount(0);

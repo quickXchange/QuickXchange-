@@ -3,6 +3,7 @@ import test from "node:test";
 import { createServer } from "node:net";
 import { once } from "node:events";
 import { ObservedPool } from "../../../lib/db/src/observed-pool";
+import { withDatabaseOperation } from "../../../lib/db/src/operation-context";
 import { classifyDatabasePoolError, isTransientConnectionAcquisitionError } from "../../../lib/db/src/pool-telemetry";
 
 test("provider errors are not mislabeled as SQL or pool failures", () => {
@@ -35,8 +36,12 @@ test("observed pool preserves callback/Promise acquisition, reuse, release and e
     max: 1, connectionTimeoutMillis: 500,
   });
   try {
-    const first = await pool.connect();
+    const first = await withDatabaseOperation("synthetic-worker", () => pool.connect());
+    const firstRelease = first.release;
+    assert.equal(pool.metrics().checkedOutClients.length, 1);
+    assert.equal(pool.metrics().checkedOutClients[0].component, "synthetic-worker");
     first.release();
+    assert.equal(pool.metrics().checkedOutClients.length, 0);
     await new Promise<void>((resolve, reject) => pool.connect((error, client, release) => {
       if (error) return reject(error);
       assert.equal(client, first);
@@ -48,6 +53,8 @@ test("observed pool preserves callback/Promise acquisition, reuse, release and e
     assert.equal(pool.metrics().acquisitionFailures, 0);
     assert.equal(pool.idleCount, 1);
     const held = await pool.connect();
+    assert.throws(() => firstRelease(), /already been released/);
+    assert.equal(pool.metrics().checkedOutClients.length, 1, "old release must not remove a newer checkout");
     try {
       await assert.rejects(pool.connect(), error => {
         assert.equal(classifyDatabasePoolError(error), "pool_acquisition_timeout");
@@ -59,6 +66,8 @@ test("observed pool preserves callback/Promise acquisition, reuse, release and e
     } finally {
       held.release();
     }
+    assert.equal(pool.metrics().checkedOutClients.length, 0);
+    assert.ok(pool.metrics().maxClientHoldMs > 0);
   } finally {
     await new Promise<void>(resolve => pool.end(resolve));
     await new Promise<void>(resolve => server.close(() => resolve()));

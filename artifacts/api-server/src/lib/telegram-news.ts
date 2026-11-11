@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, lte, or, isNull } from "drizzle-orm";
 import { databasePoolTelemetry, db, telegramNewsOutboxTable } from "@workspace/db";
+import { startDrainingWorker } from "./draining-worker";
+import { logger } from "./logger";
 
 const CLAIM_MS = 2 * 60_000;
 const MAX_ATTEMPTS = 8;
@@ -109,20 +111,16 @@ export async function processTelegramNewsOutbox(limit = 10): Promise<number> {
   return delivered;
 }
 
-export function startTelegramNewsWorker(): () => void {
+export function startTelegramNewsWorker(): () => Promise<void> {
   if (!process.env.TELEGRAM_NEWS_BOT_TOKEN?.trim()) {
-    void import("./logger").then(({ logger }) =>
-      logger.warn({ once: true }, "Telegram news worker paused: TELEGRAM_NEWS_BOT_TOKEN is not configured"));
+    logger.warn({ once: true }, "Telegram news worker paused: TELEGRAM_NEWS_BOT_TOKEN is not configured");
   }
-  const timer = setInterval(() => {
-    void processTelegramNewsOutbox().catch(async (error) => {
-      const { logger } = await import("./logger");
+  return startDrainingWorker(async () => { await processTelegramNewsOutbox(); }, 30_000,
+    (error) => {
       logger.warn({
         err: error,
         dbPool: databasePoolTelemetry("telegram-news-worker", error),
       }, "Telegram news worker failed");
-    });
-  }, 30_000);
-  timer.unref();
-  return () => clearInterval(timer);
+    },
+    { startImmediately: false, component: "telegram-news-worker" });
 }

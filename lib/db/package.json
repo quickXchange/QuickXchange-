@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./operation-context": "./src/operation-context.ts",
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
     "./online-order-directory-indexes": {

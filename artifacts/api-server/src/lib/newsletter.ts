@@ -10,6 +10,7 @@ import {
   newsletterRateLimitsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { startDrainingWorker } from "./draining-worker";
 
 const CLAIM_MS = 2 * 60_000;
 const PROVIDER_TIMEOUT_MS = 30_000;
@@ -255,12 +256,10 @@ export async function processNewsletterOutbox(limit = 25): Promise<number> {
 }
 
 export function startNewsletterWorker() {
-  const timer = setInterval(() => {
-    void processNewsletterOutbox().catch((error) => logger.warn({
+  return startDrainingWorker(async () => { await processNewsletterOutbox(); }, 30_000,
+    (error) => logger.warn({
       err: error,
       dbPool: databasePoolTelemetry("newsletter-worker", error),
-    }, "Newsletter worker failed"));
-  }, 30_000);
-  timer.unref();
-  return () => clearInterval(timer);
+    }, "Newsletter worker failed"),
+    { startImmediately: false, component: "newsletter-worker" });
 }

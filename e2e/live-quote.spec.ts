@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { publishedSiteContentStub } from '../artifacts/crypto-exchange-widget/test/site-content-stub';
+import { loadDictionary, translate } from '../lib/i18n/src/runtime';
+import type { Locale } from '../lib/i18n/src/types';
 
 // Mocked executable quotes must contain the complete signed fee contract.
 const zeroAdditionalFees = {
@@ -1508,6 +1511,7 @@ test('uses dedicated Quickex Convert routes and submits both wallet directions',
 
   await page.goto('/');
   await page.getByTestId('button-mode-select-instant').click();
+  await page.getByTestId('convert-rate-floating').click();
   await page.getByTestId('convert-input-amount').fill('1');
   await expect(page.getByTestId('convert-input-receive-amount')).toHaveValue('99.5');
   await page.getByTestId('convert-input-email').fill('latest-floating@example.test');
@@ -1753,6 +1757,7 @@ test('keeps Convert email and footer geometry aligned with Swap across themes an
 
   await page.goto('/');
   await page.getByTestId('button-mode-select-instant').click();
+  await page.getByTestId('convert-rate-floating').click();
   await page.getByTestId('convert-input-amount').fill('1');
   await expect(page.getByTestId('convert-input-receive-amount')).toHaveValue('99.5');
   await page.getByTestId('convert-input-email').fill('latest-floating@example.test');
@@ -2662,4 +2667,105 @@ test('keeps manual Swap and automatic Convert API namespaces isolated', async ({
   await expect(page.getByTestId('convert-input-receive-amount')).toHaveValue('99');
   expect(manualQuoteCalls).toBe(1);
   expect(manualOrderWrites).toBe(0);
+});
+
+test('all seven public languages persist across desktop and mobile in light and dark themes', async ({ page }) => {
+  test.setTimeout(180_000);
+  const unexpectedApiRequests: string[] = [];
+  await page.addInitScript(() => {
+    localStorage.setItem('qx-preview-parity-v1', 'complete');
+    if (!localStorage.getItem('qx-locale')) localStorage.setItem('qx-locale', 'en');
+    if (!localStorage.getItem('qx-theme')) localStorage.setItem('qx-theme', 'light');
+  });
+  await page.route('https://api.exchange.coinbase.com/**', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: '[]',
+  }));
+  await page.route('**/api/**', async route => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path === '/api/languages') return route.fulfill({ json: {
+      enabledLanguages: ['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk'],
+      fallbackLanguage: 'en', revision: 'language-persistence-e2e',
+    } });
+    if (path.startsWith('/api/languages/dictionaries/')) {
+      return route.fulfill({ json: { translations: {} } });
+    }
+    if (path === '/api/exchange/config') return route.fulfill({ json: exchangeConfig });
+    if (path === '/api/exchange/manual-swap-addons') return route.fulfill({ json: { items: [] } });
+    if (path === '/api/quickex/config') return route.fulfill({ json: {
+      provider: 'Quickex', signedOrders: false, instruments: [], pairs: [],
+    } });
+    if (path === '/api/site-content') return route.fulfill({ json: publishedSiteContentStub });
+    if (path === '/api/site-navigation') return route.fulfill({ json: [] });
+    if (path === '/api/admin/operators') return route.fulfill({ json: [] });
+    if (path === '/api/notification-settings/public') return route.fulfill({ json: {} });
+    if (path === '/api/account/affiliate/attribution') return route.fulfill({ json: { status: 'no_referral' } });
+    if (path === '/api/exchange/popular-pairs') return route.fulfill({ json: [] });
+    if (path === '/api/v3/coins/markets') return route.fulfill({ json: [] });
+    if (path === '/api/exchange/route-pricing') {
+      const url = new URL(request.url());
+      return route.fulfill({ json: {
+        sourceSettlementOptionId: url.searchParams.get('sourceSettlementOptionId'),
+        targetSettlementOptionId: url.searchParams.get('targetSettlementOptionId'),
+        fromAsset: 'USD', fromNetwork: 'Bank transfer', toAsset: 'EUR', toNetwork: 'SEPA transfer',
+        rate: 1, customerRate: 1, pricingRuleName: 'Language fixture only',
+      } });
+    }
+    unexpectedApiRequests.push(`${request.method()} ${path}`);
+    return route.fulfill({ status: 501, json: { error: 'Unexpected request blocked by language test fixture' } });
+  });
+
+  const locales = ['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk'] as const;
+  const selectAndVerifyLocale = async (locale: typeof locales[number]) => {
+    const dictionary = await loadDictionary(locale as Locale);
+    const expectedHeading = [
+      translate(dictionary, 'customer.m6ec282d40a8a'),
+      translate(dictionary, 'customer.md079ee92c1cb'),
+    ].join(' ');
+    const expectedContinue = translate(dictionary, 'actions.continue');
+    const assertVisibleLanguage = async () => {
+      await expect(page.getByRole('heading', { name: expectedHeading, exact: true })).toBeVisible();
+      await expect(page.getByTestId('button-swap-continue')).toHaveText(expectedContinue);
+    };
+    await openLanguageSelector(page);
+    const option = page.locator('.qx-language-option').filter({
+      has: page.locator('.qx-language-option__code', { hasText: new RegExp(`^${locale.toUpperCase()}$`) }),
+    });
+    await option.click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('qx-locale'))).toBe(locale);
+    await assertVisibleLanguage();
+    await page.reload();
+    await expect(page.getByTestId('form-exchange')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('qx-locale'))).toBe(locale);
+    await assertVisibleLanguage();
+    await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('dark')))
+      .toBe(await page.evaluate(() => localStorage.getItem('qx-theme') === 'dark'));
+    await openLanguageSelector(page);
+    await expect(page.locator('.qx-language-option[aria-checked="true"] .qx-language-option__code'))
+      .toHaveText(locale.toUpperCase());
+    await page.locator('.qx-language-close').click();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  };
+
+  for (const theme of ['light', 'dark'] as const) {
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport);
+      await page.goto('/');
+      if (viewport.width === 1440) {
+        await page.getByTestId(`button-theme-${theme}`).click();
+      } else {
+        await page.evaluate((nextTheme) => {
+          document.documentElement.classList.toggle('dark', nextTheme === 'dark');
+          localStorage.setItem('qx-theme', nextTheme);
+        }, theme);
+        await page.reload();
+      }
+      await expect(page.getByTestId('form-exchange')).toBeVisible();
+      await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('dark')))
+        .toBe(theme === 'dark');
+      for (const locale of locales) await selectAndVerifyLocale(locale);
+    }
+  }
+
+  expect(unexpectedApiRequests).toEqual([]);
 });

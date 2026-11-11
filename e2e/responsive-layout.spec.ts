@@ -211,12 +211,15 @@ async function mockLayoutApis(page: Page) {
     if (path === '/api/account/orders/nonexistent' || path === '/api/admin/affiliate/accounts/nonexistent') {
       return route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'Not found', code: 'NOT_FOUND' }) });
     }
-    if (path === '/api/languages' || path.startsWith('/api/languages/dictionaries/') || path === '/api/exchange/manual-swap-addons') {
-      return route.fallback();
-    }
     let body: unknown = {};
-
-    if (path === '/api/exchange/config') body = exchangeConfig;
+    if (path === '/api/languages') body = {
+      enabledLanguages: ['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk'],
+      fallbackLanguage: 'en',
+      revision: 'responsive-e2e',
+    };
+    else if (path.startsWith('/api/languages/dictionaries/')) body = { translations: {} };
+    else if (path === '/api/exchange/manual-swap-addons') body = { items: [] };
+    else if (path === '/api/exchange/config') body = exchangeConfig;
     else if (path === '/api/site-content') body = publishedSiteContentStub;
     else if (path === '/api/site-navigation') body = [];
     else if (path === '/api/admin/providers/whitebit/verification-routes') body = [];
@@ -1064,7 +1067,7 @@ test('every top-level Admin route uses the shared logo section and title header'
   const headers = [
     ['/admin', 'OPERATIONS / COMMAND CENTER', 'Overview'],
     ['/admin/orders', 'OPERATIONS / ORDERS', 'Orders'],
-    ['/admin/revenue', 'FINANCE', 'Profit dashboard'],
+    ['/admin/revenue', 'FINANCE / REVENUE', 'Revenue'],
     ['/admin/customers', 'USER MANAGEMENT', 'Users'],
     ['/admin/affiliates', 'AFFILIATE PROGRAM', 'Affiliates'],
     ['/admin/payouts', 'FINANCE / PAYOUTS', 'Payouts'],

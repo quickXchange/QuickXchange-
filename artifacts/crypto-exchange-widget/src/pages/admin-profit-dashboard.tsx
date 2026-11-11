@@ -267,7 +267,16 @@ export function ProfitDashboard() {
           <div className="pd-filter-actions"><button className="button button-secondary pd-small">Apply</button><button type="button" className="button button-secondary pd-small" onClick={() => apply(initialFilters)}>Reset</button><button type="button" className="button button-primary pd-small" onClick={exportCsv} disabled={exporting} data-testid="button-export-profit">{exporting ? <Loader2 className="spin" size={14} /> : <Download size={14} />}CSV</button></div>
         </form>
         {rows.length === 0 ? <div className="table-empty" data-testid="empty-profit"><strong>No completed orders here.</strong><span>Adjust filters or wait for the next completion.</span></div> :
-        <div className="table-wrap"><table className="data-table pd-table rv-table" data-testid="table-profit"><thead><tr><th>Order</th><th>Route</th><th className="pd-num">Quantity</th><th className="pd-num">Buy / Sell rate</th><th className="pd-num">Fees</th><th className="pd-num">Net</th><th /></tr></thead>
+        <div className="w-full relative group">
+        <div className="swipeable-scroll-hint" aria-hidden="true" />
+        <div className="table-wrap" onScroll={(event) => {
+          const viewport = event.currentTarget;
+          const hint = viewport.previousElementSibling as HTMLElement | null;
+          if (hint) {
+            hint.style.opacity = viewport.scrollLeft > 10 ? '0' : '1';
+            hint.style.pointerEvents = 'none';
+          }
+        }}><table className="data-table pd-table rv-table" data-testid="table-profit"><thead><tr><th>Order</th><th>Route</th><th className="pd-num">Quantity</th><th className="pd-num">Buy / Sell rate</th><th className="pd-num">Fees</th><th className="pd-num">Net</th><th /></tr></thead>
           <tbody>{rows.map(r => { const c = r.basis?.currency; const rt = rates(r); const q = r.tradeDetails; const when = r.completion?.at ?? r.completedAt ?? r.createdAt; return <tr key={r.key} className={editing?.key === r.key ? 'is-selected' : ''} data-testid={`row-order-${r.key}`}>
             <td><span className="pd-link">{r.id}</span><small>{r.type} · {new Date(when).toLocaleDateString()}</small></td>
             <td>{r.fromAsset} → {r.toAsset}<small>{[r.fromNetwork, r.toNetwork].filter(Boolean).join(' → ') || r.paymentMethod || '—'}</small></td>
@@ -276,7 +285,7 @@ export function ProfitDashboard() {
             <td className="pd-num">{r.fees == null ? '—' : <><Money value={r.fees} currency={c} />{rt && <small>{rt.pct}</small>}</>}</td>
             <td className="pd-num">{r.netProfit == null ? <span className="pd-unavailable" title={r.completion?.reason}>Unavailable</span> : <Money value={r.netProfit} currency={c} />}</td>
             <td className="rv-actions"><a href={r.href} className="button button-secondary pd-small" data-testid={`link-view-order-${r.key}`}><ExternalLink size={13} />View</a>{data.owner && r.state !== 'reversed' && <button type="button" className="button button-secondary pd-small" onClick={() => setEditing({ key: r.key, n: Date.now() })} data-testid={`button-edit-order-${r.key}`}><Pencil size={13} />Edit</button>}</td>
-          </tr>; })}</tbody></table></div>}
+          </tr>; })}</tbody></table></div></div>}
         <div className="pd-pager"><button type="button" className="button button-secondary pd-small" disabled={filters.page <= 1} onClick={() => apply({ page: filters.page - 1 })}>Previous</button><span>Page {data.page} of {pages}</span><button type="button" className="button button-secondary pd-small" disabled={filters.page >= pages} onClick={() => apply({ page: filters.page + 1 })}>Next</button></div>
       </section>
     </>}

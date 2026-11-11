@@ -1,5 +1,6 @@
 import app from "./app";
 import { pool } from "@workspace/db";
+import { withDatabaseOperation } from "@workspace/db/operation-context";
 import { logger } from "./lib/logger";
 import { bootstrapQuickexCredentialVerification } from "./lib/quickex";
 import { startBackgroundVerification } from "./lib/background-verification";
@@ -66,18 +67,18 @@ async function start() {
   validateRuntimeConfig();
   await validateObjectStorageConfiguration();
   await applyConfiguredCustomerNotificationRecovery();
-  const stopBlogScheduler = startBlogScheduler();
-  const stopNotificationWorker = startExchangeStatusNotificationWorker();
-  const stopConvertWorker = startConvertReconciliationWorker();
-  const stopConvertXmlWorker = startConvertXmlPublicationWorker();
-  const stopManualXmlWorker = startManualXmlPublicationWorker();
-  const stopRevenueWorker = startRevenueCompletionWorker();
-  const stopNewsletterWorker = startNewsletterWorker();
-  const stopTelegramWorker = startTelegramNotificationWorker();
-  const stopTelegramNewsWorker = startTelegramNewsWorker();
-  const stopTelegramSupportBotWorker = startTelegramSupportBotWorker();
-  const stopBlockchainMonitoringWorker = startBlockchainMonitoringWorker();
-  const stopWhitebitHistoryWorker = startWhitebitHistoryWorker();
+  const stopBlogScheduler = withDatabaseOperation("blog-worker", startBlogScheduler);
+  const stopNotificationWorker = withDatabaseOperation("status-notification-worker", startExchangeStatusNotificationWorker);
+  const stopConvertWorker = withDatabaseOperation("convert-worker", startConvertReconciliationWorker);
+  const stopConvertXmlWorker = withDatabaseOperation("convert-xml-worker", startConvertXmlPublicationWorker);
+  const stopManualXmlWorker = withDatabaseOperation("swap-xml-worker", startManualXmlPublicationWorker);
+  const stopRevenueWorker = withDatabaseOperation("revenue-worker", startRevenueCompletionWorker);
+  const stopNewsletterWorker = withDatabaseOperation("newsletter-worker", startNewsletterWorker);
+  const stopTelegramWorker = withDatabaseOperation("telegram-worker", startTelegramNotificationWorker);
+  const stopTelegramNewsWorker = withDatabaseOperation("telegram-news-worker", startTelegramNewsWorker);
+  const stopTelegramSupportBotWorker = withDatabaseOperation("support-bot-worker", startTelegramSupportBotWorker);
+  const stopBlockchainMonitoringWorker = withDatabaseOperation("blockchain-worker", startBlockchainMonitoringWorker);
+  const stopWhitebitHistoryWorker = withDatabaseOperation("whitebit-history-worker", startWhitebitHistoryWorker);
   void setupTelegramCommands().catch((error) => logger.warn({ err: error }, "Telegram command setup failed"));
   const verifyQuickex = async (): Promise<boolean> => {
     try {
@@ -132,6 +133,8 @@ async function start() {
     stopNotificationWorker();
     const monitoringDrain = stopBlockchainMonitoringWorker();
     const xmlDrain = stopManualXmlWorker();
+    const newsletterDrain = stopNewsletterWorker();
+    const telegramNewsDrain = stopTelegramNewsWorker();
     stopConvertXmlWorker();
 
     const forceExit = setTimeout(() => {
@@ -142,7 +145,7 @@ async function start() {
 
     void stopTelegramSupportBotWorker().then(() => server.close(async (error) => {
       try {
-        await Promise.all([monitoringDrain, xmlDrain]);
+        await Promise.all([monitoringDrain, xmlDrain, newsletterDrain, telegramNewsDrain]);
         await pool.end();
       } catch (poolError) {
         logger.error({ err: poolError }, "PostgreSQL pool shutdown failed");

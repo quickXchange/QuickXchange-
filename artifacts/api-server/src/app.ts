@@ -18,9 +18,11 @@ import {
   getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
 import { whitebitPublicRouter } from "./routes/whitebit";
+import { withDatabaseOperation } from "@workspace/db/operation-context";
 
 const app: Express = express();
 app.set("trust proxy", trustedProxyHops());
+app.use((_req, _res, next) => withDatabaseOperation("http-request", next));
 
 app.use(
   pinoHttp({

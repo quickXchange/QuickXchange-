@@ -21,23 +21,31 @@ const rows: any[] = [
 ];
 for (let i = 6; i <= 25; i++) rows.push({ ...rows[0], key: `QX-PROFIT-PAGE-${i}`, id: `QX-PROFIT-PAGE-${i}`, href: `/admin/orders/QX-PROFIT-PAGE-${i}?type=manual` });
 
-function report(owner = true, page = 1) {
+function report(owner = true, page = 1, myRates: any[] = []) {
   return {
     rows, total: 26, page, pageSize: 25, owner, currencies: ['EUR', 'USD', 'USDT', 'BTC'],
     routes: [{ fromAsset: 'EUR', fromNetwork: 'SEPA', toAsset: 'USDT', toNetwork: 'TRC20' }, { fromAsset: 'BTC', fromNetwork: 'Bitcoin', toAsset: 'EUR', toNetwork: 'SEPA' }],
     methods: ['SEPA', 'Bank transfer', 'Convert', 'Wire'],
     rules: [{ id: 'rule-1', effectiveAt: '2026-05-01T00:00:00.000Z', ...basis, fromAsset: 'EUR', fromNetwork: 'SEPA', toAsset: 'USDT', toNetwork: 'TRC20' }],
+    assetKinds: { EUR: 'fiat', USD: 'fiat', USDT: 'crypto', BTC: 'crypto' },
+    myRates,
+    rateNetworks: ['Bank transfer', 'Bitcoin', 'SEPA', 'TRC20'],
     summary: [
       { currency: 'EUR', revenue: '898', acquisitionCost: '890.5', fees: '3.5', costs: '894', profit: '4.5', adjustments: '0', valued: 1 },
       { currency: 'USD', revenue: '100', acquisitionCost: '92.4', fees: '3', costs: '95.4', profit: '4.6', adjustments: '0', valued: 1 },
     ],
     completedOrders: 5, missingCosts: 1, volume: [{ currency: 'EUR', amount: '1498' }, { currency: 'USD', amount: '100' }],
+    periods: {
+      asOf: '2026-06-06T12:00:00.000Z', timeZone: 'UTC', dateBasis: 'order_creation',
+      daily: [], weekly: [], monthly: [], total: [],
+    },
   };
 }
 
 async function fixture(page: Page, owner = true, theme = 'light') {
   await page.addInitScript((t) => localStorage.setItem('theme', t), theme);
   const requests: { path: string; method: string; url: string; body?: any }[] = [];
+  let myRates: any[] = [];
   await page.route('**/api/**', async route => {
     const req = route.request(), url = new URL(req.url()), path = url.pathname;
     if (path === '/api/languages') return route.fulfill({ json: { enabledLanguages: ['en', 'fr', 'de', 'ru', 'es', 'ko', 'uk'], fallbackLanguage: 'en', revision: 'e2e' } });
@@ -50,7 +58,16 @@ async function fixture(page: Page, owner = true, theme = 'light') {
     if (path === '/api/site-navigation') return route.fulfill({ json: [] });
     if (path === '/api/admin/profit-dashboard' && req.method() === 'GET') {
       requests.push({ path, method: 'GET', url: req.url() });
-      return route.fulfill({ json: report(owner, Number(url.searchParams.get('page') || 1)) });
+      return route.fulfill({ json: report(owner, Number(url.searchParams.get('page') || 1), myRates) });
+    }
+    if (path === '/api/admin/profit-dashboard/my-rates' && req.method() === 'POST') {
+      const body = req.postDataJSON();
+      requests.push({ path, method: 'POST', url: req.url(), body });
+      const { requestId: _requestId, ...rate } = body;
+      myRates = [{
+        ...rate, id: 'fixture-my-rate-001', effectiveAt: '2026-06-06T12:00:00.000Z',
+      }];
+      return route.fulfill({ json: myRates[0] });
     }
     if (path === '/api/admin/profit-dashboard.csv') {
       requests.push({ path, method: req.method(), url: req.url() });
@@ -79,25 +96,25 @@ for (const theme of ['light', 'dark']) {
     test(`${viewport.width}px ${theme}: profit dashboard layout and fixture data`, async ({ page }, testInfo) => {
       await page.setViewportSize(viewport);
       await goDashboard(page, true, theme);
-      await expect(page.getByTestId('profit-summary-EUR')).toContainText('4.5');
-      await expect(page.getByTestId('profit-summary-USD')).toContainText('4.6');
-      await expect(page.getByText('Customer volume (not revenue):')).toBeVisible();
-      await expect(page.getByTestId('table-profit')).toContainText('Customer rate');
-      await expect(page.getByTestId('table-profit')).toContainText('Costs + fees');
-      await expect(page.getByTestId('table-profit')).toContainText('Profit unavailable');
+      await expect(page.getByTestId('revenue-cards')).toContainText(/4\.5\s*EUR/);
+      await expect(page.getByTestId('revenue-cards')).toContainText(/4\.6\s*USD/);
+      await expect(page.getByText('Customer amount sent, not profit')).toBeVisible();
+      await expect(page.getByTestId('table-profit')).toContainText('Buy / Sell rate');
+      await expect(page.getByTestId('table-profit')).toContainText('Fees');
+      await expect(page.getByTestId('table-profit')).toContainText('Unavailable');
       await expect(page.getByTestId('table-profit').locator('tbody tr')).toHaveCount(25);
       const scrollState = await page.evaluate(() => ({
         pageOverflow: document.documentElement.scrollWidth > innerWidth,
         wrapOverflow: [...document.querySelectorAll('.pd-table-panel .table-wrap')].some(el => el.scrollWidth > el.clientWidth && getComputedStyle(el).overflowX !== 'visible'),
       }));
       expect(scrollState.pageOverflow).toBe(false);
-      expect(scrollState.wrapOverflow).toBe(true);
+      expect(scrollState.wrapOverflow).toBe(viewport.width === 390);
       await page.screenshot({ path: testInfo.outputPath(`order-profit-${viewport.width}-${theme}.png`), fullPage: true });
     });
   }
 }
 
-test('filters, paging, CSV export, order links and isolated owner cost forms', async ({ page }) => {
+test('filters, paging, CSV export, and order links use isolated report fixtures', async ({ page }) => {
   const requests = await goDashboard(page);
   const table = page.getByTestId('table-profit');
   await expect(table.locator(`a[href="/admin/orders/${ids.verified}?type=manual"]`)).toBeVisible();
@@ -120,109 +137,57 @@ test('filters, paging, CSV export, order links and isolated owner cost forms', a
     return q.get('from') === '2026-05-01' && q.get('to') === '2026-05-31' && q.get('currency') === 'EUR' && q.get('paymentMethod') === 'SEPA' && q.get('type') === 'Swap' && q.get('profit') === 'profit' && q.get('search') === 'BTC' && q.get('page') === '1';
   })).toBe(true);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('button-export-profit').click()]);
-  expect(download.suggestedFilename()).toMatch(/^profit-2026-05-01-2026-05-31\.csv$/);
+  expect(download.suggestedFilename()).toMatch(/^revenue-2026-05-01-2026-05-31\.csv$/);
   expect(requests.some(r => r.path.endsWith('.csv') && new URL(r.url).searchParams.get('currency') === 'EUR' && new URL(r.url).searchParams.get('search') === 'BTC')).toBe(true);
   expect(await readFile((await download.path())!, 'utf8')).toContain('fixture-order,EUR,4.5');
-
-  await page.getByRole('button', { name: 'Reset' }).click();
-  const missingRow = table.locator('tbody tr').filter({ hasText: ids.missing });
-  await missingRow.getByRole('button', { name: 'Record verified costs' }).click();
-  const detail = page.getByTestId('profit-row-detail');
-  await detail.getByTestId('button-record-costs').click();
-  await expect(detail).toContainText('Record verified historical costs');
-  const basisForm = detail.locator('form.pd-subform').first();
-  const save = basisForm.getByRole('button', { name: 'Save basis' });
-  await expect(save).toBeDisabled();
-  await basisForm.getByLabel('Source unit value').fill('0');
-  await basisForm.locator('textarea').fill('short');
-  await basisForm.getByRole('checkbox').check();
-  await expect(save).toBeDisabled();
-  expect(requests.filter(r => r.method === 'POST' && r.path.endsWith('/basis'))).toHaveLength(0);
-  await basisForm.getByLabel('Source unit value').fill('1');
-  await basisForm.getByLabel('Target unit cost').fill('0.88');
-  await basisForm.getByLabel('Provider fee (per order, EUR)').fill('2.10');
-  await basisForm.getByLabel('Network fee (per order, EUR)').fill('1.20');
-  await basisForm.getByLabel('Bank fee (per order, EUR)').fill('0');
-  await basisForm.getByLabel('Other fee (per order, EUR)').fill('0');
-  await basisForm.locator('textarea').fill('Verified settlement receipt 0042');
-  await expect(save).toBeEnabled();
-  await basisForm.getByRole('checkbox').check();
-  await expect(save).toBeEnabled();
-  await save.click();
-  const basisPost = requests.find(r => r.method === 'POST' && r.path.endsWith('/basis'));
-  expect(basisPost?.body).toMatchObject({ currency: 'EUR', sourceUnitValue: '1', targetUnitCost: '0.88', providerFee: '2.10', networkFee: '1.20', bankFee: '0', otherFee: '0', evidence: 'Verified settlement receipt 0042', costsVerified: true });
-  expect(basisPost?.body.requestId).toMatch(/^[0-9a-f-]{36}$/i);
-  expect(requests.every(r => !r.method.startsWith('POST') || r.path.includes('/profit-dashboard/'))).toBe(true);
+  expect(requests.filter(r => r.method === 'GET').every(r => new URL(r.url).searchParams.get('completedOnly') === 'true')).toBe(true);
+  expect(requests.filter(r => r.method === 'POST')).toHaveLength(0);
 });
 
-test('details preserve audit history, reversed costs, adjustments, route version timing and future-only wording', async ({ page }) => {
+test('My Rates are future-only, save through the dedicated endpoint, and reversed orders have no Edit action', async ({ page }) => {
   const requests = await goDashboard(page);
-  const verifiedRow = page.getByTestId('table-profit').locator('tbody tr').filter({ hasText: ids.verified });
-  await verifiedRow.getByRole('button', { name: 'Details' }).click();
-  const detail = page.getByTestId('profit-row-detail');
-  await expect(detail).toContainText('Immutable history');
-  await expect(detail).toContainText('Provider fill statement #E2E-51');
-  await expect(detail.getByRole('link', { name: 'Open order' })).toHaveAttribute('href', `/admin/orders/${ids.verified}?type=manual`);
-  await page.getByRole('button', { name: 'Close detail' }).click();
-  await page.getByTestId('table-profit').locator('tbody tr').filter({ hasText: ids.reversed }).getByRole('button', { name: 'Details' }).click();
-  await expect(page.getByTestId('profit-row-detail')).toContainText('Reversed order: the base spread is excluded');
-  await expect(page.getByTestId('profit-row-detail')).toContainText('Unrecoverable network fee after reversal');
-  await expect(page.getByTestId('profit-row-detail').getByRole('button', { name: 'Record verified costs' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Close detail' }).click();
-  await expect(page.locator('.pd-rate-form')).toContainText('Past orders are never re-valued');
-  await expect(page.locator('.pd-rate-form')).toContainText('effective time');
-  const rateForm = page.locator('.pd-rate-form');
-  await expect(rateForm).toContainText('Past orders are never re-valued');
-  await expect(rateForm).toContainText('after its effective time');
-  const saveRate = rateForm.getByRole('button', { name: 'Save version' });
-  await rateForm.getByTestId('select-rate-from').selectOption('BTC');
-  await rateForm.getByTestId('select-rate-to').selectOption('USDT');
-  await rateForm.getByLabel('Source network / payment method').fill('Bitcoin');
-  await rateForm.getByLabel('Target network / payment method').fill('TRC20');
-  await rateForm.getByLabel('Source unit value').fill('84000');
-  await rateForm.getByLabel('Target unit cost').fill('0.90');
-  await rateForm.getByLabel('Provider fee (per order, EUR)').fill('2.00');
-  await rateForm.getByLabel('Network fee (per order, EUR)').fill('1.00');
-  await rateForm.getByLabel('Bank fee (per order, EUR)').fill('0');
-  await rateForm.getByLabel('Other fee (per order, EUR)').fill('0');
-  await rateForm.locator('textarea').fill('future route rate evidence 07');
-  await expect(saveRate).toBeDisabled();
-  await rateForm.getByRole('checkbox').check();
-  await expect(saveRate).toBeEnabled();
-  await saveRate.click();
-  expect(requests.find(r => r.method === 'POST' && r.path.endsWith('/rates'))?.body).toMatchObject({ fromAsset: 'BTC', fromNetwork: 'Bitcoin', toAsset: 'USDT', toNetwork: 'TRC20', currency: 'EUR', sourceUnitValue: '84000', targetUnitCost: '0.90', providerFee: '2.00', networkFee: '1.00', bankFee: '0', otherFee: '0', evidence: 'future route rate evidence 07', costsVerified: true });
-  await expect(rateForm).toContainText('Version saved. Applies to future orders only.');
+  const panel = page.getByTestId('panel-my-rates');
+  await expect(panel).toContainText('Applied when an order completes from now on');
+  await expect(panel).toContainText('completed orders keep the figures frozen at their completion');
+  await expect(page.getByTestId(`button-edit-order-${ids.reversed}`)).toHaveCount(0);
+  const verifiedRow = page.getByTestId(`row-order-${ids.verified}`);
   await expect(verifiedRow).toContainText('4.5');
 
-  await verifiedRow.getByRole('button', { name: 'Details' }).click();
-  const correction = page.getByTestId('profit-row-detail');
-  await correction.getByTestId('button-record-costs').click();
-  const correctionForm = correction.locator('form.pd-subform').first();
-  await correctionForm.getByLabel('Source unit value').fill('1');
-  await correctionForm.getByLabel('Target unit cost').fill('0.8905');
-  await correctionForm.getByLabel('Provider fee (per order, EUR)').fill('2');
-  await correctionForm.getByLabel('Network fee (per order, EUR)').fill('1');
-  await correctionForm.getByLabel('Bank fee (per order, EUR)').fill('0.5');
-  await correctionForm.getByLabel('Other fee (per order, EUR)').fill('0');
-  await correctionForm.locator('textarea').fill('corrective actual fill invoice');
-  await correctionForm.getByRole('checkbox').check();
-  await correctionForm.getByRole('button', { name: 'Save basis' }).click();
-  expect(requests.find(r => r.method === 'POST' && r.path.endsWith('/basis'))?.body).toMatchObject({ currency: 'EUR', sourceUnitValue: '1', targetUnitCost: '0.8905', providerFee: '2', networkFee: '1', bankFee: '0.5', otherFee: '0', evidence: 'corrective actual fill invoice', costsVerified: true });
-  const adjustmentForm = correction.locator('form.pd-subform').last();
-  await adjustmentForm.getByLabel('Amount (signed)').fill('-1.25');
-  await adjustmentForm.getByLabel('Reason').fill('additional bank settlement fee');
-  await adjustmentForm.getByRole('button', { name: 'Append' }).click();
-  expect(requests.find(r => r.method === 'POST' && r.path.endsWith('/adjustments'))?.body).toMatchObject({ currency: 'EUR', amount: '-1.25', reason: 'additional bank settlement fee' });
-  expect(requests.filter(r => r.method === 'POST').every(r => r.path.startsWith('/api/admin/profit-dashboard/'))).toBe(true);
+  await page.getByTestId('button-add-rate').click();
+  const form = page.getByTestId('form-my-rate');
+  await expect(form).toContainText('Saving adds a new version.');
+  await expect(form).toContainText('Earlier versions and past orders are not changed.');
+  await form.getByTestId('select-rate-asset').selectOption('BTC');
+  await form.getByTestId('select-rate-currency').selectOption('EUR');
+  await form.getByTestId('select-rate-network').selectOption('Bitcoin');
+  await form.getByTestId('input-rate-buy').fill('60000');
+  await form.getByTestId('input-rate-sell').fill('61000');
+  await form.getByTestId('input-rate-partner').fill('1');
+  await form.getByTestId('input-rate-receiving').fill('0.5');
+  await form.getByTestId('checkbox-rate-active').check();
+  await form.getByTestId('button-save-rate').click();
+  await expect(page.getByTestId('table-my-rates')).toContainText('60,000');
+  await expect(page.getByTestId('table-my-rates')).toContainText('61,000');
+
+  const myRatePost = requests.find(r => r.method === 'POST' && r.path.endsWith('/my-rates'));
+  expect(myRatePost?.body).toMatchObject({
+    kind: 'my_rate', asset: 'BTC', currency: 'EUR', network: 'Bitcoin',
+    buyRate: '60000', sellRate: '61000', partnerFeePercent: '1',
+    receivingFeePercent: '0.5', active: true,
+  });
+  expect(myRatePost?.body.requestId).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(requests.filter(r => r.method === 'POST')).toHaveLength(1);
+  expect(myRatePost?.path).toBe('/api/admin/profit-dashboard/my-rates');
+  await expect(verifiedRow).toContainText('4.5');
+  await expect(page.getByTestId('revenue-cards')).toContainText(/4\.5\s*EUR/);
+  expect(requests.filter(r => r.method === 'GET').every(r => new URL(r.url).searchParams.get('completedOnly') === 'true')).toBe(true);
 });
 
 test('non-owner is read-only and dashboard network errors are explicit', async ({ page }) => {
   test.setTimeout(90_000);
   await goDashboard(page, false);
-  await expect(page.getByText('Read-only view. Only the Owner can record costs, versions and adjustments.')).toBeVisible();
-  await page.getByRole('button', { name: 'Details' }).nth(0).click();
-  await expect(page.getByTestId('profit-row-detail').getByRole('button', { name: 'Record verified costs' })).toHaveCount(0);
-  await expect(page.getByTestId('profit-row-detail').locator('form')).toHaveCount(0);
+  await expect(page.getByTestId('table-profit').getByRole('button')).toHaveCount(0);
+  await expect(page.getByTestId('table-profit').locator('form')).toHaveCount(0);
 
   await page.close();
   const errorPage = await page.context().newPage();
@@ -240,7 +205,7 @@ test('non-owner is read-only and dashboard network errors are explicit', async (
     return route.fulfill({ status: 404, json: { error: 'Isolated frontend fixture' } });
   });
   await errorPage.goto('/admin/revenue');
-  await expect(errorPage.getByText('The profit report could not be loaded.')).toBeVisible({ timeout: 30_000 });
-  await expect(errorPage.getByTestId('profit-summary-EUR')).toHaveCount(0);
+  await expect(errorPage.getByText('Revenue could not be loaded.')).toBeVisible({ timeout: 30_000 });
+  await expect(errorPage.getByTestId('revenue-cards')).toHaveCount(0);
   await expect(errorPage.getByTestId('table-profit')).toHaveCount(0);
 });

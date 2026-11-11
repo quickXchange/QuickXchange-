@@ -35,7 +35,9 @@ test('bulk fields are previewed before one atomic apply and both dependent cache
   assert.match(source, /applyMutation\.mutateAsync\(\{/);
   assert.match(source, /getGetPaymentMethodsQueryKey\(\)/);
   assert.match(source, /getGetExchangeConfigQueryKey\(\)/);
-  assert.match(source, /setReview\(null\);\s*setStep\('edit'\);\s*setError\(`[^`]*This review is no longer valid/);
+  const recovery = source.slice(source.indexOf('} catch (cause) {', source.indexOf('applyMutation.mutateAsync')));
+  assert.match(recovery, /setReview\(null\);\s*setStep\('edit'\)/);
+  assert.match(recovery, /setError\(`[^`]*This review is no longer valid/);
   assert.match(source, /while \(fields\.some\(field => field\.key === key\)\)/);
   assert.match(source, /change\(index, \{ label: event\.target\.value \}\)/);
   assert.match(source, /data-testid=\{`input-bulk-field-key-\$\{index\}`\}/);

@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
+import { readFile } from "node:fs/promises";
 
 const requireDatabaseDependency = createRequire(new URL("../../../lib/db/package.json", import.meta.url));
 const pg = requireDatabaseDependency("pg");
@@ -64,7 +65,20 @@ try {
     API_TEST_DISPOSABLE_DATABASE: "1",
     NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import=${resolve("test/block-whitebit-network.mjs")}`.trim(),
   };
-  const command = process.argv.length > 2
+  const backendOnly = process.argv[2] === "--backend-only";
+  let backendCommand;
+  if (backendOnly) {
+    // Reuse the canonical suite, but leave browser ownership to its one tester.
+    // Fail closed if the suite layout changes instead of silently skipping tests.
+    const scripts = JSON.parse(await readFile("package.json", "utf8")).scripts;
+    const browserSuffix = " && pnpm -w run test:quote-browser";
+    if (!scripts["test:api:raw"].endsWith(browserSuffix)) {
+      throw new Error("Backend-only runner requires the canonical trailing browser step.");
+    }
+    backendCommand = scripts["test:api:raw"].slice(0, -browserSuffix.length);
+  }
+  const command = backendOnly ? ["sh", "-c", backendCommand]
+    : process.argv.length > 2
     ? [process.execPath, "test/run.mjs", ...process.argv.slice(2)]
     : ["pnpm", "run", "test:api:raw"];
   const child = spawn(command[0], command.slice(1), { env, stdio: "inherit" });

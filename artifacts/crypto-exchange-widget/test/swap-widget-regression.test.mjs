@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
+import { assertCustomerCopy } from './customer-copy-assertion.mjs';
 
 const [surface, addonOptions, feeBreakdown, styles, followupStyles, adminAddons] = await Promise.all([
   readFile(new URL('../src/components/exchange-surface.tsx', import.meta.url), 'utf8'),
@@ -12,14 +13,16 @@ const [surface, addonOptions, feeBreakdown, styles, followupStyles, adminAddons]
 ]);
 
 test('Swap exposes three stages and a details-step back action', () => {
-  assert.match(surface, /aria-label=\{`Step \$\{step\} of 3`\}/);
-  assert.match(surface, /step === 2 \? <>Receiving <span>Details<\/span><\/> : <span>Summary<\/span>/);
+  assertCustomerCopy(surface, 'Step {{v0}} of 3');
+  assert.match(surface, /aria-label=\{uiT\([^,]+, \{ v0: step \}\)\}/);
+  assert.match(surface, /step === 2 \? <>[\s\S]*?<\/> : <span>/);
+  for (const label of ['Receiving', 'Details', 'Summary']) assertCustomerCopy(surface, label);
   assert.match(surface, /onClick=\{\(\) => moveToStep\(1\)\}[\s\S]*?data-testid="swap-button-back"/);
   assert.match(surface, /data-testid="button-swap-next"/);
   assert.match(surface, /data-testid="swap-summary-step"/);
   assert.match(surface, /data-testid="button-swap-back"/);
   assert.match(surface, /className="reference-realtime-badge"/);
-  assert.match(surface, /Swap <span>Currencies<\/span>/);
+  for (const label of ['Swap', 'Currencies']) assertCustomerCopy(surface, label);
   assert.match(followupStyles, /\.swap-step2-progress-track\s*\{/);
   assert.doesNotMatch(followupStyles, /reference-(?:amount-panel|title-row|swap-button)|widget-tabs-pill|form\.exchange-card\.redesigned-widget/);
 });
@@ -54,12 +57,14 @@ test('optional add-ons show selectable checked state and display-only informatio
   assert.match(addonOptions, /checked=\{selected\} onChange=\{\(\) => onToggle\(item\.key\)\}/);
   assert.match(addonOptions, /data-selected=\{selected\}/);
   assert.match(addonOptions, /item\.selectionRule === 'none'/);
-  assert.match(addonOptions, /Information only/);
-  assert.match(addonOptions, /Informational only; not selectable and not charged/);
+  assertCustomerCopy(addonOptions, 'Information only');
+  assertCustomerCopy(addonOptions, 'Informational only; not selectable and not charged');
   assert.match(addonOptions, /trimFeeDecimal\(item\.fixedAmount\)/);
   assert.match(surface, /<details className="swap-addons-dropdown mt-4" data-testid="swap-addons-inline">/);
   assert.match(surface, /<summary data-testid="button-swap-addons-dropdown">/);
-  assert.match(surface, /selectedKeys\.length \? `\$\{selectedKeys\.length\} selected` : 'Choose options'/);
+  assert.match(surface, /selectedKeys\.length \? uiT\([^,]+, \{ v0: selectedKeys\.length \}\) : uiT\(/);
+  assertCustomerCopy(surface, '{{v0}} selected');
+  assertCustomerCopy(surface, 'Choose options');
   assert.match(styles, /\.swap-addons-dropdown\[open\] > summary svg/);
   assert.doesNotMatch(adminAddons, /Advanced · Exchange fee|summary-exchange-fee-advanced|button-save-exchange-fee/);
 });
@@ -104,8 +109,8 @@ test('Swap keeps the quote in Step 1, contact details in Step 2, and the compact
   assert.match(surface, /onToggle=\{toggleAddon\}/);
   assert.match(surface, /data-testid="swap-addons-quote-status"/);
   assert.match(surface, /quoteStatus === 'idle' && quotePreview\?\.requestKey === quoteRequestKey/);
-  assert.match(addonOptions, /aria-label="Optional Swap add-ons"/);
-  assert.match(addonOptions, /No add-ons are currently available/);
+  assertCustomerCopy(addonOptions, 'Optional Swap add-ons');
+  assertCustomerCopy(addonOptions, 'No add-ons are currently available');
   assert.match(followupStyles, /\.swap-addon-native-checkbox\s*\{[^}]*position: static;[^}]*opacity: 1;[^}]*accent-color:/s);
   assert.match(styles, /@media \(max-width: 374px\)\s*\{\s*\.public-shell\s*\{\s*--exchange-shell-height: 640px;/);
   assert.match(styles, /@media \(min-width: 768px\) and \(max-width: 903px\)\s*\{\s*\.public-shell\s*\{\s*--exchange-shell-height: 700px;/);
@@ -127,12 +132,12 @@ test('Summary hides fee itemization while preserving quote amounts, rate, and Te
   assert.match(surface, /swap-fee-breakdown-unavailable/);
   assert.match(surface, /data-testid="swap-receiving-details-popup"/);
   assert.match(surface, /step !== 3\) return/);
-  assert.match(feeBreakdown, /Selected add-ons · Add-on fees/);
+  assertCustomerCopy(feeBreakdown, 'Selected add-ons · Add-on fees');
   assert.match(feeBreakdown, /fees\.selectedAddons\.length/);
-  assert.match(feeBreakdown, /No add-ons selected/);
+  assertCustomerCopy(feeBreakdown, 'No add-ons selected');
   assert.match(feeBreakdown, /item\.feeType === 'percentage' && item\.percentage != null[\s\S]*?trimFeeDecimal\(item\.percentage\).*?%/);
   assert.match(feeBreakdown, /trimFeeDecimal\(item\.targetAmount\)\} \{currency\}/);
-  assert.match(feeBreakdown, /addon\?\.translations\?\.\[locale as 'en' \| 'ru' \| 'ar' \| 'uk'\]/);
+  assert.match(feeBreakdown, /const name = uiText\(addon\?\.name \|\| item\.name\)/);
 });
 
 test('back and stale-configuration recovery preserve user-entered fields and never create an order', () => {
