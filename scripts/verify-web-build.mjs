@@ -1,4 +1,5 @@
 import { access, readFile, stat, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 
 const artifactDir = path.resolve(process.argv[2] || ".");
@@ -34,10 +35,27 @@ for (const reference of references) {
   await requireFile(path.join(publicDir, relativePath));
 }
 
+// Artifact-specific publishing builds run after the root hook, without
+// inheriting its child-process environment. Keep their source identifiable too.
+function sourceCommit() {
+  const configured = process.env.APP_COMMIT || process.env.REPLIT_GIT_COMMIT || process.env.GIT_COMMIT;
+  if (configured?.trim()) return configured.trim();
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: artifactDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+const commit = sourceCommit();
+const deployedAt = process.env.DEPLOYED_AT || new Date(indexDetails.mtimeMs).toISOString();
 const metadata = {
-  buildId: process.env.APP_BUILD_ID || null,
-  commit: process.env.APP_COMMIT || process.env.REPLIT_GIT_COMMIT || null,
-  deployedAt: process.env.DEPLOYED_AT || new Date(indexDetails.mtimeMs).toISOString(),
+  buildId: process.env.APP_BUILD_ID || (commit
+    ? `${commit.slice(0, 12)}-${deployedAt.replace(/\D/g, "").slice(0, 14)}`
+    : null),
+  commit,
+  deployedAt,
   verifiedAt: new Date().toISOString(),
 };
 

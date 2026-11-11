@@ -518,3 +518,17 @@ mtime_ms = 1794389859959
 storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/31a695d0-89cf-492e-ba01-662a83144dd0/1227fe8f-20db-4b69-84af-4756ac5c9d4b"
 storage_version_token = "1794389909336533"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "GbTAeeLKj4goS9XBMvnQM"
+uri = "file://docs/PRODUCTION_RELEASE_VERIFICATION.md"
+type = "text"
+title = "Production release preflight and verification record"
+description = "Verified source, fresh build, additive schema checks, confirmed rollback commit and pending post-Republish checks."
+logical_id = "7af7c545-1594-4c95-a994-7f966ea1a6e9"
+content_hash = "sha256:0dc7027470e2b1adeec4cd2daba394189f3bb5f53cecbeac3a05f65f592fa50f"
+size = 6348
+mtime_ms = 1794390659394
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:3bb92518-677c-4585-970b-731e31dee73d/7af7c545-1594-4c95-a994-7f966ea1a6e9/8bfba705-9ed0-4001-a489-7497e62ad9be"
+storage_version_token = "1794390696949473"
+content_type = "text/markdown"

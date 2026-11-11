@@ -14,3 +14,14 @@ Final publishing validation for cross-package changes must include the exact pro
 **Why:** A localization change passed the Website, Mini App and API checks but publishing failed because a maintenance script's shared-library compiler boundary was never checked.
 
 **How to apply:** Run the complete configured production build once after the coherent change set. Keep its ancillary workspace checks enabled; fix missing project dependencies rather than widening compiler boundaries or bypassing checks.
+
+Do not assume artifact-specific publishing builds inherit environment variables
+that a root pre-build hook supplied only to its child processes.
+
+**Why:** Successful artifact rebuilds replaced public manifests with null source
+identifiers, preventing reliable live-release identification despite a verified
+root build.
+
+**How to apply:** Verify both the root-hook and independent artifact-build
+metadata paths, preserving explicit identifiers and resolving source identity
+independently when the hook's child environment is absent.
